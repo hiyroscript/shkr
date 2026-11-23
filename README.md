@@ -207,7 +207,7 @@ shkr/
 │   ├── backdrops.js    the terrain background layer: five looping parallax strips of fog-grey silhouettes per world
 │   ├── render.js       "fog silhouette" renderer: misty sky, grey layers, black terrain, colour only on hazards, and the runner's animation (RENDER.create makes a second one for the hazard previews)
 │   ├── game.js         state, clock, input, HUD, home screen, objective box, new hazard cards and their previews, spike tip, How to play, results, rebirth
-│   └── dev.js          developer build only: rainbow unlock-all default, developer section in Settings, DEV badge (loaded last)
+│   └── dev.js          developer build only: rainbow unlock-all default, developer section in Settings, soundtrack player, DEV badge (loaded last)
 ├── tools/
 │   ├── build-release.sh   makes the release: the repo minus the developer code, with a guard against leaks
 │   ├── parity-check.js    proves the release plays exactly like the source
@@ -245,11 +245,12 @@ One source tree, two builds:
 
 The developer build needs no build step: Pages keeps deploying the `main` branch root exactly as before. Because the two builds use different save keys, the developer build never reads or writes a player's real save, even on the same origin.
 
-**Developer section** (Settings, below the normal rows). Each action asks for confirmation first, keeps the settings (sound effects, music, shake, objective tips), and returns to the home screen.
+**Developer section** (Settings, below the normal rows). Each progress action asks for confirmation first, keeps the settings (sound effects, music, shake, objective tips), and returns to the home screen.
 
 - *Unlock all (rainbow)*: every level unlocked with three rainbow stars.
 - *Reset progress*: a fresh game (level 1, no stars, no tries), to test the real first-time flow.
 - *Put progress back*: restores unlocks, stars, tries and the selected level exactly as they were right before the last reset or unlock all. Both of those save a snapshot first. One level of undo, and the button is disabled when there is no snapshot.
+- *Soundtracks*: a screen to listen to every track outside a run, the home track and the 30 levels, to judge and adjust the music. It shows the level's sound spec (`mu[12]`: kit, groove, lead and answer, harmony, bass, space, fx, trim) and a map of its bars (height = energy, a dot on the bar before each combo); click a bar to play from it (on the home track, the pass shows too). Play / stop, previous / next, what happens at the end of a track (stop, repeat, next), and mutes for each part (lead, answer, harmony, bass, drums, fx with the ambience bed): a mute plays on from the same beat without that part. Keys: `Space` play / stop, `←` / `→` previous / next track, `Esc` back to Settings, which restarts the home track. It needs no confirmation and doesn't touch progress or settings (the music volume applies).
 
 **Release build.** `.github/workflows/build.yml` runs on every push to `main` (except pushes that only touch `max`, Markdown files or `docs/`, none of which go into the release) and on manual runs:
 

@@ -5,7 +5,8 @@
    it is left behind. Loaded after game.js, which calls SHKR_DEV_INIT once with
    its debug handle when boot is done.
    - first load (no developer save yet): every level unlocked, three rainbow stars
-   - Settings gets a developer section: unlock all, reset, put progress back
+   - Settings gets a developer section: unlock all, reset, put progress back, and
+     Soundtracks, a screen to listen to every track (spec, bar map, mutes per part)
    - a DEV badge in the home header
    Saves go to shadowskirr.dev.v1 (set by dev-config.js), never shadowskirr.v1.
    ========================================================================== */
@@ -25,7 +26,27 @@
     ".shkr-dev-head b{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--fg)}" +
     ".shkr-dev-head span{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint)}" +
     ".shkr-dev .chip:disabled{opacity:.35;cursor:default;transform:none}" +
-    ".shkr-dev .chip:disabled:hover{background:none}";
+    ".shkr-dev .chip:disabled:hover{background:none}" +
+    /* the soundtrack player */
+    ".shkr-dev-snd-now{padding:4px 0 18px;border-bottom:1px solid var(--line)}" +
+    ".shkr-dev-snd-name{font-size:clamp(19px,4.4vw,28px);font-weight:700;letter-spacing:-.02em;color:var(--fg);margin-top:6px}" +
+    ".shkr-dev-snd-spec{font-family:var(--mono);font-size:11px;line-height:1.6;color:var(--dim);margin-top:6px}" +
+    ".shkr-dev-snd-map{display:flex;align-items:flex-end;gap:2px;height:46px;margin:18px 0 8px;cursor:pointer}" +
+    ".shkr-dev-snd-map i{flex:1;min-width:2px;background:var(--fg);opacity:.22;border-radius:2px 2px 0 0;position:relative}" +
+    ".shkr-dev-snd-map i:hover{opacity:.45}.shkr-dev-snd-map i.on{opacity:1}" +
+    ".shkr-dev-snd-map i.cb::after{content:\"\";position:absolute;left:50%;top:-7px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--fg)}" +
+    ".shkr-dev-snd-pos{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--faint)}" +
+    ".shkr-dev-snd-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}" +
+    ".shkr-dev-snd-ctl .tag{margin-right:4px}" +
+    ".shkr-dev-snd-ctl .chip[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg);text-decoration:line-through}" +
+    ".shkr-dev-snd-list{display:flex;flex-direction:column;margin-top:6px}" +
+    ".shkr-dev-snd-row{display:grid;grid-template-columns:52px 1fr auto;align-items:baseline;gap:10px;text-align:left;padding:11px 4px;border-bottom:1px solid var(--line-2);color:var(--fg)}" +
+    ".shkr-dev-snd-row:hover{background:var(--hover)}" +
+    ".shkr-dev-snd-row b{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}" +
+    ".shkr-dev-snd-row span{font-size:15px}" +
+    ".shkr-dev-snd-row i{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
+    ".shkr-dev-snd-row.on b{color:var(--fg);font-weight:700}.shkr-dev-snd-row.on span{font-weight:700}" +
+    "@media (max-width:560px){.shkr-dev-snd-row{grid-template-columns:44px 1fr}.shkr-dev-snd-row i{grid-column:2}}";
 
   window.SHKR_DEV_INIT = function (api) {
     /* Without dev-config.js game.js is on the real save key: stay off so a player's progress is never touched. */
@@ -119,6 +140,149 @@
     });
     /* progress changes while playing, so refresh the panel whenever Settings opens */
     Array.prototype.forEach.call(document.querySelectorAll('[data-go="settings"]'), function (b) { b.addEventListener("click", paintPanel); });
+
+    /* ---------------- soundtrack player ----------------
+       A screen of its own (from the developer section) to listen to every track outside a run: the home track and
+       the 30 levels, each with its spec, a map of its bars (height = energy, a dot on the bar before each combo; click a
+       bar to play from it), and mutes per part, so one part can be judged with the rest out of the way. A mute plays the
+       song again from the current beat without that part's events (and, for fx, without the ambience bed). The game's
+       own loop keeps calling MUSIC.schedule(); closing the screen goes back to Settings and restarts the home track. */
+    const NOTE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+    const TRACKS = [{ n: 0, def: HOME, L: SIM.compile(HOME), loop: true }].concat(LEVELS.map(function (d, i) { return { n: i + 1, def: d, L: api.getL(i + 1), loop: false }; }));
+    const PARTS = ["lead", "answer", "harmony", "bass", "drums", "fx"];
+    const PART_OF = { l: "lead", l2: "lead", c: "lead", a: "answer", m: "answer", p: "harmony", h: "harmony", r: "harmony", z: "harmony", b: "bass", x: "fx" };
+    function partOf(e) { return e.y === "n" ? PART_OF[e.g] || "fx" : e.y === "d" ? (e.l === "x" ? "fx" : "drums") : e.y === "k" ? "bass" : "fx"; }
+    const P = { i: 1, playing: false, from: 0, muted: {}, end: "stop", raf: 0 };
+    const ENDS = ["stop", "repeat", "next"];
+    const snd = document.createElement("section");
+    snd.id = "shkrDevSnd"; snd.className = "screen paper";
+    snd.innerHTML =
+      '<div class="col"><div class="panel-head"><h2 class="panel-title">Soundtracks</h2><button class="chip" id="shkrDevSndClose">close</button></div>' +
+      '<div class="panel-body"><div class="shkr-dev-snd-now">' +
+        '<span class="tag" id="shkrDevSndTag"></span><div class="shkr-dev-snd-name" id="shkrDevSndName"></div>' +
+        '<div class="shkr-dev-snd-spec" id="shkrDevSndSpec"></div>' +
+        '<div class="shkr-dev-snd-map" id="shkrDevSndMap" title="click a bar to play from it"></div>' +
+        '<div class="shkr-dev-snd-pos" id="shkrDevSndPos"></div>' +
+        '<div class="shkr-dev-snd-ctl"><button class="chip" id="shkrDevSndPrev">prev</button><button class="chip solid" id="shkrDevSndPlay">play</button>' +
+          '<button class="chip" id="shkrDevSndNext">next</button><button class="chip" id="shkrDevSndEnd"></button></div>' +
+        '<div class="shkr-dev-snd-ctl"><span class="tag">mute</span>' + PARTS.map(function (p) { return '<button class="chip" aria-pressed="false" data-part="' + p + '">' + p + "</button>"; }).join("") + "</div>" +
+      '</div><div class="shkr-dev-snd-list" id="shkrDevSndList"></div></div></div>';
+    document.body.insertBefore(snd, document.getElementById("hud"));
+    const $s = function (id) { return snd.querySelector("#" + id); };
+    const mapEl = $s("shkrDevSndMap"), posEl = $s("shkrDevSndPos"), playBtn = $s("shkrDevSndPlay"), endBtn = $s("shkrDevSndEnd"), listEl = $s("shkrDevSndList");
+    listEl.innerHTML = TRACKS.map(function (t, i) {
+      const s = MUSIC._t.spec(t.def);
+      return '<button class="shkr-dev-snd-row" data-i="' + i + '"><b>' + (t.n ? pad2(t.n) : "home") + "</b><span>" + (t.n ? t.def.name : "Home screen") + "</span><i>" +
+        t.def.mu[0] + " · " + s.kit + " · " + s.lead + " / " + s.answer + "</i></button>";
+    }).join("");
+
+    function song(t) { return t.S || (t.S = MUSIC.makeSong(t.def, t.L, t.loop)); }
+    /* the song without the muted parts' events */
+    function mixed(S) {
+      const any = PARTS.some(function (p) { return P.muted[p]; });
+      if (!any) return S;
+      return Object.assign({}, S, { ev: S.ev.filter(function (e) { return !P.muted[partOf(e)]; }), spec: P.muted.fx ? Object.assign({}, S.spec, { ambience: null }) : S.spec });
+    }
+    function audio() {
+      if (!MUSIC.ctx) { if (!MUSIC.init()) return false; MUSIC.setVol(api.S().music); }
+      MUSIC.resume(); return true;
+    }
+    function play(i, beat) {
+      if (!audio()) return;
+      P.i = (i + TRACKS.length) % TRACKS.length; P.playing = true; P.from = 0;
+      MUSIC.start(mixed(song(TRACKS[P.i])), Math.max(0, beat || 0));
+      paintTrack();
+    }
+    function stopPlay() { if (P.playing) MUSIC.stop(.25); P.playing = false; P.from = 0; paintPos(); playBtn.textContent = "play"; }
+    function here() { const b = P.playing && MUSIC.song ? MUSIC.beat() : P.from; return Math.max(0, b || 0); }
+    function keyName(def) { return NOTE[def.mu[1] % 12] + " " + def.mu[2]; }
+    function paintTrack() {
+      const t = TRACKS[P.i], S = song(t), s = S.spec, list = [];
+      $s("shkrDevSndTag").textContent = t.n ? "level " + pad2(t.n) : "home screen · loops";
+      $s("shkrDevSndName").textContent = t.n ? t.def.name : "Home";
+      list.push(t.def.mu[0] + " bpm", keyName(t.def), "kit " + s.kit, "groove " + s.groove, "lead " + s.lead, "answer " + s.answer,
+        "bass " + s.bassStyle + " (" + s.bass + ")");
+      if (s.comp) list.push(s.harm + " " + s.comp); if (s.pad) list.push("pad " + s.pad); if (s.drone) list.push("drone " + s.drone); if (s.arp) list.push("arp " + s.arp);
+      list.push("space " + s.space + (s.ambience ? " + " + s.ambience : ""), "fx " + s.fx.join(" "));
+      if (s.trim) list.push("trim " + (s.trim > 0 ? "+" : "") + s.trim + " dB");
+      $s("shkrDevSndSpec").textContent = list.join(" · ");
+      let h = "";
+      for (let b = 0; b < S.bars; b++) {
+        let a = 0; for (let c = 0; c < 8; c++) if (S.chart[b * 8 + c]) a++;
+        h += '<i data-bar="' + b + '" class="' + (S.combo[b + 1] ? "cb" : "") + '" style="height:' + (18 + S.energy[b] * 20) + '%" title="bar ' + (b + 1) + " · energy " + S.energy[b] + " · " + a + " action" + (a === 1 ? "" : "s") + (S.combo[b + 1] ? " · combo next" : "") + '"></i>';
+      }
+      mapEl.innerHTML = h;
+      Array.prototype.forEach.call(listEl.children, function (el, k) { el.classList.toggle("on", k === P.i); });
+      playBtn.textContent = P.playing ? "stop" : "play";
+      paintPos();
+    }
+    function clock(sec) { const s = Math.max(0, Math.floor(sec)); return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60); }
+    let lastBar = -1;
+    function paintPos() {
+      const t = TRACKS[P.i], S = song(t), b = here(), bar = Math.floor(b / 4), inBar = t.loop ? bar % S.bars : Math.min(bar, S.bars - 1);
+      const pass = t.loop ? " · pass " + (Math.floor(bar / S.bars) % 4 + 1) + " / 4" : "";
+      const sec = t.loop ? (b * S.spb) % (S.cycle * S.spb) : b * S.spb, total = (t.loop ? S.cycle : S.bars * 4) * S.spb;
+      posEl.textContent = "bar " + pad2(inBar + 1) + " / " + S.bars + pass + " · " + clock(sec) + " / " + clock(total) + " · energy " + S.energy[inBar] + (P.playing ? "" : " · stopped");
+      if (inBar !== lastBar || !P.playing) {
+        lastBar = inBar;
+        Array.prototype.forEach.call(mapEl.children, function (el, k) { el.classList.toggle("on", k === inBar && (P.playing || P.from > 0)); });
+      }
+    }
+    function tick() {
+      P.raf = requestAnimationFrame(tick);
+      if (!P.playing) return;
+      const t = TRACKS[P.i], S = song(t);
+      if (!MUSIC.song) { stopPlay(); return; }   /* something else stopped the music (a hidden tab does not: it only suspends) */
+      if (!t.loop && here() > S.bars * 4 + 4) {
+        if (P.end === "repeat") play(P.i, 0); else if (P.end === "next") play(P.i + 1, 0); else stopPlay();
+      }
+      paintPos();
+    }
+    function paintEnd() { endBtn.textContent = "at end: " + P.end; }
+    function openSnd() {
+      if (P.raf) return;
+      api.show(""); snd.classList.add("on");
+      MUSIC.stop(.3); P.playing = false; P.i = Math.max(0, Math.min(TRACKS.length - 1, api.S().sel)); P.from = 0;
+      paintEnd(); paintTrack(); tick();
+    }
+    function closeSnd() {
+      if (!P.raf) return;
+      cancelAnimationFrame(P.raf); P.raf = 0;
+      if (P.playing) MUSIC.stop(.2); P.playing = false;
+      snd.classList.remove("on"); api.show("settings"); api.startHome();
+    }
+    $s("shkrDevSndClose").addEventListener("click", closeSnd);
+    playBtn.addEventListener("click", function () { if (P.playing) stopPlay(); else play(P.i, P.from); });
+    $s("shkrDevSndPrev").addEventListener("click", function () { if (P.playing) play(P.i - 1, 0); else { P.i = (P.i + TRACKS.length - 1) % TRACKS.length; P.from = 0; paintTrack(); } });
+    $s("shkrDevSndNext").addEventListener("click", function () { if (P.playing) play(P.i + 1, 0); else { P.i = (P.i + 1) % TRACKS.length; P.from = 0; paintTrack(); } });
+    endBtn.addEventListener("click", function () { P.end = ENDS[(ENDS.indexOf(P.end) + 1) % ENDS.length]; paintEnd(); });
+    listEl.addEventListener("click", function (e) { const r = e.target.closest("[data-i]"); if (r) play(+r.dataset.i, 0); });
+    mapEl.addEventListener("click", function (e) {
+      const el = e.target.closest("[data-bar]"); if (!el) return;
+      const bar = +el.dataset.bar, t = TRACKS[P.i];
+      /* on the home loop, the same bar in the pass that is playing now */
+      const base = t.loop && P.playing ? Math.floor(here() / 4 / song(t).bars) * song(t).bars : 0;
+      if (P.playing) play(P.i, (base + bar) * 4); else { P.from = bar * 4; paintPos(); }
+    });
+    Array.prototype.forEach.call(snd.querySelectorAll("[data-part]"), function (b) {
+      b.addEventListener("click", function () {
+        const p = b.dataset.part; P.muted[p] = !P.muted[p]; b.setAttribute("aria-pressed", P.muted[p] ? "true" : "false");
+        if (P.playing) play(P.i, here());
+      });
+    });
+    /* keys while the screen is up: space plays / stops, ← → change track, Esc closes */
+    window.addEventListener("keydown", function (e) {
+      if (!P.raf || api.G.cardUp) return;
+      if (e.code === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); closeSnd(); }
+      else if (e.code === "Space") { e.preventDefault(); e.stopImmediatePropagation(); playBtn.click(); }
+      else if (e.code === "ArrowLeft") { e.preventDefault(); $s("shkrDevSndPrev").click(); }
+      else if (e.code === "ArrowRight") { e.preventDefault(); $s("shkrDevSndNext").click(); }
+    }, true);
+    const sndRow = document.createElement("div");
+    sndRow.innerHTML = row("Soundtracks", "Listen to every level's music outside a run: its spec, a map of its bars to jump around in, and mutes per part.",
+      '<button class="chip" id="shkrDevSndOpen">open</button>');
+    sec.appendChild(sndRow.firstChild);
+    sec.querySelector("#shkrDevSndOpen").addEventListener("click", openSnd);
 
     /* ---------------- default developer state ---------------- */
     if (lsGet(DEV_KEY) === null) apply(rainbow(), false);
