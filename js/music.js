@@ -296,29 +296,35 @@ const MUSIC = (function () {
   }
   /* building blocks; t and durations in seconds, a pitch sweep falls exponentially from f0 to f1 with time constant ft */
   function sweep(o, sr, t, f0, f1, ft, amp, dec, len) {
-    let ph = 0; const i0 = Math.floor(t * sr), n = Math.min(o.length, i0 + Math.floor((len || dec * 7) * sr));
-    for (let i = i0; i < n; i++) { const tt = (i - i0) / sr; ph += 2 * Math.PI * (f1 + (f0 - f1) * Math.exp(-tt / ft)) / sr; o[i] += Math.sin(ph) * amp * Math.exp(-tt / dec) * Math.min(1, tt * sr / 12); }
+    let ph = 0, pe = 1, ae = amp; const i0 = Math.floor(t * sr), n = Math.min(o.length, i0 + Math.floor((len || dec * 7) * sr)), dp = Math.exp(-1 / (sr * ft)), da = Math.exp(-1 / (sr * dec)), k2 = 2 * Math.PI / sr;
+    for (let i = i0, k = 0; i < n; i++, k++) { ph += k2 * (f1 + (f0 - f1) * pe); o[i] += Math.sin(ph) * ae * (k < 12 ? k / 12 : 1); pe *= dp; ae *= da; }
+  }
+  /* a decaying sine added by rotation (two multiply-adds a sample instead of a sin and an exp) */
+  function ring(o, i0, n, w, ph, amp, tau, sr) {
+    const c = Math.cos(w), s = Math.sin(w), d = Math.exp(-1 / (sr * tau));
+    let x = Math.cos(ph) * amp, y = Math.sin(ph) * amp;
+    for (let i = i0, k = 0; i < n; i++, k++) { o[i] += k < 8 ? y * k / 8 : y; const nx = (x * c - y * s) * d; y = (x * s + y * c) * d; x = nx; }
   }
   function parts(o, sr, t, list) {
     const i0 = Math.floor(t * sr);
     for (const p of list) {
       const w = 2 * Math.PI * p[0] / sr, n = Math.min(o.length, i0 + Math.floor(p[2] * 8 * sr)), ph0 = p[3] || 0;
-      if (p[0] >= sr * .48) continue;
-      for (let i = i0; i < n; i++) { const k = i - i0; o[i] += Math.sin(ph0 + w * k) * p[1] * Math.exp(-k / sr / p[2]) * Math.min(1, k / 8); }
+      if (p[0] < sr * .48) ring(o, i0, n, w, ph0, p[1], p[2], sr);
     }
   }
   function burst(o, sr, t, amp, att, dec, filt, seed, len) {
     const r = rng(seed || 1), i0 = Math.floor(t * sr), n = Math.min(o.length, i0 + Math.floor((len || dec * 7 + att) * sr)), tmp = new Float32Array(n - i0);
     for (let i = 0; i < tmp.length; i++) tmp[i] = r() * 2 - 1;
     for (const f of filt || []) bq(tmp, sr, f[0], f[1], f[2], f[3]);
-    for (let i = 0; i < tmp.length; i++) { const tt = i / sr; o[i0 + i] += tmp[i] * amp * (tt < att ? tt / att : Math.exp(-(tt - att) / dec)); }
+    const na = Math.floor(att * sr), dd = Math.exp(-1 / (sr * dec)); let e = 1;
+    for (let i = 0; i < tmp.length; i++) { o[i0 + i] += tmp[i] * amp * (i < na ? i / na : e); if (i >= na) e *= dd; }
   }
   /* band-limited 808 metal: the odd harmonics of six detuned squares that fall inside [lo, hi] Hz */
   function metal(o, sr, amp, dec, lo, hi, sc) {
     const fs = [205.3, 304.4, 369.6, 522.7, 540, 800], ws = [], top = Math.min(hi, sr * .46);
     for (const f0 of fs) for (let k = 1; f0 * sc * k < top; k += 2) if (f0 * sc * k > lo) ws.push([2 * Math.PI * f0 * sc * k / sr, 1 / k, (k * 7.1 + f0) % 6.28]);
     const n = Math.min(o.length, Math.floor(dec * 7 * sr));
-    for (const w of ws) for (let i = 0; i < n; i++) o[i] += Math.sin(w[2] + w[0] * i) * w[1] * amp * Math.exp(-i / sr / dec);
+    for (const w of ws) ring(o, 0, n, w[0], w[2], w[1] * amp, dec, sr);
   }
   function shape(o, drive) { const k = Math.tanh(drive); for (let i = 0; i < o.length; i++) o[i] = Math.tanh(o[i] * drive) / k; return o; }
   /* the drum one-shots: name -> [length s, render(o, sr, soft, f)]; f is a pitch for tuned drums */
@@ -436,23 +442,25 @@ const MUSIC = (function () {
   function spaceBuf(c, name) {
     if (cache.ir[name]) return cache.ir[name];
     const P = SPACE[name], sr = c.sampleRate, T = P[0], pre = P[1], hiT = T * (1 - .75 * P[4]), far = P[8] || 0;
-    const n = Math.ceil((pre + Math.max(T, far) * 1.1 + .05) * sr), b = c.createBuffer(2, n, sr), L = [];
+    /* cut at about -40 dB (0.7 T60) with a taper: the rest is far below the mix, and a shorter impulse sets up faster */
+    const n = Math.ceil((pre + Math.max(T * .7, far * .8) + .05) * sr), b = c.createBuffer(2, n, sr), L = [];
     for (let ch = 0; ch < 2; ch++) {
       const d = new Float32Array(n), r = rng(hash(name) + ch * 77), t0 = pre + P[3] * .35, fi = Math.max(.008, P[3] * .6);
-      let lo = 0, b1 = 0;
-      for (let i = Math.floor(t0 * sr); i < n; i++) {
-        const t = i / sr - pre, x = r() * 2 - 1, fade = Math.min(1, (i / sr - t0) / fi);
+      const i0 = Math.floor(t0 * sr), dL = Math.exp(-6.91 / (sr * T)), dH = Math.exp(-6.91 / (sr * hiT)), dF = far ? Math.exp(-6.91 / (sr * far)) : 1, iF = Math.floor((pre + .06) * sr);
+      let lo = 0, b1 = 0, eL = Math.exp(-6.91 * (i0 / sr - pre) / T), eH = Math.exp(-6.91 * (i0 / sr - pre) / hiT), eF = 1;
+      for (let i = i0; i < n; i++) {
+        const x = r() * 2 - 1, fade = Math.min(1, (i / sr - t0) / fi);
         lo += .06 * (x - lo); b1 = x - lo;
-        d[i] = (lo * 3.2 * Math.exp(-6.91 * t / T) + b1 * Math.exp(-6.91 * t / hiT)) * fade;
-        if (far) d[i] = d[i] * .85 + (r() * 2 - 1) * .14 * Math.exp(-6.91 * Math.max(0, t - .06) / far) * Math.min(1, Math.max(0, t - .06) / .1);
+        d[i] = (lo * 3.2 * eL + b1 * eH) * fade; eL *= dL; eH *= dH;
+        if (far && i >= iF) { d[i] = d[i] * .85 + (r() * 2 - 1) * .14 * eF * Math.min(1, (i - iF) / (sr * .1)); eF *= dF; }
       }
       for (let k = 0; k < P[2]; k++) { const i = Math.floor((pre + P[3] * (k + r()) / P[2]) * sr); if (i < n) { const g = (.9 - .6 * k / P[2]) * (r() < .5 ? -1 : 1); d[i] += g; if (i + 1 < n) d[i + 1] += g * .5; } }
       if (P[7]) for (let k = 1; k < 16; k++) { const i = Math.floor((pre + k * P[7] + ch * .003) * sr); if (i < n) { d[i] += .7 * Math.pow(.8, k); if (i + 2 < n) d[i + 2] -= .4 * Math.pow(.8, k); } }
       if (P[4] > .85) bq(d, sr, "lp", 1400, .7);
       L.push(d);
     }
-    const w = P[5];
-    for (let i = 0; i < n; i++) { const l = L[0][i], r2 = L[1][i]; L[1][i] = r2 * w + l * (1 - w); }
+    const w = P[5], tp = Math.floor(n * .8);
+    for (let i = 0; i < n; i++) { const l = L[0][i], r2 = L[1][i], k = i > tp ? .5 + .5 * Math.cos(Math.PI * (i - tp) / (n - tp)) : 1; L[0][i] = l * k; L[1][i] = (r2 * w + l * (1 - w)) * k; }
     b.getChannelData(0).set(L[0]); b.getChannelData(1).set(L[1]);
     return (cache.ir[name] = b);
   }
@@ -1158,6 +1166,9 @@ const MUSIC = (function () {
       if (ei >= E.length) { if (!song.loop) break; ei = 0; cyc++; }
       const e = E[ei], t = t0 + (cyc * song.cycle + e.t) * spb - PROC;
       if (t >= until) break;
+      /* a busy downbeat (a new chord on every part) is spread over a few calls: stop after ~4 ms of work while the
+         next event is still well ahead, so no single call costs a frame */
+      if (!offline && t > now + .08 && performance.now() - w0 > 4) break;
       ei++;
       if (t < now - LATE) { stats.skipped++; continue; }
       play(e, Math.max(t, now));
@@ -1179,9 +1190,10 @@ const MUSIC = (function () {
     if (!ctx) return 0;
     stop(0.05);
     prepare(S);
+    /* the bus first (its reverb takes a moment to set up), then the clock, so the first notes are never late */
+    song = S; bus = newBus(S, ctx.currentTime);
     const fb = fromBeat || 0, now = ctx.currentTime;
-    song = S; t0 = now + 0.1 - fb * S.spb;
-    bus = newBus(S, now);
+    t0 = now + 0.1 - fb * S.spb;
     bus.out.gain.setValueAtTime(0, now); bus.out.gain.linearRampToValueAtTime(1, now + 0.05);
     /* the first event at or after fromBeat; held harmony that started earlier comes back in softly */
     cyc = S.loop ? Math.floor(fb / S.cycle) : 0;
