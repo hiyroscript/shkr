@@ -492,14 +492,21 @@ const MUSIC = (function () {
 
   function build(c) {
     ctx = c; cache = { drum: {}, ks: {}, ir: {}, nz: {}, wave: {} };
-    /* master: mix -> broad shelves -> glue compressor -> limiter -> volume -> pause fade -> out */
+    /* master: mix -> broad shelves -> glue compressor -> limiter -> safety curve -> volume -> pause fade -> out */
     mix = c.createGain(); mix.gain.value = MIX;
     const ls = c.createBiquadFilter(), hs = c.createBiquadFilter(), glue = c.createDynamicsCompressor(), lim = c.createDynamicsCompressor();
     ls.type = "lowshelf"; ls.frequency.value = 120; ls.gain.value = 1.5; hs.type = "highshelf"; hs.frequency.value = 8500; hs.gain.value = 1.5;
     glue.threshold.value = -18; glue.knee.value = 6; glue.ratio.value = 2.8; glue.attack.value = .01; glue.release.value = .15;
     lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .001; lim.release.value = .08;
     volG = c.createGain(); volG.gain.value = vol; pz = c.createGain(); pz.gain.value = 1;
-    mix.connect(ls); ls.connect(hs); hs.connect(glue); glue.connect(lim); lim.connect(volG); volG.connect(pz); pz.connect(c.destination);
+    /* the limiter can overshoot a sharp transient by a little; a safety curve, straight up to 0.8 and easing into a
+       ceiling of 0.97, makes sure nothing ever clips (it only touches those few peaks) */
+    const cap = c.createWaveShaper(), cv = new Float32Array(4097);
+    for (let i = 0; i < cv.length; i++) { const x = i / 2048 - 1, a = Math.abs(x); cv[i] = Math.sign(x) * (a <= .8 ? a : .8 + .17 * Math.tanh((a - .8) / .17)); }
+    /* (no oversampling on any shaper here: 2x delays its path by 128 samples, which would pull that part off the
+       grid; every shaper's input is already low-passed, so the curves add little to alias) */
+    cap.curve = cv; cap.oversample = "none";
+    mix.connect(ls); ls.connect(hs); hs.connect(glue); glue.connect(lim); lim.connect(cap); cap.connect(volG); volG.connect(pz); pz.connect(c.destination);
   }
   function wave(name) {
     if (cache.wave[name]) return cache.wave[name];
@@ -521,7 +528,7 @@ const MUSIC = (function () {
     const c = ctx, sp = S.spec, b = { out: c.createGain(), lv: c.createGain(), grp: {}, part: {}, lfo: {}, src: [], act: [], choke: {}, at: at };
     b.lv.gain.value = Math.pow(10, (sp.trim || 0) / 20);
     let tail = b.lv;
-    if (hasFx(S, "tape")) { const w = c.createWaveShaper(); w.curve = curve(1.25); w.oversample = "2x"; tail.connect(w); tail = w; }
+    if (hasFx(S, "tape")) { const w = c.createWaveShaper(); w.curve = curve(1.25); w.oversample = "none"; tail.connect(w); tail = w; }
     if (hasFx(S, "muff")) {
       const m = c.createBiquadFilter(), g = c.createGain(); m.type = "lowpass"; m.frequency.value = 2400; m.Q.value = .8; g.gain.value = 700;
       lfo(b, .07).connect(g); g.connect(m.frequency); tail.connect(m); tail = m;
@@ -552,7 +559,7 @@ const MUSIC = (function () {
         lfo(b, .31).connect(m1); m1.connect(d1.delayTime); lfo(b, .43).connect(m2); m2.connect(d2.delayTime);
         g.connect(d1); g.connect(d2); d1.connect(p1); d2.connect(p2); p1.connect(w); p2.connect(w); w.connect(to);
       }
-      if (gname === "l" && hasFx(S, "sat")) { const w = c.createWaveShaper(), pre = c.createGain(); w.curve = curve(2.2); w.oversample = "2x"; pre.gain.value = 1; pre.connect(w); w.connect(g); b.grp[gname + "in"] = pre; }
+      if (gname === "l" && hasFx(S, "sat")) { const w = c.createWaveShaper(), pre = c.createGain(); w.curve = curve(2.2); w.oversample = "none"; pre.gain.value = 1; pre.connect(w); w.connect(g); b.grp[gname + "in"] = pre; }
       if (gname !== "k" && gname !== "b") { const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 30; hp.Q.value = .6; g.connect(hp); hp.connect(to); }
       else g.connect(to);
       b.grp[gname] = g;
@@ -579,7 +586,7 @@ const MUSIC = (function () {
     pn.pan.value = pan === undefined ? RPAN[role] || 0 : pan;
     let o = g;
     if (F) {
-      if (F.shape) { const w = c.createWaveShaper(); w.curve = curve(F.shape); w.oversample = "2x"; o.connect(w); o = w; }
+      if (F.shape) { const w = c.createWaveShaper(); w.curve = curve(F.shape); w.oversample = "none"; o.connect(w); o = w; }
       if (F.par) {
         const sum = c.createGain(), dry = c.createGain(); dry.gain.value = F.dry; o.connect(dry); dry.connect(sum);
         for (const q of F.par) { const f = c.createBiquadFilter(), fg = c.createGain(); f.type = "bandpass"; f.frequency.value = q[0]; f.Q.value = q[1]; fg.gain.value = q[2] * Math.sqrt(q[1]) * .9; o.connect(f); f.connect(fg); fg.connect(sum); }
