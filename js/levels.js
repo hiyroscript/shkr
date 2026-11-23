@@ -144,7 +144,7 @@ const LEVELS = [
 
 { n: 11, name: "Sunken Reef", th: ["wreck", "kelp", "sand", "coral", "chain", "bubbles"],
   mu: [144, 57, "lydian", "1251", "4521", 4, 8, "bubble", 6, 2, 0.08, "chime",
-    { kit: "reef", groove: "float", bassStyle: "rootfifth", bass: "finger", pad: "padWarm", lead: "vibes", answer: "bubble", arp: "bubble:rand", space: "underwater", fx: "muff cho dot8", ambience: "water" }],
+    { kit: "reef", groove: "float", bassStyle: "rootfifth", bass: "finger", pad: "padWarm", lead: "none", answer: "bubble", arp: "bubble:rand", space: "underwater", fx: "muff cho dot8", ambience: "water" }],
   phr: { i: "........", j: ".v..V.v.", a: "-.'v.'.v", b: "..#.'v*V/.B......", c: "^.'vv.v.", d: "I.v.U.vv/....B...", e: "^...====/..K.G...",
     f: "..H'.*vY/.B......", g: "...H.'Y./...O....", h: "%.vv.v.v", k: "-.v...v./...K.G..", n: "..v...v.",
     y: "_...^.v./A......a", Y: "..^...v. ..-...v./.A...... ......a.", H: "..^...v. ~~~~..v./.A.....a F.F.....",
@@ -154,7 +154,7 @@ const LEVELS = [
 
 { n: 12, name: "Storm Lighthouse", th: ["lighthouse", "cliffs", "rock", "rock", "beam", "rain"],
   mu: [148, 50, "minor", "1647", "6715", 10, 10, "organ", 5, 3, 0, "fmbell",
-    { kit: "storm", groove: "march", bassStyle: "pedal", bass: "strShort", harm: "swell", comp: "tremolo", lead: "pipe", answer: "bell", space: "hall", wet: 1.2, fx: "q", ambience: "rain", trim: -0.4 }],
+    { kit: "storm", groove: "march", bassStyle: "pedal", bass: "strShort", harm: "swell", comp: "tremolo", lead: "none", answer: "bell", space: "hall", wet: 1.2, fx: "q", ambience: "rain", trim: -0.4 }],
   phr: { i: "........", j: "..V.v.v.", a: "-.'v.*.v", b: "..#.'v*V/.B......", c: "M.'vv.v.", d: "I.v.U.vv/....B...", e: "^...====/..K.G...",
     f: "..H'.*vY/.B......", g: "...H.'Y./...O....", h: "%.vv.'.v", k: "*.v...v./...K.G..", n: "..v...v.", m: "-.'v.'.v",
     y: "_...^.v./A......a", Y: "..^...v. ..-.^.v./.A...... ......a.", H: "..^...v. ~~~~..v./.A.....a F.F.....",
@@ -210,7 +210,7 @@ const LEVELS = [
 
 { n: 17, name: "Comet Steppe", th: ["meteors", "stones", "grass", "rock", "lintel", "dust"],
   mu: [164, 50, "phryg", "1271", "6127", 10, 10, "supersaw", 6, 4, 0, "pluck",
-    { kit: "gallop", groove: "gallop", bassStyle: "gallop", bass: "synthbass", pad: "padWarm", drone: "throat", lead: "supersaw", answer: "horn", space: "hall", wet: 1.2, fx: "dot8", drop: "whoosh", trim: -0.7 }],
+    { kit: "gallop", groove: "gallop", bassStyle: "gallop", bass: "synthbass", pad: "padWarm", drone: "throat", lead: "none", answer: "horn", space: "hall", wet: 1.2, fx: "dot8", drop: "whoosh", trim: -0.7 }],
   phr: { i: "........", j: ".v.V..v.", a: "-.^v.*.v/..K.G...", c: "&...v'.v", e: "^...====/..K.G...", o: "*.^v.-.v/......KG",
     f: "..H'.*vY/.B......", g: "...H.'Y./...O....", h: "%.vv.-.v", k: "*.v.^.v./...K.G..", v: "..v...vv", z: "-.^.-.^./...O....", s: "I.*.M.-.", t: "M.-.I.*./....O...", q: "^.-.^.*v/....K..G", w: "&...&..v",
     r: "^...H.^Y/....R...", R: "..v.H.'. ..H..'YY/....R... .B......",
@@ -223,7 +223,7 @@ const LEVELS = [
 
 { n: 18, name: "Shipwreck Graveyard", th: ["masts", "ribs", "planks", "bone", "chain", "ash"],
   mu: [164, 47, "harm", "1645", "1561", 12, 3, "brass", 2, 1, 0, "organ",
-    { kit: "ghost", groove: "straight", bassStyle: "rootfifth", bass: "tuba", harm: "ostinato", comp: "strShort", pad: "choirOo", lead: "brass", answer: "fmbell", space: "cave", wet: .9, fx: "e", trim: -0.6 }],
+    { kit: "ghost", groove: "straight", bassStyle: "rootfifth", bass: "tuba", harm: "ostinato", comp: "strShort", pad: "choirOo", lead: "none", answer: "fmbell", space: "cave", wet: .9, fx: "e", trim: -0.6 }],
   phr: { i: "........", j: "..V.v.V.", a: "-.^v.*.v/..K.G...", o: "*.^v.-.v/......KG", c: "|.*.|.|v", g: "|..|..|v", W: "|.|.^.*v/....O...",
     e: "^...====/..K.G...", s: "I.*.M.-./....K..G", t: "M.-.I.*./....O...", v: "..v...vv", n: "|.-.|.*v", w: "&...&..v", z: "-.^.-.^./...O....", q: "^.-.^.*v/....K..G",
     r: "^...H.^Y/....R...", R: "..v.H.'. ..H..'YY/....R... .B......",
@@ -235,7 +235,7 @@ const LEVELS = [
 
 { n: 19, name: "Geyser Flats", th: ["geysers", "rockarch", "rock", "rock", "stal", "steam"],
   mu: [168, 52, "dorian", "1741", "4714", 11, 4, "acid", 5, 1, 0.06, "zap",
-    { kit: "funk", groove: "funk", bassStyle: "funk", bass: "synthbass", harm: "skank", comp: "organ", lead: "acid", answer: "zap", space: "outdoor", fx: "e", ambience: "steam", rise: "steam" }],
+    { kit: "funk", groove: "funk", bassStyle: "funk", bass: "synthbass", harm: "skank", comp: "organ", lead: "none", answer: "zap", space: "outdoor", fx: "e", ambience: "steam", rise: "steam" }],
   phr: { i: "........", j: ".V..v.V.", a: "-.^v.*.v/..K.G...", o: "*.^v.-.v/......KG", c: "|.*.|.|v", g: "|..|..|v", W: "|.|.^.*v/....O...",
     e: "^...====/..K.G...", s: "I.*.M.-./....K..G", t: "M.-.I.*./....O...", v: "..v...vv", w: "&...&..v", z: "-.^.-.^./...O....", q: "^.-.^.*v/....K..G",
     n: "|.-.|.*v", R: "..v.H.'. ..H..'YY/....R... .B......",
@@ -248,7 +248,7 @@ const LEVELS = [
 
 { n: 20, name: "Ashfall Caldera", th: ["volcano", "deadtrees", "rock", "flame", "stal", "embers"],
   mu: [172, 49, "phrydom", "1211", "7612", 10, 10, "saw", 6, 4, 0, "brass",
-    { kit: "metal", groove: "drive", bassStyle: "piston", bass: "grit", harm: "ostinato", comp: "strShort", pad: "padWarm", lead: "saw", answer: "brass", col: "5", space: "hall", wet: .8, fx: "e sat", ambience: "crackle", trim: -2.3 }],
+    { kit: "metal", groove: "drive", bassStyle: "piston", bass: "grit", harm: "ostinato", comp: "strShort", pad: "padWarm", lead: "none", answer: "brass", col: "5", space: "hall", wet: .8, fx: "e sat", ambience: "crackle", trim: -2.3 }],
   phr: { i: "........", j: ".V..v.V.", a: "-.^v.*.v/..K.G...", o: "*.^v.-.v/......KG", c: "|.*.|.|v", g: "|..|..|v", W: "|.|.^.*v/....O...",
     e: "^...====/..K.G...", s: "I.*.M.-./....K..G", t: "M.-.I.*./....O...", v: "..v...vv", w: "&...&..v", z: "-.^.-.^./...O....", q: "^.-.^.*v/....K..G",
     n: "|.-.|.*v", m: "_..^._.v/....O...", E: "..|.|... .^.I.M../..T...n. m...n..t", R: "..v.H.'. ..H..'YY/....R... .B......",
@@ -261,7 +261,7 @@ const LEVELS = [
 
 { n: 21, name: "Echo Palace", th: ["columns", "chandeliers", "checker", "candle", "cloth", "dust"],
   mu: [176, 55, "harm", "16254173", "16254173", 12, 9, "harpsi", 5, 3, 0, "fmbell",
-    { kit: "chamber", groove: "straight", bassStyle: "walk", bass: "upright", pad: "strings", lead: "harpsi", answer: "fmbell", space: "palace", rv: 1.3, dl: 1.6, fx: "q", trim: 0.4 }],
+    { kit: "chamber", groove: "straight", bassStyle: "walk", bass: "upright", pad: "strings", lead: "none", answer: "fmbell", space: "palace", rv: 1.3, dl: 1.6, fx: "q", trim: 0.4 }],
   phr: { i: "........", j: "..v.V.v.", n: "......v.",
     A: "'-'v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "&.'.&.'v", O: "-.^.-.^v/...O....",
     I: "^.v.====/..K.G...", L: "|.-.|.*v", H: "_.^.^.v./A......a", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
@@ -272,7 +272,7 @@ const LEVELS = [
 
 { n: 22, name: "Library of Dust", th: ["shelves", "ladders", "books", "quill", "beam", "paper"],
   mu: [176, 50, "minor", "1467", "6745", 11, 8, "pizz", 6, 2, 0.08, "harpsi",
-    { kit: "library", groove: "folk", bassStyle: "rootfifth", bass: "bassoon", pad: "padWarm", lead: "pizz", answer: "clar", arp: "harpsi:broken", space: "wood", fx: "e", trim: 1.2 }],
+    { kit: "library", groove: "folk", bassStyle: "rootfifth", bass: "bassoon", pad: "padWarm", lead: "none", answer: "clar", arp: "harpsi:broken", space: "wood", fx: "e", trim: 1.2 }],
   phr: { i: "........", j: ".v..V.v.", n: "......v.",
     A: "-''v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "@.'.@.'v", O: "-.^.@.^v/...O....",
     I: "^.v.====/..K.G...", L: "@.-.|.*v", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
@@ -283,7 +283,7 @@ const LEVELS = [
 
 { n: 23, name: "Stained Cathedral", th: ["spires", "gothic", "bricks", "candle", "chain", "dust"],
   mu: [180, 53, "minor", "1645", "4511", 9, 10, "organ", 2, 4, 0, "bell",
-    { kit: "cathedral", groove: "straight", bassStyle: "root", bass: "pedalPipe", harm: "chorale", comp: "choir", lead: "pipe", answer: "fmbell", space: "cathedral", fx: "q", trim: -0.9 }],
+    { kit: "cathedral", groove: "straight", bassStyle: "root", bass: "pedalPipe", harm: "chorale", comp: "choir", lead: "none", answer: "fmbell", space: "cathedral", fx: "q", trim: -0.9 }],
   phr: { i: "........", j: "..V.v.V.", n: "......v.",
     A: "-''v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "@.'.@.'v", O: "-.^.@.^v/...O....",
     I: "^.v.====/..K.G...", L: "@.-.|.*v", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
@@ -295,7 +295,7 @@ const LEVELS = [
 
 { n: 24, name: "High Steel", th: ["towers", "girders", "girder", "rebar", "hook", "sparks"],
   mu: [184, 52, "dorian", "1417", "4175", 4, 7, "brass", 0, 1, 0.06, "horn",
-    { kit: "jazz", groove: "mpc", bassStyle: "walk", bass: "upright", harm: "stab", comp: "organ", lead: "brass", answer: "horn", col: "7", space: "courtyard", fx: "dot8", ambience: "city", trim: 0.4 }],
+    { kit: "jazz", groove: "mpc", bassStyle: "walk", bass: "upright", harm: "stab", comp: "organ", lead: "none", answer: "horn", col: "7", space: "courtyard", fx: "dot8", ambience: "city", trim: 0.4 }],
   phr: { i: "........", j: "..V.v.V.", h: "_.^_.^*v/A......a", n: "....'.v.",
     A: "'-'v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "@.'.@.'v", O: "-.^.@.^v/...O....",
     I: "^.v.====/..K.G...", L: "@.-.|.*v", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
@@ -307,7 +307,7 @@ const LEVELS = [
 
 { n: 25, name: "Tesla Yard", th: ["pylons", "coils", "rivets", "insul", "pipe", "sparks"],
   mu: [188, 50, "phryg", "1271", "1621", 11, 4, "zap", 5, 4, 0, "acid",
-    { kit: "electro", groove: "straight", bassStyle: "pump", bass: "synthbass", pad: "padSaw", lead: "zap", answer: "acid", arp: "seq:seq", space: "plate", fx: "e", ambience: "crackle", trim: -1.6 }],
+    { kit: "electro", groove: "straight", bassStyle: "pump", bass: "synthbass", pad: "padSaw", lead: "none", answer: "acid", arp: "seq:seq", space: "plate", fx: "e", ambience: "crackle", trim: -1.6 }],
   phr: { i: "........", j: "..V.v.V.", h: "_.^_.^*v/A......a", b: "'.*v'v'v", m: "'.^.*'-v/..E...e.", c: "M...H.^v/..SS....", S: "^..Y..'. ..H.'.^v/....XXXS SS......", n: "....'.v.",
     A: "'-'v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "@.'.@.'v", O: "-.^.@.^v/...O....",
     I: "^.v.====/..K.G...", L: "@.-.|.*v", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
@@ -319,7 +319,7 @@ const LEVELS = [
 
 { n: 26, name: "Rail Yard Express", th: ["watertowers", "trains", "train", "post", "beam", "steam"],
   mu: [188, 55, "mixo", "14151415", "41544154", 12, 8, "harmonica", 1, 3, 0.1, "accordion",
-    { kit: "train", groove: "train", bassStyle: "train", bass: "upright", harm: "strum", comp: "acoustic", lead: "harmonica", answer: "accordion", space: "courtyard", fx: "slap", ambience: "steam", rise: "whistle", drop: "chord", trim: 0.6 }],
+    { kit: "train", groove: "train", bassStyle: "train", bass: "upright", harm: "strum", comp: "acoustic", lead: "none", answer: "accordion", space: "courtyard", fx: "slap", ambience: "steam", rise: "whistle", drop: "chord", trim: 0.6 }],
   phr: { i: "........", j: "..V.v.V.", h: "_.^_.^*v/A......a", r: "'.^M^M^. -.-.*.-v/...L.E.. l...e...", b: "'.*v'v'v", m: "'.^.*'-v/..E...e.", c: "M...H.^v/..SS....", S: "^..Y..'. ..H.'.^v/....XXXS SS......", n: "....'.v.",
     A: "'-'v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "@.'.@.'v", O: "-.^.@.^v/...O....",
     I: "^.v.====/..K.G...", L: "@.-.|.*v", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
@@ -331,7 +331,7 @@ const LEVELS = [
 
 { n: 27, name: "Lantern Bazaar", th: ["minarets", "stalls", "tiles", "pot", "cloth", "petals"],
   mu: [192, 50, "dblharm", "1212", "4211", 5, 3, "reed", 3, 0, 0, "santur",
-    { kit: "bazaar", groove: "folk", bassStyle: "rootfifth", bass: "finger", harm: "pick", comp: "oud", drone: "tanpura", lead: "reed", answer: "santur", space: "courtyard", fx: "e" }],
+    { kit: "bazaar", groove: "folk", bassStyle: "rootfifth", bass: "finger", harm: "pick", comp: "oud", drone: "tanpura", lead: "none", answer: "santur", space: "courtyard", fx: "e" }],
   phr: { i: "........", j: "..V.v.V.", h: "_.^_.^*v/A......a", o: "'.^.@.^v/...O....", x: "M..~~~~~ ~~..^.-v/....2.1. 2.......", y: "M..~~~~. '.-.^.*v/....1.2. ........", r: "'.^M^M^. -'-'*'-v/...L.E.. l...e...", b: "'.*v'v'v", m: "'.^.*'-v/..E...e.", c: "M...H.^v/..SS....", S: "^..Y..'. ..H.'.^v/....XXXS SS......", n: "....'.v.",
     A: "'-'v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "@.'.@.'v", O: "-.^.@.^v/...O....",
     I: "^.v.====/..K.G...", L: "@.-.|.*v", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
@@ -343,7 +343,7 @@ const LEVELS = [
 
 { n: 28, name: "Stormfront Armada", th: ["zeppelins", "clouds", "hull", "antenna", "hook", "rain"],
   mu: [196, 48, "minor", "1675", "6711", 3, 6, "brass", 2, 4, 0, "horn",
-    { kit: "armada", groove: "march", bassStyle: "march", bass: "tuba", harm: "ostinato", comp: "strShort", pad: "strings", lead: "brass", answer: "horn", space: "hall", wet: 1.15, fx: "q", ambience: "rain", trim: -1.5 }],
+    { kit: "armada", groove: "march", bassStyle: "march", bass: "tuba", harm: "ostinato", comp: "strShort", pad: "strings", lead: "none", answer: "horn", space: "hall", wet: 1.15, fx: "q", ambience: "rain", trim: -1.5 }],
   phr: { i: "........", j: "..V.v.V.", h: "_.^_.^*v/A......a", m: "'.^.*'-v/..E...e.", o: "'.^.@.^v/...O....", x: "M..~~~~~ ~~..^.-v/....2.1. 2.......", y: "M..~~~~. '.-.^.*v/....1.2. ........", r: "'.^M^M^. -'-'*'-v/...L.E.. l...e...", b: "'.*v'v'v", m: "'.^.*'-v/..E...e.", c: "M...H.^v/..SS....", S: "^..Y..'. ..H.'.^v/....XXXS SS......", n: "....'.v.",
     A: "'-'v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "@.'.@.'v", O: "-.^.@.^v/...O....",
     I: "^.v.====/..K.G...", L: "@.-.|.*v", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
@@ -355,7 +355,7 @@ const LEVELS = [
 
 { n: 29, name: "Inverted Citadel", th: ["castles", "battlements", "bricks", "spear", "chain", "ash"],
   mu: [196, 45, "harm", "15634125", "15634125", 6, 6, "bell", 2, 4, 0, "celesta",
-    { kit: "castle", groove: "straight", bassStyle: "pedal", bass: "strShort", pad: "choir", lead: "bell", answer: "celesta", rev: 1, space: "cathedral", dl: 1.5, fx: "dot8", trim: -1.5 }],
+    { kit: "castle", groove: "straight", bassStyle: "pedal", bass: "strShort", pad: "choir", lead: "none", answer: "celesta", rev: 1, space: "cathedral", dl: 1.5, fx: "dot8", trim: -1.5 }],
   phr: { i: "........", j: "..V.v.V.", h: "_.^_.^*v/A......a", u: "^_^_^_^v/A......a", w: "_^_^_^_v/A......a", U: "M.v.M.^v ^.*vI.-v ..^.M.vv/..Z..... ........ ......z.", m: "'.^.*'-v/..E...e.", o: "'.^*.^*v/...O....", x: "M..~~~~~ ~~..^.-v/....2.1. 2.......", y: "M..~~~~. '.-.^.*v/....1.2. ........", r: "'.^M^M^. -'-'*'-v/...L.E.. l...e...", b: "'.*v'v'v", m: "'.^.*'-v/..E...e.", c: "M...H.^v/..SS....", S: "^..Y..'. ..H.'.^v/....XXXS SS......", n: "....'.v.",
     A: "'-'v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "@.'.@.'v", O: "-.^.@.^v/...O....",
     I: "^.v.====/..K.G...", L: "@.-.|.*v", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
@@ -367,7 +367,7 @@ const LEVELS = [
 
 { n: 30, name: "The Last Light", th: ["ringsun", "shards", "obsidian", "crystal", "lintel", "embers"],
   mu: [200, 50, "minor", "1637", "6711", 8, 6, "supersaw", 2, 4, 0, "fpiano",
-    { kit: "finale", groove: "drive", bassStyle: "sync", bass: "synthbass", harm: "swell", comp: "choir", pad: "strings", lead: "supersaw", answer: "fpiano", arp: "celesta:up", motif: "Home", space: "palace", wet: 1.1, fx: "dot8", trim: -1.4 }],
+    { kit: "finale", groove: "drive", bassStyle: "sync", bass: "synthbass", harm: "swell", comp: "choir", pad: "strings", lead: "none", answer: "fpiano", arp: "celesta:up", motif: "Home", space: "palace", wet: 1.1, fx: "dot8", trim: -1.4 }],
   phr: { i: "........", j: "..V.v.V.", h: "_.^_.^*v/A......a", u: "^_*_^_^v/A......a", q: "^*.^*.Mv/..E...e.", w: "_^_^_^_v/A......a", U: "M.v.M.^v ^.*vI.-v ..^.M.vv/..Z..... ........ ......z.", m: "'.^.*'-v/..E...e.", o: "'.^*.^*v/...O....", x: "M..~~~~~ ~~..^.-v/....2.1. 2.......", y: "M..~~~~. '.-.^.*v/....1.2. ........", r: "'.^M^M^. -'-'*'-v/...L.E.. l...e...", b: "'.*v'v'v", m: "'.^.*'-v/..E...e.", c: "M...H.^v/..SS....", S: "^..Y..'. ..H.'.^v/....XXXS SS......", n: "....'.v.",
     A: "'-'v'-'v", B: "M.^.*'-v/..E...e.", C: "^.*'-.Iv/..E...e.", D: "^.-''.^v/E.e.E.e.", N: "@.'.@.'v", O: "-.^.@.^v/...O....",
     I: "^.v.====/..K.G...", L: "@.-.|.*v", k: "_.^_.^*v/A.K..G.a", Y: "_.^_.^*. ^_.^_.*./A....... .......a",
