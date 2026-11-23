@@ -138,6 +138,7 @@ async function browser() {
         return out;
       }, n);
       r.n = n; r.name = n ? api.LEVELS[n - 1].name : "Home"; all.push(r);
+      process.stderr.write("  rendered " + n + " " + r.name + ": peak " + r.peak + ", rms " + (20 * Math.log10(r.rms)).toFixed(1) + " dB, voices " + r.voices + "\n");
     }
     const db = function (x) { return 20 * Math.log10(Math.max(1e-9, x)); };
     const levels = all.map(function (r) { return db(r.rms); }).sort(function (a, b) { return a - b; }), med = levels[Math.floor(levels.length / 2)];

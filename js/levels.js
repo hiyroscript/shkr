@@ -380,6 +380,6 @@ const LEVELS = [
 /* Home screen: its own track, and a hazard-free demo chart. */
 const HOME = { n: 0, name: "Home", th: null, loops: 8,
   mu: [100, 52, "lydian", "1625", "4512", 9, 5, "fmbell", 5, 2, 0, "chime",
-    { kit: "brush", groove: "float", bassStyle: "root", bass: "finger", harm: "pick", comp: "harp", pad: "strings", lead: "fpiano", answer: "celesta", col: "9", space: "hall", fx: "dot8 cho" }],
+    { kit: "brush", groove: "float", bassStyle: "root", bass: "finger", harm: "pick", comp: "harp", pad: "strings", lead: "fpiano", answer: "celesta", arp: "celesta:rand", col: "9", space: "hall", fx: "dot8 cho" }],
   phr: { a: "..+.'.v.", b: "^.v.*.+.", c: "..#.'.V.", d: "-.'.+.v.", e: "M.'.v.+.", f: "_.+.*.v.", g: ".+.+.'V.", h: "^.-.+'v." },
   form: "2abcd efgh abhd fegc" };

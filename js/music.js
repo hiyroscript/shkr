@@ -392,7 +392,7 @@ const MUSIC = (function () {
   function drumBuf(c, name, soft, f) {
     const key = name + (soft ? "~" : "") + (f ? "@" + f.toFixed(1) : "");
     if (cache.drum[key]) return cache.drum[key];
-    const D = DRUM[name], sr = c.sampleRate, n = Math.ceil(D[0] * sr), o = new Float32Array(n);
+    const D = DRUM[name === "timp5" ? "timp" : name], sr = c.sampleRate, n = Math.ceil(D[0] * sr), o = new Float32Array(n);   /* timp5: the same drum a fifth up */
     D[1](o, sr, soft, f);
     let pk = 0; for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(o[i]));
     const g = pk > 0 ? .9 / pk : 0, fade = Math.min(n, Math.floor(sr * .01));
@@ -890,7 +890,8 @@ const MUSIC = (function () {
         nv.slice(1).forEach(function (m) { add({ y: "n", g: "p", p: "swell", b: at / TPQ, o: 0, m: m, d: 2, v: .55, at: spb * 2 * .97, rl: .05 }); });
       }
       /* arpeggio */
-      if (sp.arp && (e >= 2 || (e >= 0 && sp.arp.indexOf("rand") > 0))) {
+      /* (on the home loop the arp only joins the middle two passes, so the four passes differ) */
+      if (sp.arp && (e >= 2 || sp.arp.indexOf("rand") > 0) && !(loop && Math.floor(b / bars) % 3 === 0)) {
         const q = sp.arp.split(":"), AR = PATCH[q[0]], kind = q[1] || "up", vo = voice(S, c0, null, Math.max(AR.rng[0], 60), Math.min(AR.rng[1], 88), 3), vo2 = voice(S, c1, null, Math.max(AR.rng[0], 60), Math.min(AR.rng[1], 88), 3);
         const steps = kind === "rand" ? 2 : e >= 3 ? 1 : 2, IDX = ARPS[kind] || ARPS.up;
         for (let pos = 0; pos < 16; pos += steps) {
