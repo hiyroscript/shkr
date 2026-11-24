@@ -2,25 +2,28 @@
 /* =============================================================================
    tools/music-check.js [--render] [--perf] [tracks]
 
-   Checks the soundtracks (js/music.js) against the rules in README (Music).
-   The first part is plain Node with built-in modules only: it loads sim.js,
-   levels.js, fixes.js and music.js in a vm context and runs the same arranger
-   the game runs (MUSIC.makeSong), headless.
+   Checks the soundtracks (js/themes.js, played by js/music.js) against the
+   rules in README (Music). The first part is plain Node with built-in
+   modules only: it loads sim.js, levels.js, fixes.js, synth.js, themes.js
+   and music.js in a vm context and writes every song the way the game does
+   (MUSIC.makeSong), headless.
 
-     node tools/music-check.js            every track: alignment, grid, groove
+     node tools/music-check.js            every track: theme, grid, groove
      node tools/music-check.js 0 7 30     some tracks (0 is the home track)
      node tools/music-check.js --render   also render every track in Chromium
      node tools/music-check.js --perf     also time the live scheduler
 
    Headless (always)
-     align    every chart cell > 0 has exactly one lead onset, of its kind
-              (1 jump, 2 roll, 3 special), at exactly cell / 2 beats with no
-              groove offset; no lead, doubling or cue onset anywhere else in
-              a bar that has actions. A level whose spec says lead "none"
-              must have no lead, doubling or cue note at all ("none")
+     theme    the theme compiles, is at the level's bpm and fills its bars
+              (makeSong throws otherwise); every bar of a melody or line is 16
+              sixteenths; a line only uses chord tones (R 3 5 7 8 9 10 12);
+              every channel names a known instrument and a role; no chord part
+              on a synth that plays one note at a time
      grid     every event sits on an integer tick (48 a beat); the closing
-              chord is at bars * 4 beats, i.e. bars * 4 * spb (< 1 ms)
-     groove   every other offset is the groove's swing plus at most 8 ms
+              sting is at bars * 4 beats, i.e. bars * 4 * spb (< 1 ms), and
+              nothing else is past the last bar
+     groove   every offset is the theme's swing (odd sixteenths) or nothing,
+              within 8 ms
 
    --render (needs the pre-installed Playwright + Chromium)
      MUSIC.renderStats at 22050 Hz, full volume: peak <= 0.98, whole-song RMS
@@ -49,64 +52,67 @@ function track(n) { const def = n ? api.LEVELS[n - 1] : api.HOME; if (n) def.fix
 const tracks = (only.length ? only : Array.from({ length: api.LEVELS.length + 1 }, function (_, i) { return i; }));
 
 /* ---------------------------------------------------------------- headless */
+const SYN = vm.runInContext("SYNTH", ctx), CHORD_TONES = ["R", "3", "5", "7", "8", "9", "10", "12"];
+const MONO = ["lead", "bass", "drone", "chant", "riser", "siren", "pulse", "tension", "flute", "calliope", "harmonica"];
+/* the notation and the instruments of a theme (what compileTheme leaves to the moment a bar is played) */
+function themeErrors(T) {
+  const errs = [], len = function (tok) { const m = /:(\d+)$/.exec(tok); return m ? +m[1] : 2; };
+  Object.keys(T.parts).forEach(function (name) {
+    const p = T.parts[name], text = p.melody || p.line;
+    if (!text) return;
+    text.split("|").forEach(function (bar, i) {
+      const toks = bar.trim().split(/\s+/).filter(Boolean), sum = toks.reduce(function (s, t) { return s + len(t); }, 0);
+      if (text.indexOf("|") >= 0 ? sum !== 16 : sum % 16 && 16 % sum) errs.push("part " + name + " bar " + (i + 1) + " is " + sum + " sixteenths");
+      if (p.line) toks.forEach(function (t) { const v = t.replace(/^>/, "").split(":")[0].replace(/[',#b]/g, ""); if (v !== "." && CHORD_TONES.indexOf(v) < 0) errs.push("part " + name + ": " + v + " is not a chord tone"); });
+    });
+  });
+  Object.keys(T.channels).forEach(function (ch) {
+    const c = T.channels[ch];
+    if (c.drum && !SYN.DRUMS[c.drum] || c.tone && !SYN.TONES[c.tone] || c.synth && !SYN.SYNTHS[c.synth] || !(c.drum || c.tone || c.synth)) errs.push("channel " + ch + ": unknown instrument");
+    if (!c.role) errs.push("channel " + ch + " has no role");
+  });
+  Object.keys(T.sections).forEach(function (sec) {
+    const play = T.sections[sec].play || {};
+    Object.keys(play).forEach(function (ch) {
+      [].concat(play[ch]).forEach(function (e) {
+        const k = typeof e === "string" ? e : e && e.part, p = T.parts[k], c = T.channels[ch];
+        /* "beat": a drum pattern, a rhythm for each of its drum channels */
+        if (ch === "beat") { if (p && p.beat) Object.keys(p.beat).forEach(function (d) { if (!T.channels[d]) errs.push("beat " + k + " plays an unknown channel " + d); }); }
+        else if (!c) errs.push("section " + sec + " plays an unknown channel " + ch);
+        else if (p && p.chord && MONO.indexOf(c.synth) >= 0) errs.push("section " + sec + ": chord part " + k + " on " + ch + ", a " + c.synth + " (one note at a time)");
+      });
+    });
+  });
+  return errs;
+}
 console.log("music-check: " + tracks.length + " tracks\n");
-const head = ["#", "name", "bpm", "events", "actions", "align", "grid", "groove", "lead / answer / kit / space"];
+const head = ["#", "name", "bpm", "events", "theme", "grid", "groove", "lead / answer / scale"];
 const rows = [head];
 tracks.forEach(function (n) {
-  const t = track(n), S = api.MUSIC.makeSong(t.def, t.L, n === 0), sp = S.spec, E = S.ev, bars = S.bars, passes = S.loop ? S.cycle / 4 / bars : 1;
-  const errs = [];
-  /* align */
-  const leadAt = {}, LEADG = { l: 1, l2: 1, c: 1 };
-  E.forEach(function (e) {
-    if (e.y !== "n" || !LEADG[e.g]) return;
-    const cell = e.b * 2;
-    if (e.b >= bars * 4 * passes) return;   /* the closing chord, after the chart */
-    if (Math.abs(cell - Math.round(cell)) > 1e-9) { errs.push("lead-group onset off the half-beat grid at beat " + e.b); return; }
-    (leadAt[Math.round(cell)] || (leadAt[Math.round(cell)] = [])).push(e);
-  });
-  let actions = 0;
-  /* a composed theme (js/themes.js) is free of the chart: no lead on the actions to check, and none expected */
-  const TH = S.theme;
-  if (sp.noLead && !TH) {
-    const n2 = E.filter(function (e) { return e.y === "n" && LEADG[e.g]; }).length;
-    if (n2) errs.push("lead none, but " + n2 + " lead, doubling or cue notes");
-  }
-  for (let p = 0; p < passes && !sp.noLead && !TH; p++) for (let c = 0; c < bars * 8; c++) {
-    const a = S.chart[c], cell = p * bars * 8 + c, list = leadAt[cell] || [], main = list.filter(function (e) { return e.g === "l"; });
-    if (a) {
-      actions++;
-      if (main.length !== 1) errs.push("cell " + cell + ": " + main.length + " lead onsets for action " + a);
-      else if (main[0].act !== a) errs.push("cell " + cell + ": lead kind " + main[0].act + ", chart " + a);
-      else if (main[0].o !== 0 || main[0].t !== cell / 2) errs.push("cell " + cell + ": lead onset moved (" + main[0].t + " vs " + cell / 2 + ")");
-    } else {
-      let barHas = false; for (let i = 0; i < 8; i++) if (S.chart[Math.floor(c / 8) * 8 + i]) barHas = true;
-      if (barHas && list.length) errs.push("cell " + cell + ": " + list.map(function (e) { return e.g; }).join("+") + " onset on a cell with no action");
-    }
-  }
+  const t = track(n), errs = [];
+  let S = null;
+  try { S = api.MUSIC.makeSong(t.def, t.L, n === 0); } catch (e) { errs.push(e.message); }
+  const T = api.MUSIC._t.themeOf(t.def);
+  if (T) themeErrors(T).forEach(function (x) { errs.push(x); });
+  if (!S) { fails++; rows.push([String(n), t.def.name, String(t.def.mu[0]), "-", "FAIL", "-", "-", "-"]); errs.slice(0, 5).forEach(function (x) { console.log("  " + t.def.name + ": " + x); }); return; }
+  const E = S.ev, bars = S.bars;
   /* grid */
   const gridBad = E.filter(function (e) { return Math.abs(e.b * TPQ - Math.round(e.b * TPQ)) > 1e-6; }).length;
-  if (gridBad) errs.push(gridBad + " events off the integer grid");
+  if (gridBad) errs.push("grid: " + gridBad + " events off the integer grid");
   if (!S.loop) {
-    const close = E.filter(function (e) { return (TH ? e.y === "t" : e.y === "n" && e.g === "b") && e.b >= bars * 4; });
-    if (!close.length || Math.abs(close[0].b * S.spb - bars * 4 * S.spb) > .001) errs.push("closing chord not at bars * 4 * spb");
-    const lastIn = Math.max.apply(null, E.filter(function (e) { return e.b < bars * 4; }).map(function (e) { return e.b; }));
-    if (lastIn >= bars * 4) errs.push("events past the last bar");
+    const close = E.filter(function (e) { return e.b >= bars * 4; });
+    if (!close.length || Math.abs(close[0].b * S.spb - bars * 4 * S.spb) > .001) errs.push("grid: closing sting not at bars * 4 * spb");
+    if (close.some(function (e) { return e.b >= bars * 4 + 4; })) errs.push("grid: events past the closing bar");
   }
   /* groove */
-  const G = api.MUSIC._t.GROOVE[sp.groove], sw = TH ? (TH.swing || 0) * S.spb / 4 : (G[0] - .5) * 2 * S.spb / 4;
-  /* the strum spread and the rolled closing chord are part of the playing, not timing */
+  const sw = (T.swing || 0) * S.spb / 4;
   let worst = 0;
-  E.forEach(function (e) {
-    if (e.act || (e.g === "h" && (sp.harm === "strum" || e.b >= bars * 4))) return;
-    const tick = Math.round(e.b * TPQ), swing = tick % 12 === 0 && (tick / 12) % 2 ? sw : 0;
-    worst = Math.max(worst, Math.abs(e.o - swing));
-  });
-  if (worst > .0081) errs.push("groove offset " + (worst * 1000).toFixed(1) + " ms beyond the swing");
-  const ok = function (b) { return b ? "ok" : "FAIL"; };
-  const alignOk = !errs.some(function (x) { return /cell|lead/.test(x); }), gridOk = !errs.some(function (x) { return /grid|closing|past/.test(x); }), grooveOk = !errs.some(function (x) { return /groove/.test(x); });
-  const roles = TH ? function (r) { return Object.keys(TH.channels).filter(function (k) { return TH.channels[k].role === r; }).map(function (k) { return TH.channels[k].tone || TH.channels[k].synth; }).join("+") || "none"; } : null;
-  rows.push([String(n), t.def.name, String(S.bpm), String(E.length), String(actions), TH ? "theme" : sp.noLead && alignOk ? "none" : ok(alignOk), ok(gridOk), ok(grooveOk) + " " + (worst * 1000).toFixed(1) + "ms",
-    TH ? "theme: " + roles("lead") + " / " + roles("answer") + " / " + TH.scale + " " + TH.bpm : (sp.noLead ? "none" : sp.lead) + " / " + (sp.noAnswer ? "none" : sp.answer) + " / " + sp.kit + " / " + sp.space]);
+  E.forEach(function (e) { const tick = Math.round(e.b * TPQ), swing = tick % 12 === 0 && (tick / 12) % 2 ? sw : 0; worst = Math.max(worst, Math.abs(e.o - swing)); });
+  if (worst > .0081) errs.push("groove: offset " + (worst * 1000).toFixed(1) + " ms beyond the swing");
+  const ok = function (b) { return b ? "ok" : "FAIL"; }, has = function (k) { return errs.some(function (x) { return x.indexOf(k + ":") === 0; }); };
+  const roles = function (r) { return Object.keys(T.channels).filter(function (k) { return T.channels[k].role === r; }).map(function (k) { return T.channels[k].tone || T.channels[k].synth; }).join("+") || "none"; };
+  rows.push([String(n), t.def.name, String(S.bpm), String(E.length), ok(!errs.some(function (x) { return !/^(grid|groove):/.test(x); })), ok(!has("grid")), ok(!has("groove")) + " " + (worst * 1000).toFixed(1) + "ms",
+    roles("lead") + " / " + roles("answer") + " / " + T.scale]);
   if (errs.length) { fails++; errs.slice(0, 5).forEach(function (x) { console.log("  " + t.def.name + ": " + x); }); }
 });
 table(rows);
@@ -186,7 +192,7 @@ async function browser() {
       MUSIC.stop(.1); return st;
     });
     console.log("\nperf (level 30, 15 s live, 4× CPU throttling): slowest schedule() " + p.worst.toFixed(2) + " ms, start() " + p.start.toFixed(1) +
-      " ms (renders its strings and drums), most voices " + p.voices + ", late events skipped " + p.skipped + " (context " + p.state + ")");
+      " ms (renders its reverb, drums and first notes), most voices " + p.voices + ", late events skipped " + p.skipped + " (context " + p.state + ")");
   }
   await br.close();
 }

@@ -6,7 +6,7 @@
    its debug handle when boot is done.
    - first load (no developer save yet): every level unlocked, three rainbow stars
    - Settings gets a developer section: unlock all, reset, put progress back, and
-     Soundtracks, a screen to listen to every track (spec, bar map, mutes per part)
+     Soundtracks, a screen to listen to every track (theme, bar map, mutes per part)
    - a DEV badge in the home header
    Saves go to shadowskirr.dev.v1 (set by dev-config.js), never shadowskirr.v1.
    ========================================================================== */
@@ -143,16 +143,16 @@
 
     /* ---------------- soundtrack player ----------------
        A screen of its own (from the developer section) to listen to every track outside a run: the home track and
-       the 30 levels, each with its spec, a map of its bars (height = energy, a dot on the bar before each combo; click a
-       bar to play from it), and mutes per part, so one part can be judged with the rest out of the way. A mute plays the
-       song again from the current beat without that part's events (and, for fx, without the ambience bed). The game's
-       own loop keeps calling MUSIC.schedule(); closing the screen goes back to Settings and restarts the home track. */
+       the 30 levels, each with its theme's key and instruments, a map of its bars (height = energy, a dot on the bar
+       before each combo; click a bar to play from it), and mutes per part (a channel's role in js/themes.js), so one part
+       can be judged with the rest out of the way. A mute plays the song again from the current beat without that part's
+       notes. The game's own loop keeps calling MUSIC.schedule(); closing the screen goes back to Settings and restarts
+       the home track. */
     const NOTE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
     const TRACKS = [{ n: 0, def: HOME, L: SIM.compile(HOME), loop: true }].concat(LEVELS.map(function (d, i) { return { n: i + 1, def: d, L: api.getL(i + 1), loop: false }; }));
     const PARTS = ["lead", "answer", "harmony", "bass", "drums", "fx"];
-    const PART_OF = { l: "lead", l2: "lead", c: "lead", a: "answer", m: "answer", p: "harmony", h: "harmony", r: "harmony", z: "harmony", b: "bass", x: "fx" };
-    /* a composed theme's note belongs to its channel's role (js/themes.js) */
-    function partOf(e, S) { return e.y === "t" ? (S.theme.channels[e.c] || {}).role || "fx" : e.y === "n" ? PART_OF[e.g] || "fx" : e.y === "d" ? (e.l === "x" ? "fx" : "drums") : e.y === "k" ? "bass" : "fx"; }
+    /* a note belongs to its channel's role */
+    function partOf(e, S) { return (S.theme.channels[e.c] || {}).role || "fx"; }
     /* a theme's instruments by role: "flute" or "guitar (nylon)" */
     function roleList(T, r) { return Object.keys(T.channels).filter(function (k) { return T.channels[k].role === r; }).map(function (k) { const c = T.channels[k], ins = c.tone || c.synth || c.drum; return ins === k ? k : k + " (" + ins + ")"; }); }
     const P = { i: 1, playing: false, from: 0, muted: {}, end: "stop", raf: 0 };
@@ -174,9 +174,9 @@
     const $s = function (id) { return snd.querySelector("#" + id); };
     const mapEl = $s("shkrDevSndMap"), posEl = $s("shkrDevSndPos"), playBtn = $s("shkrDevSndPlay"), endBtn = $s("shkrDevSndEnd"), listEl = $s("shkrDevSndList");
     listEl.innerHTML = TRACKS.map(function (t, i) {
-      const s = MUSIC._t.spec(t.def), T = MUSIC._t.themeOf(t.def);
+      const T = MUSIC._t.themeOf(t.def);
       return '<button class="shkr-dev-snd-row" data-i="' + i + '"><b>' + (t.n ? pad2(t.n) : "home") + "</b><span>" + (t.n ? t.def.name : "Home screen") + "</span><i>" +
-        t.def.mu[0] + " · " + (T ? "composed · " + (roleList(T, "lead").join(", ") || "no lead") : s.kit + " · " + (s.noLead ? "no lead" : s.lead) + " / " + (s.noAnswer ? "no answer" : s.answer)) + "</i></button>";
+        t.def.mu[0] + " · " + NOTE[T.tonic % 12] + " " + T.scale + " · " + (roleList(T, "lead").join(", ") || "no lead") + "</i></button>";
     }).join("");
 
     function song(t) { return t.S || (t.S = MUSIC.makeSong(t.def, t.L, t.loop)); }
@@ -184,7 +184,7 @@
     function mixed(S) {
       const any = PARTS.some(function (p) { return P.muted[p]; });
       if (!any) return S;
-      return Object.assign({}, S, { ev: S.ev.filter(function (e) { return !P.muted[partOf(e, S)]; }), spec: P.muted.fx ? Object.assign({}, S.spec, { ambience: null }) : S.spec });
+      return Object.assign({}, S, { ev: S.ev.filter(function (e) { return !P.muted[partOf(e, S)]; }) });
     }
     function audio() {
       if (!MUSIC.ctx) { if (!MUSIC.init()) return false; MUSIC.setVol(api.S().music); }
@@ -198,26 +198,15 @@
     }
     function stopPlay() { if (P.playing) MUSIC.stop(.25); P.playing = false; P.from = 0; paintPos(); playBtn.textContent = "play"; }
     function here() { const b = P.playing && MUSIC.song ? MUSIC.beat() : P.from; return Math.max(0, b || 0); }
-    function keyName(def) { return NOTE[def.mu[1] % 12] + " " + def.mu[2]; }
     function paintTrack() {
-      const t = TRACKS[P.i], S = song(t), s = S.spec, list = [];
+      const t = TRACKS[P.i], S = song(t), T = S.theme, list = [];
       $s("shkrDevSndTag").textContent = t.n ? "level " + pad2(t.n) : "home screen · loops";
       $s("shkrDevSndName").textContent = t.n ? t.def.name : "Home";
-      if (S.theme) {
-        /* a composed theme: its key, scale and instruments by role */
-        const T = S.theme;
-        list.push(T.bpm + " bpm", NOTE[T.tonic % 12] + " " + T.scale, "composed theme");
-        ["lead", "answer", "harmony", "bass", "drums", "fx"].forEach(function (r) { const l = roleList(T, r); if (l.length) list.push(r + " " + l.join(", ")); });
-        list.push("reverb " + (T.reverb ? T.reverb.seconds : 2.4) + " s" + (T.swing ? " · swing " + T.swing : ""));
-        $s("shkrDevSndSpec").textContent = list.join(" · ");
-      } else list.push(t.def.mu[0] + " bpm", keyName(t.def), "kit " + s.kit, "groove " + s.groove, "lead " + (s.noLead ? "none" : s.lead), "answer " + (s.noAnswer ? "none" : s.answer),
-        "bass " + s.bassStyle + " (" + s.bass + ")");
-      if (!S.theme) {
-        if (s.comp) list.push(s.harm + " " + s.comp); if (s.pad) list.push("pad " + s.pad); if (s.drone) list.push("drone " + s.drone); if (s.arp) list.push("arp " + s.arp);
-        list.push("space " + s.space + (s.ambience ? " + " + s.ambience : ""), "fx " + s.fx.join(" "));
-        if (s.trim) list.push("trim " + (s.trim > 0 ? "+" : "") + s.trim + " dB");
-        $s("shkrDevSndSpec").textContent = list.join(" · ");
-      }
+      /* its key, scale and instruments by role */
+      list.push(T.bpm + " bpm", NOTE[T.tonic % 12] + " " + T.scale);
+      PARTS.forEach(function (r) { const l = roleList(T, r); if (l.length) list.push(r + " " + l.join(", ")); });
+      list.push("reverb " + (T.reverb ? T.reverb.seconds : 2.4) + " s" + (T.swing ? " · swing " + T.swing : ""), "level " + T.level);
+      $s("shkrDevSndSpec").textContent = list.join(" · ");
       let h = "";
       for (let b = 0; b < S.bars; b++) {
         let a = 0; for (let c = 0; c < 8; c++) if (S.chart[b * 8 + c]) a++;
@@ -291,7 +280,7 @@
       else if (e.code === "ArrowRight") { e.preventDefault(); $s("shkrDevSndNext").click(); }
     }, true);
     const sndRow = document.createElement("div");
-    sndRow.innerHTML = row("Soundtracks", "Listen to every level's music outside a run: its spec, a map of its bars to jump around in, and mutes per part.",
+    sndRow.innerHTML = row("Soundtracks", "Listen to every level's music outside a run: its theme, a map of its bars to jump around in, and mutes per part.",
       '<button class="chip" id="shkrDevSndOpen">open</button>');
     sec.appendChild(sndRow.firstChild);
     sec.querySelector("#shkrDevSndOpen").addEventListener("click", openSnd);
