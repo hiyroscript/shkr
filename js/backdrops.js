@@ -309,7 +309,7 @@ const BACKDROPS = (function () {
       const k = 8, w = Math.max(1, Math.ceil(cv.width / k)), h = Math.max(1, Math.ceil(cv.height / k));
       if (!small) small = document.createElement("canvas");
       small.width = w; small.height = h;
-      const sc2 = small.getContext("2d");
+      const sc2 = small.getContext("2d", { willReadFrequently: true });
       sc2.clearRect(0, 0, w, h); sc2.drawImage(cv, 0, 0, w, h);
       const d = sc2.getImageData(0, 0, w, h).data;
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 0) return Math.max(0, (y - 1) * k - 2);

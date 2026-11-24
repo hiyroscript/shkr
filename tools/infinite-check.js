@@ -246,11 +246,20 @@ const t0 = Date.now(), R = [];
 let charts = {};
 list.forEach(function (seed, i) {
   const r = runSeed(seed, bars);
-  /* determinism: the same seed again (every 10th seed, and a single --seed), identical chart and path */
+  /* determinism: the same seed again (every 10th seed, and a single --seed), made the way the game makes it (a chunk at
+     a time, the stream trimmed and the generator's memory pruned as the runner moves on, 16 bars behind the end):
+     identical chunks and path, so what the game plays is what this tool checked */
   if (i % 10 === 0 || one !== null) {
-    const h = INF.create(seed).fill(Math.min(bars, 72));
-    const a = r.g.chunks.slice(0, h.chunks.length).map(function (c) { return c.T + "/" + c.H; }).join("|"), b = h.chunks.map(function (c) { return c.T + "/" + c.H; }).join("|");
-    if (a !== b || r.g.path.slice(0, h.path.length).join("") !== h.path.join("")) err(seed, "seeds", "the same seed gave a different chart");
+    const h = INF.create(seed), seen = [], dummy = { dyn: {} }, upto = Math.min(bars, 4 * BARS_MIN);
+    let trimX = 0;
+    while (h.bars < upto) {
+      const n0 = h.chunks.length; h.fill(h.bars + 1);
+      for (let k = n0; k < h.chunks.length; k++) seen.push(h.chunks[k].T + "/" + h.chunks[k].H);
+      const x = (h.bars - 16) * 16;
+      if (x - trimX > 32) { trimX = x; SIM.trim(h.L, x, dummy, 64); h.prune(Math.floor((x - 64) / 16) - 8); }
+    }
+    const a = r.g.chunks.slice(0, seen.length).map(function (c) { return c.T + "/" + c.H; }).join("|"), b = seen.join("|");
+    if (a !== b || r.g.path.slice(0, h.path.length).join("") !== h.path.join("")) err(seed, "seeds", "the same seed gave a different chart (made a chunk at a time, trimmed and pruned like the game)");
   }
   /* the first 32 bars, for the different-seeds check */
   let head = "", hb = 0; for (const c of r.g.chunks) { if (hb >= 32) break; head += c.T + "/" + c.H + "|"; hb += c.bars; }

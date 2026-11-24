@@ -54,13 +54,24 @@ jobs:
       - name: Check levels (length, fairness, hazard reuse, difficulty curve)
         run: node tools/check-levels.js
 
+      # Gate 0b: Infinite Shadow's generator, on 24 fixed seeds of 6 minutes
+      # each: every chunk solves at the fairness margin and the whole run
+      # replays, density and the view rule hold, D stays in its band minute
+      # by minute, every hazard comes round, combos come often enough, the
+      # safe fallback is rare, and the same seed makes the same run (README,
+      # Infinite Shadow). About two minutes; locally the default is 300 seeds
+      # of 10 minutes.
+      - name: Check Infinite Shadow (fairness, difficulty, coverage, determinism)
+        run: node tools/infinite-check.js --ci
+
       # Gate 1: copy the game, strip js/dev.js, js/dev-config.js and every
       # <!-- dev-only --> line, stamp the version, then fail on any leak.
       - name: Build release (no developer code)
         run: bash tools/build-release.sh dist/release
 
       # Gate 2: same files byte for byte, and every level compiles, replays
-      # and dies identically in the source and the release.
+      # and dies identically in the source and the release; so do the first
+      # 64 bars of an Infinite Shadow seed.
       - name: Parity check (release plays exactly like the source)
         run: node tools/parity-check.js . dist/release
 

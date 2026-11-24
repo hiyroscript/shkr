@@ -15,8 +15,9 @@
 #   4. stamps <meta name="shkr-build" content="dev"> with
 #      "release · <short-sha> · <UTC date>"
 #   5. GUARD: fails if anything in <outdir> still contains developer code or
-#      text, if index.html loads a file that is missing, or if the release has
-#      a file that index.html does not load
+#      text, if js/infinite.js touches the page, audio or storage, if
+#      index.html loads a file that is missing, or if the release has a file
+#      that index.html does not load
 #
 # Exit status is non-zero on any failure. No npm, no dependencies: bash plus
 # coreutils, grep, sed, awk and (optionally) git for the stamp.
@@ -95,6 +96,11 @@ if hits="$(grep -rlF 'SHKR_DEV' "$OUT" | grep -vx "$OUT/js/game.js")"; then
   leak "SHKR_DEV is mentioned outside js/game.js" "$hits"
 fi
 if grep -qF 'content="dev"' "$OUT/index.html"; then leak "index.html still carries the dev build meta"; fi
+# Infinite Shadow's generator stays pure (no page, audio, storage or developer hooks), so the tools and the parity
+# check run the same file the game does
+if hits="$(grep -nE 'document\.|window\.|localStorage|AudioContext|SHKR_DEV|lastSeed' "$OUT/js/infinite.js")"; then
+  leak "js/infinite.js reaches outside the generator (it must stay pure)" "$hits"
+fi
 
 # every local <script src> / stylesheet must exist in the release ...
 refs="$(grep -oE '<(script|link)[^>]*(src|href)="[^"]*"' "$OUT/index.html" | sed -E 's/.*(src|href)="([^"]*)"/\2/' \

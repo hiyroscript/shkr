@@ -29,7 +29,7 @@ const INF = (function () {
   /* the ground's height band (units around 0) and the stream's fall floor */
   const BAND = [-6, 10], MINY = -6;
   /* solver budget per attempt (ticks) and the attempt ladder: knobs, then templates, then the safe generator */
-  const BUDGET = 90000, KNOB_TRIES = 4, TPL_TRIES = 6, SAFE_TRIES = 3;
+  const BUDGET = 90000, KNOB_TRIES = 4, TPL_TRIES = 8, SAFE_TRIES = 3;
   const VIEW = 10.8;   /* the narrowest view render.js allows, in units (tools/check-levels.js) */
 
   function rng(seed) { let a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -136,6 +136,8 @@ const INF = (function () {
   }
   /* README › Difficulty: D and its fixed weights */
   const W = { a: 0.2, b: 0.15, c: 0.3, d: 0.5, e: 0.1 }, SLACK_MAX = 0.3;
+  /* the cruise band: D of levels 10 and 14 on the 1.10-per-level curve from level 1's 0.403 */
+  const D_LO = 0.403 * Math.pow(1.1, 9), D_HI = 0.403 * Math.pow(1.1, 13);
   function scoreD(t) {
     return t.aps * (1 + W.a * t.mech) * (1 + W.b * t.combo / 10) * (1 + W.c * (SLACK_MAX - t.slack) / SLACK_MAX) *
       (1 - W.d * t.rest) * Math.pow(0.25 / Math.max(t.gap10, 0.12), W.e);
@@ -703,7 +705,9 @@ const INF = (function () {
       else {
         /* which template: a hazard piece, a combo (peaks only) or a plain flavour */
         const hazChance = sp.ph === "warm" ? 0.75 : sp.ph === "cool" ? 0.55 : 0.85;
-        const comboChance = sp.ph === "peak" || sp.ph === "peak2" ? (sp.bar < RAMP ? 0.4 : 0.8) : sp.ph === "build" && sp.bar >= RAMP ? 0.3 : 0;
+        /* a seed running short of combos (under 4.6 places a minute over the last two) leans on them harder */
+        const low = sp.bar >= RAMP + 18 && comboRate() < 4.6;
+        const comboChance = sp.ph === "peak" || sp.ph === "peak2" ? (sp.bar < RAMP ? 0.4 : low ? 1 : 0.8) : sp.ph === "build" && sp.bar >= RAMP ? (low ? 0.6 : 0.3) : 0;
         const TR = rng(mix(seed, 5000 + sp.i, a < KNOB_TRIES ? 0 : a));
         const tryTpl = function (t) {
           for (let k = 0; k < 8; k++) {
@@ -849,16 +853,35 @@ const INF = (function () {
         lvw += (q.ph === "rest" || q.ph === "intro" ? baseLv(q.bar) : q.lv) * q.bars;
       }
       if (bars < (f0 !== undefined ? 6 : 12)) return null;
+      /* a window [f0, f1) is measured the way tools/infinite-check.js measures a minute: its own bars only, and the
+         hazards and combo places inside it (a chunk that started before it brings only what is in it) */
+      if (f0 !== undefined) bars = f1 - f0;
       const b1 = f1 !== undefined ? f1 : g.bars, b0 = b1 - bars, sec = bars * 4 * 60 / BPM, spb = 60 / BPM;
-      if (f0 !== undefined) acts = acts.filter(function (t) { return t >= f0 * TBAR && t < f1 * TBAR; });
+      if (f0 !== undefined) {
+        acts = acts.filter(function (t) { return t >= f0 * TBAR && t < f1 * TBAR; });
+        hz = hz.filter(function (h) { return h.x1 > f0 * BAR && h.x0 < f1 * BAR; });
+      }
       hz.sort(function (a, b) { return a.x0 - b.x0; });
       const gaps = []; for (let i = 1; i < acts.length; i++) gaps.push((acts[i] - acts[i - 1]) / TPB * spb);
       gaps.sort(function (a, b) { return a - b; });
       const hit = {}; acts.forEach(function (t) { hit[Math.floor(t / TBAR)] = 1; });
       let quiet = 0; for (let b = b0; b < b1; b++) if (!hit[b]) quiet++;
-      const D = scoreD({ aps: acts.length / sec, mech: mech(hz, b0, b1), combo: combos(hz).length * 60 / sec, slack: EASY, rest: quiet / bars,
+      const places = combos(hz).filter(function (x) { return f0 === undefined || x >= f0 * BAR && x < f1 * BAR; });
+      const D = scoreD({ aps: acts.length / sec, mech: mech(hz, b0, b1), combo: places.length * 60 / sec, slack: EASY, rest: quiet / bars,
         gap10: gaps.length ? gaps[Math.floor(0.1 * (gaps.length - 1))] : 1 });
-      return { D: D, aps: acts.length / sec, target: 0.403 * Math.pow(1.1, lvw / bars - 1) };
+      return { D: D, aps: acts.length / sec, target: 0.403 * Math.pow(1.1, lvw / bars - 1), rest: quiet / bars, b0: b0, b1: b1 };
+    }
+    /* the share of bars in [b0, b1) that the wave plan makes breathers */
+    function restPlan(b0, b1) { let r = 0; for (let b = b0; b < b1; b++) if (phaseAt(b).ph === "rest") r++; return r / Math.max(1, b1 - b0); }
+    /* combo places a minute over the last 72 bars (2 minutes), memoised per bar count */
+    const crMemo = { b: -1, v: 0 };
+    function comboRate() {
+      if (crMemo.b === g.bars) return crMemo.v;
+      let bars = 0, hz = [];
+      for (let i = g.chunks.length - 1; i >= 0 && bars < 72 && g.chunks[i].hz; i--) { bars += g.chunks[i].bars; hz = g.chunks[i].hz.concat(hz); }
+      hz.sort(function (a, b) { return a.x0 - b.x0; });
+      crMemo.b = g.bars; crMemo.v = bars ? combos(hz).length * 60 / (bars * 4 * 60 / BPM) : 0;
+      return crMemo.v;
     }
     /* presses a bar for the chunk about to be made: D is judged per minute (36 bars), so the minute this chunk is in should
        land on D of the levels its waves aim at. F is D over aps for the last 36 bars (mech, combos, rest, the fastest
@@ -872,6 +895,11 @@ const INF = (function () {
       for (let i = g.chunks.length - 1; i >= 0; i--) { const q = g.chunks[i]; if (q.bar + q.bars <= w0) break; for (const t of q.acts) if (t >= t0) done++; }
       /* the factor D / aps: the trailing one, more and more this minute's own as it fills */
       let F = g.F;
+      /* breathers are planned: a minute with fewer of them than the trailing 36 bars had is harder at the same presses */
+      if (g.rT !== undefined) {
+        const WD = rules.W.d, rPred = Math.max(0, Math.min(0.9, g.rT - restPlan(g.rB0, g.rB1) + restPlan(w0, w1)));
+        F *= (1 - WD * rPred) / (1 - WD * g.rT);
+      }
       const db = sp.bar - w0, dw = db >= 8 ? dEst(w0, sp.bar) : null;
       if (dw && dw.aps > 0) F = (g.F * (W - db) + dw.D / dw.aps * db) / W;
       const target = 0.403 * Math.pow(1.1, lvs / W - 1) * g.kW, need = target / F * (W * 4 * 60 / BPM) - done;
@@ -1045,6 +1073,20 @@ const INF = (function () {
       }
       const vw = view(j.S, acts, true);
       if (vw.worst > vw.max || vw.late.length) { reject(j, "view"); return false; }
+      /* the minute's guard: once two thirds of a minute are made, a chunk may not take that minute's D out of the band
+         (README › Infinite Shadow). It is tried again with fewer presses (or more, for the last chunk of a minute that
+         came out too easy); the last template tries are free of it, so the guard never forces the safe generator */
+      if (!j.cd.safe && sp.ph !== "rest" && sp.ph !== "intro" && j.a < KNOB_TRIES + TPL_TRIES - 2 && sp.bar >= 36) {
+        const MW = BPM / 4, w0 = Math.floor(sp.bar / MW) * MW, end = Math.min(sp.bar + sp.n, w0 + MW);
+        if (end - w0 >= 24) {
+          g.chunks.push({ bar: sp.bar, bars: sp.n, ph: sp.ph, lv: sp.lv, acts: acts.map(function (a) { return a.t; }), hz: hazards(j.S).filter(function (h) { return h.x0 < j.ch.x1; }) });
+          const dm = dEst(w0, end); g.chunks.pop();
+          if (dm && dm.D > D_HI - 0.03) { sp.want *= 0.85; reject(j, "minute D " + dm.D.toFixed(3)); return false; }
+          /* on the low side, as if every chunk of the minute kept the most slack D counts (0.3, not the 0.2 each one is
+             probed at), which takes a tenth off */
+          if (dm && end === w0 + MW && w0 >= 2 * MW && dm.D / 1.1 < D_LO + 0.01) { sp.want *= 1.15; reject(j, "minute D " + dm.D.toFixed(3)); return false; }
+        }
+      }
       /* append for real, and replay the path on the real stream from the real seam state */
       const cd = j.cd, ch = SIM.append(L, cd.t + "/" + cd.h, sp.energy);
       const st = cleanState(g.s); st.ev = [];
@@ -1071,7 +1113,7 @@ const INF = (function () {
       /* D of the last 36 bars, the way tools/difficulty.js scores a minute (slack taken as the 0.2 every chunk keeps),
          against D of the levels their waves aim at: the next chunks' presses are scaled to close the gap */
       const de = dEst();
-      if (de && de.aps > 0) g.F = de.D / de.aps;
+      if (de && de.aps > 0) { g.F = de.D / de.aps; g.rT = de.rest; g.rB0 = de.b0; g.rB1 = de.b1; }
       /* a minute just finished: how far it landed from its target corrects the next ones (slowly; it removes the
          small bias between this estimate and the full measure) */
       const W = BPM / 4;
@@ -1112,7 +1154,7 @@ const INF = (function () {
     /* forget the heavy parts of chunks that ended before `bar` (their charts, hazards and actions): a run's memory stays
        flat; what the music and the score still read (bar, x, phase, combo, hazards' kinds) is kept */
     g.prune = function (bar) {
-      bar = Math.min(bar, g.bars - 48);   /* the difficulty control reads the last 36 bars */
+      bar = Math.min(bar, g.bars - 80);   /* the difficulty control reads the last 36 bars, the combo rate the last 72 */
       for (let i = g.pruned || 0; i < g.chunks.length; i++) {
         const c = g.chunks[i]; if (c.bar + c.bars >= bar) { g.pruned = i; return; }
         c.T = c.H = null; c.hz = null; c.acts = c.kinds = null; c.ev = null;

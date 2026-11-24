@@ -726,8 +726,8 @@
   function startInf(g) {
     g.fill(16);
     G.n = "inf"; G.def = INF_DEF; G.L = g.L; G.spb = 60 / INF.BPM; G.session = 0; G.tryN = 1;
-    G.inf = { g: g, seed: g.seed, score: 0, cells: 0, uses: 0, used: {}, combos: 0, cc: 0, bars: g.bars, best0: S.inf.best, beat: false, lastPop: null, ended: false };
-    if (window.SHKR_DEV) window.SHKR_DEV.lastSeed = g.seed;
+    G.inf = { g: g, seed: g.seed, score: 0, cells: 0, uses: 0, used: {}, combos: 0, cc: 0, bars: g.bars, cost: 20, acc: 0, ts: 0, best0: S.inf.best, beat: false, lastPop: null, ended: false };
+    G.lastSeed = g.seed;   /* the developer section shows it */
     G.song = MUSIC.ctx ? MUSIC.makeStream(INF_DEF, g) : null;
     RENDER.setHome(false); RENDER.setLevel(g.L, null, g.seed, g.biomeAt);
     $("#hud").classList.add("on", "inf"); $("#hud").classList.remove("beat");
@@ -740,15 +740,23 @@
     clock.start(); clock.t0p += 4 * G.spb;
     showObjective(false);
   }
-  /* every frame of a run, after it is drawn: generate in what is left of the frame (at least 0.4 ms while the buffer
-     holds 12 bars or more; a validated bar costs about 15 ms of a slow phone's CPU, spread over the 100 frames it lasts),
+  /* every frame of a run, after it is drawn: generate (16 bars are made before the start, and it stays 12 to 20 ahead),
      stream the new bars to the music and the renderer, trim what is two screens behind */
-  function feedInf(x, spent) {
+  function feedInf(x, spent, ts0) {
     const I0 = G.inf, g = I0.g, ahead = g.bars * 16 - x;
     if (ahead < 3 * 16) g.emergency();   /* never in practice (the buffer is 12 bars), but a stall must not run the runner off the world */
-    const budget = ahead < 6 * 16 ? GEN_MS * 2 : ahead < AHEAD * 16 ? GEN_MS : ahead < FILL * 16 ? Math.max(0.4, Math.min(GEN_MS, 14 - spent)) : 0;
-    if (budget) g.work(budget);
+    /* a steady share each frame rather than bursts: the measured cost of a bar times the bars the runner eats per
+       frame, with headroom; more while the buffer is short, nothing once it is full */
+    const dt = Math.min(0.1, Math.max(0.004, (ts0 - (I0.ts || ts0)) / 1000)); I0.ts = ts0;
+    const need = I0.cost * dt * INF.BPM / 240 * 1.6;
+    /* under 12 bars it always takes its 3 ms however long the frame was, and under 6 bars 8 ms: a dropped frame on a
+       busy device is better than the runner reaching the safe generator's emergency chunks */
+    const budget = ahead < 6 * 16 ? 8 : ahead < AHEAD * 16 ? Math.max(need * 2, GEN_MS) : ahead < FILL * 16 ? Math.max(need, 0.3) : 0;
+    if (budget) { const t = performance.now(); g.work(budget); I0.acc += performance.now() - t; }
     if (g.bars !== I0.bars) {
+      /* cost per bar, smoothed over a few chunks */
+      if (g.bars > I0.bars) I0.cost += (I0.acc / (g.bars - I0.bars) - I0.cost) * 0.25;
+      I0.acc = 0;
       I0.bars = g.bars;
       if (G.song) MUSIC.extend(G.song);
       RENDER.extend();
@@ -789,6 +797,12 @@
     const beat = best > 0 && sc > best;
     if (beat !== I0.beat) { I0.beat = beat; $("#hud").classList.toggle("beat", beat); }
     hudFill.style.transform = "scaleX(" + (best > 0 ? Math.min(1, sc / best) : Math.min(1, sc / 1000)).toFixed(4) + ")";
+  }
+  /* a run given up from the pause card (restart, quit): it counts as a run and as time played, never as a best */
+  function leaveInf() {
+    const I0 = G.inf; if (!I0 || I0.ended) return;
+    I0.ended = true;
+    if (G.st.tick > 0) { S.inf.runs++; S.inf.totalTime += Math.round(G.st.tick / TPB * G.spb); saveState(); }
   }
   /* the crash: about 0.6 s later, the results card */
   function endInf() {
@@ -1018,8 +1032,8 @@
       /* restart is a new run: a new seed, under the wipe */
       showCard({ eyebrow: esc(t("inf.title")) + "  ·  " + esc(t("inf.place")), title: t("card.pause.title"),
         acts: [{ t: t("card.pause.resume"), solid: true, fn: resumeGame },
-          { t: t("card.pause.restart"), fn: function () { hideCard(); MUSIC.resume(); G.paused = false; G.mode = "home"; launchInf(null); } },
-          { t: t("card.pause.quit"), fn: function () { hideCard(); MUSIC.resume(); G.paused = false; show("home"); startHome(); } }] });
+          { t: t("card.pause.restart"), fn: function () { leaveInf(); hideCard(); MUSIC.resume(); G.paused = false; G.mode = "home"; launchInf(null); } },
+          { t: t("card.pause.quit"), fn: function () { leaveInf(); hideCard(); MUSIC.resume(); G.paused = false; show("home"); startHome(); } }] });
       return;
     }
     showCard({ eyebrow: t("game.level", { n: pad2(G.n) }) + "  ·  " + t("game.try", { n: G.tryN }), title: t("card.pause.title"),
@@ -1168,7 +1182,7 @@
     RENDER.frame({ s: st, x: x, y: y, beat: G.beat, time: t, pulse: pulse, dead: dead || G.mode === "over", squash: G.squash, restY: G.restY, snap: G.snap, thermal: thermal,
       demo: G.mode === "home" || G.mode === "launch", noShake: !S.shake, mark: G.mark, best: best }, (G.paused && G.tip !== "rewind") || G.mode === "intro" ? 0 : dt);
     G.snap = false;
-    if (G.mode === "play" && G.inf && !G.paused) feedInf(Math.max(0, st.tick * DX), performance.now() - ts);
+    if (G.mode === "play" && G.inf && !G.paused) feedInf(Math.max(0, st.tick * DX), performance.now() - ts, ts);
     if (G.tip === "note") { if (winFocus) tipLeft -= dt; if (tipLeft > 0) paintTip(); else leaveTip(); }
     if (!G.inf && (G.mode === "play" || dead || G.mode === "won")) hudFill.style.transform = "scaleX(" + Math.max(0, Math.min(1, x / L.endX)).toFixed(4) + ")";
     /* drop resolution once if the device cannot hold 60 fps */

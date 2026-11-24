@@ -264,10 +264,13 @@ const MUSIC = (function () {
     }
     if (!offline) {
       if (wcyc < cyc || (wcyc === cyc && wi < ei)) { wcyc = cyc; wi = ei; }
-      while (performance.now() - w0 < 3) {
+      /* a stream (Infinite Shadow) changes instruments at every biome, so it looks further ahead and spends less a
+         call: the new pair's tones spread over many frames instead of landing in a few */
+      const cap = song.stream ? 1.2 : 3, warm = song.stream ? 8 : WARM;
+      while (performance.now() - w0 < cap) {
         if (wi >= E.length) { if (!song.loop) break; wi = 0; wcyc++; }
         const e = E[wi], sp = song.theme.channels[e.c];
-        if (t0 + (wcyc * song.cycle + e.t) * spb > now + WARM) break;
+        if (t0 + (wcyc * song.cycle + e.t) * spb > now + warm) break;
         wi++;
         if (sp && sp.tone) for (const n of e.ms || [e.m]) cache.bank.tone(sp.tone, n);
       }
