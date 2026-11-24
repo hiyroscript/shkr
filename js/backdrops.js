@@ -131,32 +131,65 @@ const BACKDROPS = (function () {
     hills: [function () { const w = rr(16, 30), h = rr(1.2, 3.4), k = rr(-.25, .25); c.beginPath(); c.moveTo(-w / 2, 0); c.bezierCurveTo(-w * .32, h * .25, -w * (.22 - k), h, w * k, h); c.bezierCurveTo(w * (.22 + k), h, w * .32, h * .25, w / 2, 0); c.closePath(); F(); }, 7, 13, "g"],
     /* a faint distant spire, rare */
     spire: [function () { const h = rr(9, 13), w = rr(.9, 1.4); R(-w * .8, 0, w * 1.6, h * .32); F(); P([-w / 2, h * .3, -w * .38, h * .58, -w * .2, h * .62, 0, h, w * .2, h * .62, w * .38, h * .58, w / 2, h * .3]); F(); R(-w * .9, h * .3, w * 1.8, .25); K(); }, 55, 90, "g"],
-    /* broad tree: curved trunk, 2-4 branches, lumpy cloud-like canopy, hanging moss */
+    /* broad tree: a flared, slightly leaning trunk under one connected crown. The crown is a central core ellipse with
+       foliage clumps grown outward from it (each one overlapping what is already there), scalloped with leafy lumps on
+       its outer edge only; its mass is re-centred over the trunk top. 2-4 tapered limbs fork off high on the trunk and
+       end inside clumps. */
     canopy: [function () {
-      const h = rr(6.5, 10.5), lean = rr(-.7, .7), tw = rr(.42, .66), tips = [[lean * 1.1, h + rr(.4, 1.2)]];
-      c.beginPath(); c.moveTo(-tw * 1.5, 0); c.quadraticCurveTo(-tw * .55 + lean * .25, h * .4, -tw * .42 + lean, h); c.lineTo(tw * .42 + lean, h); c.quadraticCurveTo(tw * .55 + lean * .25, h * .4, tw * 1.5, 0); c.closePath(); F();
+      const h = rr(5, 6.8), lean = rr(-.45, .45), tw = rr(.4, .54), cw = h / 3 * rr(1.8, 2.6), chh = cw * rr(.8, .94);
+      const cy = h + chh * .04, off = rr(-.12, .12) * cw;
+      /* trunk: wide root flare at the base, narrowing quickly, then gently up to the crown */
+      c.beginPath(); c.moveTo(-tw * 2.1, 0);
+      c.bezierCurveTo(-tw * 1.05, h * .03, -tw * .85, h * .12, -tw * .7 + lean * .12, h * .28);
+      c.quadraticCurveTo(-tw * .5 + lean * .5, h * .7, -tw * .46 + lean, h);
+      c.lineTo(tw * .46 + lean, h);
+      c.quadraticCurveTo(tw * .5 + lean * .5, h * .7, tw * .7 + lean * .12, h * .28);
+      c.bezierCurveTo(tw * .85, h * .12, tw * 1.05, h * .03, tw * 2.1, 0); c.closePath(); F();
+      /* crown clumps [x, y, rx, ry], grown out from a core; each must overlap the clumps placed before it */
+      const bl = [[0, chh * .1, cw * .3, chh * .32]], nl = 6 + Math.floor(r() * 4);
+      for (let i = 0; i < nl; i++) {
+        const a = -.32 * Math.PI + (i + rr(.1, .9)) / nl * 1.64 * Math.PI, rad = cw * rr(.18, .27), ry = rad * rr(.82, 1);
+        let d = rr(.55, 1), x = 0, y = 0;
+        for (let k = 0; k < 6; k++, d *= .75) {
+          x = Math.cos(a) * (cw / 2 - rad) * d; y = Math.sin(a) * (chh / 2 - ry) * d;
+          let hit = false;
+          for (const b of bl) { const dx = (x - b[0]) / (rad + b[2]), dy = (y - b[1]) / (ry + b[3]); if (dx * dx + dy * dy < .5) { hit = true; break; } }
+          if (hit) break;
+        }
+        bl.push([x, y, rad, ry]);
+      }
+      /* re-centre: the crown's area-weighted centre sits over the trunk top, give or take 12% of its width */
+      let sa = 0, sx = 0; for (const b of bl) { sa += b[2] * b[3]; sx += b[0] * b[2] * b[3]; }
+      const dx0 = lean + off - sx / sa;
+      for (const b of bl) { b[0] += dx0; b[1] += cy; }
+      /* limbs: start high on the trunk, taper, and end at the centre of a clump so no bare stick shows below */
       const nb = 2 + Math.floor(r() * 3);
       for (let i = 0; i < nb; i++) {
-        const sd = i % 2 ? 1 : -1, y0 = h * rr(.5, .9), x0 = lean * y0 / h, l = rr(2, 3.6), a = Math.PI / 2 - sd * rr(.55, 1.05);
-        const x1 = x0 + Math.cos(a) * l, y1 = y0 + Math.sin(a) * l;
-        c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x0 + (x1 - x0) * .2, y0 + (y1 - y0) * .7, x1, y1); c.lineWidth = rr(.22, .34); c.stroke(); tips.push([x1, y1]);
+        const sd = i % 2 ? 1 : -1, y0 = h * rr(.6, .72), x0 = lean * Math.pow(y0 / h, 1.6);
+        let tb = bl[0], best = -1e9;
+        for (let k = 1; k < bl.length; k++) { const s = (bl[k][0] - x0) * sd - Math.abs(bl[k][1] - cy) * .8 + ((k * 7 + i * 3) % 5) * .15; if (s > best) { best = s; tb = bl[k]; } }
+        const x1 = tb[0], y1 = tb[1], mx = x0 + (x1 - x0) * .25, my = y0 + (y1 - y0) * .75, w0 = tw * rr(.42, .55), w1 = .08;
+        const L = [], Rt = [];
+        for (let k = 0; k <= 8; k++) {
+          const t = k / 8, u = 1 - t, px = u * u * x0 + 2 * u * t * mx + t * t * x1, py = u * u * y0 + 2 * u * t * my + t * t * y1;
+          const tx = 2 * u * (mx - x0) + 2 * t * (x1 - mx), ty = 2 * u * (my - y0) + 2 * t * (y1 - my), tl = Math.hypot(tx, ty) || 1, w = (w0 + (w1 - w0) * t) / tl;
+          L.push(px - ty * w, py + tx * w); Rt.unshift(px + ty * w, py - tx * w);
+        }
+        P(L.concat(Rt)); F();
       }
-      const nl = 8 + Math.floor(r() * 7), blobs = [];
+      /* foliage: the clumps as slight ellipses, plus leafy lumps of mixed sizes on the side facing out of the crown;
+         lumps on the underside are flatter so the bottom edge reads as a soft, shallow scallop */
+      const ccx = lean + off;
       c.beginPath();
-      for (let i = 0; i < nl; i++) {
-        const t = tips[i % tips.length], rad = rr(.8, 1.6), bx = t[0] + rr(-1.5, 1.5), by = t[1] + rr(-.4, 1.1);
-        c.moveTo(bx + rad, by); c.arc(bx, by, rad, 0, TAU); blobs.push([bx, by, rad]);
-        /* small lumps around each blob give the cloud-like, leafy outline */
-        const nk = 5 + Math.floor(r() * 4);
-        for (let k = 0; k < nk; k++) { const a = r() * TAU, d = rad * rr(.75, 1), lr = rad * rr(.22, .42), lx = bx + Math.cos(a) * d, ly = by + Math.sin(a) * d * (Math.sin(a) < 0 ? .55 : 1); c.moveTo(lx + lr, ly); c.arc(lx, ly, lr, 0, TAU); }
+      for (const b of bl) {
+        c.moveTo(b[0] + b[2], b[1]); c.ellipse(b[0], b[1], b[2], b[3], 0, 0, TAU);
+        const oa = Math.atan2((b[1] - cy) / chh, (b[0] - ccx) / cw), nk = 4 + Math.floor(r() * 4);
+        for (let k = 0; k < nk; k++) {
+          const a = oa + rr(-1.5, 1.5), lr = b[2] * rr(.2, .44), dn = Math.sin(a) < 0, lx = b[0] + Math.cos(a) * b[2] * rr(.72, .95), ly = b[1] + Math.sin(a) * b[3] * rr(.72, .95) * (dn ? .7 : 1);
+          c.moveTo(lx + lr, ly); c.ellipse(lx, ly, lr, lr * (dn ? .7 : rr(.85, 1)), 0, 0, TAU);
+        }
       }
       F();
-      const nm = 3 + Math.floor(r() * 4);
-      for (let i = 0; i < nm; i++) {
-        const b = blobs[Math.floor(r() * blobs.length)], x = b[0] + rr(-.6, .6) * b[2], y = b[1] - b[2] * .55, l = rr(1, 3), ph = r() * 6, pts = [];
-        for (let k = 0; k <= 6; k++) pts.push(x + Math.sin(k * .9 + ph) * .1, y - l * k / 6);
-        Ln(pts, rr(.06, .09));
-      }
     }, 6, 12, "g"]
   };
 
