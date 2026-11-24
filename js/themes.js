@@ -1056,6 +1056,385 @@ const THEMES = (function () {
     ]
   });
 
+  /* ---------------- 18 · Shipwreck Graveyard: a ghost ship, in B harmonic minor ----------------
+     A low brass section sings the hook, a ship's bell tolls the answer, a ghostly "oo" choir and low strings
+     saw an ostinato, a tuba walks root and fifth; timpani, a deep kick and rattling chains, the sea wind
+     rising and falling. 41 bars. */
+  const shipHook = ">1:6 5,:2 >1:4 3:4 | >2:2 1:2 7,:4 >5,:8 | >6,:6 7,:2 >1:4 3:4 | >2:4 7,:4 >1:8";
+  const shipHook2 = ">3:6 4:2 >5:4 6:4 | >5:2 4:2 3:4 >2:8 | >4:6 5:2 >6:4 8:4 | >7:4 5:4 >5:8";
+  const shipB = ">5:8 4:8 | >3:8 2:8 | >1:8 7,:8 | >5,:16";
+  const ship = build({
+    bpm: 164, tonic: 59, scale: "harmonicMinor", swing: 0, level: 0.643,
+    reverb: { seconds: 3, damp: 0.75, level: 0.9 }, delay: { beats: 1.5, feedback: 0.3, level: 0.35 },
+    channels: {
+      brass: { synth: "brass", octave: 0, gain: .755, pan: 0.05, reverb: 0.35, role: "lead", params: { level: 0.28, bright: 0.55, attack: 0.04, swell: 0.12 } },
+      bell: { tone: "bell", octave: 0, gain: .401, pan: -0.3, reverb: 0.55, delay: 0.2, role: "answer" },
+      choir: { synth: "choir", octave: -1, gain: 1.68, pan: 0.15, reverb: 0.6, role: "harmony", params: { level: 0.16, f1: 320, f2: 800, f3: 2300, attack: 0.7, release: 1 } },
+      cellos: { synth: "strings", octave: -2, gain: 1.68, pan: -0.15, reverb: 0.3, role: "harmony", params: { staccato: true, level: 0.14, cutoff: 1100 } },
+      tuba: { synth: "brass", octave: -2, gain: .392, role: "bass", params: { level: 0.3, bright: 0.4, attack: 0.03 } },
+      timp: { tone: "timp", octave: -2, gain: .238, reverb: 0.4, role: "drums" },
+      kick: { drum: "kick", opts: { deep: true }, gain: .119, role: "drums" },
+      snare: { drum: "snare", gain: .0953, reverb: 0.4, role: "drums" },
+      chain: { drum: "chain", gain: .0715, pan: 0.35, reverb: 0.4, role: "drums" },
+      tomLo: { drum: "tom", opts: { tone: 0.6 }, gain: .131, pan: -0.25, reverb: 0.4, role: "drums" },
+      crash: CRASH, riser: RISER,
+      sea: { synth: "swell", gain: 0.6, pan: -0.2, reverb: 0.5, role: "fx", params: { level: 0.07 } }
+    },
+    parts: {
+      pads: { chord: 16 },
+      saw: { line: "R:2 R:2 5:2 R:2 8:2 R:2 5:2 R:2" },
+      saw8: { line: "R:4 5:4 8:4 5:4" },
+      toll: { melody: ">1:16" },
+      timpA: { line: ">R:4 .:4 5,:4 .:4" },
+      timpRoll: { line: "R:1 R:1 R:1 R:1 R:1 R:1 R:1 R:1 >R:1 R:1 R:1 R:1 >R:4" },
+      tubaA: { line: ">R:4 .:4 5,:4 .:4" },
+      tubaB: { line: ">R:4 5,:4 R:4 5,:4" },
+      tubaEnd: { line: ">R:16" },
+      tonic: { melody: ">1:16" },
+      gust: { hold: 1, len: 32, every: 32 },
+      b1: { beat: { kick: "X.......X.......", chain: "..........x....." } },
+      b2: { beat: { kick: "X.......X.......", snare: "....X.......X...", chain: "..x.......x....." } },
+      b3: { beat: { kick: "X.....x.X.......", snare: "....X.......X...", tomLo: "..............xx", chain: "..x.......x....." } },
+      b4: { beat: { kick: "X...x...X...x...", snare: "....X.......X..x", tomLo: "..x.......x...xx", chain: "x...x...x...x..." } },
+      fill: { beat: { kick: "X.......X.......", tomLo: "........x.x.xxXX" } },
+      brk: { beat: { chain: "x..............." } },
+      last: { beat: { kick: "X..............." } }
+    },
+    song: [
+      ["intro", 2, "1 5", { choir: "pads", bell: { part: "toll", vel: 0.7 }, sea: "gust", beat: "brk" }],
+      ["A", 6, "1 6 4 5", { brass: mel([shipHook, shipHook2], ">2:4 7,:4 >1:8"), choir: "pads", tuba: "tubaA", timp: "timpA", beat: "b1", sea: "gust" }, { end: "1", fill: "fill" }],
+      ["B", 9, "1 6 4 5", { brass: mel([shipHook, shipHook2]), bell: { part: "toll", vel: 0.6 }, cellos: "saw8", choir: "pads", tuba: "tubaA", timp: "timpA", beat: "b2" }, { crash: true, fill: "fill" }],
+      ["C", 8, "6 4 1 5", { bell: mel(shipB), brass: mel(".:8 >5:4 3:4", null, { vel: 0.7 }), cellos: "saw", choir: "pads", tuba: "tubaB", timp: "timpA", beat: "b3", sea: "gust" }, { fill: "fill" }],
+      ["brk", 1, "5", { brass: mel(">7:4 5:4 >5:8"), timp: "timpRoll", beat: "brk" }, { riser: 1 }],
+      ["D", 3, "1 6 4", { brass: mel(shipHook2), bell: mel(shipHook2, null, { vel: 0.5 }), cellos: "saw", choir: "pads", tuba: "tubaB", timp: "timpA", beat: "b4" }, { crash: true }],
+      ["E", 7, "5 1 6 4 5 6 5", { bell: mel([">5:8 7:8", shipB]), brass: mel(".:8 >3:4 5:4"), cellos: "saw", choir: "pads", tuba: "tubaB", timp: "timpA", beat: "b3", sea: "gust" }, { fill: "fill" }],
+      ["F", 4, "1 6 4 5", { brass: mel(shipHook), cellos: "saw8", choir: "pads", tuba: "tubaA", beat: "b2" }],
+      ["G", 1, "1", { brass: mel(">5,:4 7,:4 >1:8"), choir: "pads", tuba: "tubaA", beat: "b1", sea: "gust" }],
+      ["end", 1, "1", { brass: "tonic", bell: "toll", choir: "pads", timp: "timpRoll", tuba: "tubaEnd", beat: "last" }]
+    ]
+  });
+
+  /* ---------------- 19 · Geyser Flats: steaming funk, in E Dorian ----------------
+     A squelchy lead slides between its notes, a plucked synth answers through the echo, an electric piano
+     skanks the offbeats, a bubbling sixteenth bass and a syncopated funk kit; steam hisses up into each drop. 42 bars. */
+  const geyHook = ">1:2 .:1 3:1 >4:2 5:2 .:2 7:2 >6:2 5:2 | >4:3 3:1 >1:4 .:4 >5,:4 | >1:2 .:1 3:1 >4:2 5:2 .:2 8:2 >7:2 6:2 | >5:3 4:1 >3:2 1:2 >7,:8";
+  const geyHook2 = ">8:2 .:1 8:1 >7:2 6:2 .:2 5:2 >6:4 | >4:2 .:1 4:1 >3:2 1:2 .:2 3:2 >4:4 | >5:2 .:1 5:1 >6:2 8:2 .:2 10:2 >9:4 | >8:4 7:2 6:2 >5:8";
+  const geyB = ">5:2 .:2 5:2 .:2 >6:4 5:4 | >3:2 .:2 3:2 .:2 >4:4 3:4 | >1:2 .:2 1:2 .:2 >2:4 3:4 | >5:16";
+  const geyser = build({
+    bpm: 168, tonic: 64, scale: "dorian", swing: 0.06, level: 0.689,
+    reverb: { seconds: 1.6, damp: 0.5, level: 0.8 }, delay: { beats: 0.75, feedback: 0.35, level: 0.55 },
+    channels: {
+      acid: { synth: "lead", octave: 0, gain: 1.25, pan: 0.05, reverb: 0.2, delay: 0.15, glide: true, legato: 1, role: "lead", params: { level: 0.2, wave: "sawtooth", wave2: "square", mix2: 0.3, cutoff: 1500, q: 6, vibrato: 0, glide: 0.04, attack: 0.005 } },
+      zap: { tone: "pluck", octave: 1, gain: 1.78, pan: -0.3, reverb: 0.25, delay: 0.4, role: "answer" },
+      keys: { tone: "epiano", octave: -1, gain: .312, pan: 0.25, reverb: 0.2, role: "harmony" },
+      bass: { synth: "bass", octave: -2, gain: .623, role: "bass", params: { cutoff: 700, q: 5, snap: 0.05, level: 0.34, decay: 0.1, sustain: 0.4 } },
+      kick: { drum: "kick", opts: { punch: 0.8 }, gain: .163, role: "drums" },
+      snare: { drum: "snare", gain: .133, reverb: 0.2, role: "drums" },
+      hat: { drum: "hat", gain: .0667, pan: 0.3, role: "drums" },
+      open: { drum: "hat", opts: { open: true }, gain: .0519, pan: 0.3, role: "drums" },
+      clap: { drum: "clap", gain: .0741, reverb: 0.3, role: "drums" },
+      crash: CRASH, riser: RISER,
+      steam: { synth: "swell", gain: 0.6, pan: 0.2, reverb: 0.4, role: "fx", params: { level: 0.07 } }
+    },
+    parts: {
+      skank: { chord: 2, rhythm: "..x...x...x...x." },
+      skank2: { chord: 1, rhythm: "..x..xx...x..x.x" },
+      roll: { line: ROLL },
+      bubble: { line: "R:1 .:1 R:1 .:1 8:1 .:1 R:2 .:2 7,:1 .:1 R:2 5:2" },
+      bassLite: { line: ">R:4 .:4 R:2 .:2 5,:4" },
+      bassEnd: { line: ">R:16" },
+      tonic: { melody: ">1:16" },
+      hiss: { hold: 1, len: 16, every: 32 },
+      b1: { beat: { kick: "X.........X.....", hat: "x.x.x.x.x.x.x.x." } },
+      b2: { beat: { kick: "X..x......X..x..", snare: "....X.......X...", hat: "x.x.x.x.x.x.x.x." } },
+      b3: { beat: { kick: "X..x..x...X..x..", snare: "....X..o.o..X..o", hat: "xoxoxoxoxoxoxoxo", open: "......x.......x." } },
+      b4: { beat: { kick: "X..x..x...X..x..", snare: "....X..o.o..X..o", clap: "....X.......X...", hat: "xoxoxoxoxoxoxoxo", open: "..x...x...x...x." } },
+      fill: { beat: { kick: "X..x......X.....", snare: "........x.xoxxXX" } },
+      brk: { beat: { hat: "x.x.x.x.x.x.x.x." } },
+      last: { beat: { kick: "X..............." } }
+    },
+    song: [
+      ["intro", 2, "1 4", { keys: "skank", steam: "hiss", beat: "brk" }],
+      ["A", 6, "1 4 1 7", { acid: mel([geyHook, geyHook2]), keys: "skank", bass: "bassLite", beat: "b1" }, { fill: "fill" }],
+      ["B", 10, "1 4 1 7", { acid: mel([geyHook, geyHook2]), zap: mel(".:12 >8:2 9:2 | .:16", null, { vel: 0.7 }), keys: "skank", bass: "bubble", beat: "b2", steam: "hiss" }, { crash: true, fill: "fill" }],
+      ["C", 8, "4 7 1 1", { zap: mel(geyB), acid: mel(".:8 >5:2 .:1 5:1 >6:4", null, { vel: 0.7 }), keys: "skank2", bass: "bubble", beat: "b3" }, { fill: "fill" }],
+      ["brk", 1, "7", { acid: mel(">5:3 4:1 >3:2 1:2 >7,:8"), keys: "skank", beat: "brk" }, { riser: 1 }],
+      ["D", 3, "1 4 1", { acid: mel(geyHook2), zap: mel(geyHook2, null, { vel: 0.6 }), keys: "skank2", bass: "bubble", beat: "b4" }, { crash: true }],
+      ["E", 7, "4 7 1 1 4 7 1", { zap: mel([geyB, ">5:2 .:2 5:2 .:2 >6:4 8:4 | >7:16"]), acid: mel(".:8 >3:2 .:1 3:1 >4:4"), keys: "skank2", bass: "bubble", beat: "b3", steam: "hiss" }, { fill: "fill" }],
+      ["F", 4, "1 4 1 7", { acid: mel(geyHook), keys: "skank", bass: "bubble", beat: "b2" }],
+      ["G", 1, "1", { acid: mel(">5:3 4:1 >3:2 1:2 >1:8"), keys: "skank", bass: "bassLite", beat: "b1" }],
+      ["end", 1, "1", { acid: "tonic", zap: "roll", keys: { part: "skank" }, bass: "bassEnd", beat: "last" }]
+    ]
+  });
+
+  /* ---------------- 20 · Ashfall Caldera: a volcano, in C# Phrygian dominant ----------------
+     A gritty saw lead snarls the hook, brass hits punch the answers, staccato strings drive an ostinato over a
+     driven piston bass; a heavy kick, double-time toms, crackling embers, and a low rumble under the climax. 43 bars. */
+  const ashHook = ">1:2 2:2 3:2 2:2 >1:4 5,:4 | >1:2 2:2 3:2 5:2 >4:4 3:4 | >6:2 5:2 4:2 3:2 >2:4 3:4 | >2:4 1:4 >7,:8";
+  const ashHook2 = ">5:4 6:2 5:2 >8:4 6:4 | >5:2 4:2 3:2 4:2 >5:8 | >6:4 8:2 6:2 >5:4 4:4 | >3:4 2:4 >1:8";
+  const ashB = ">8:8 6:8 | >5:8 3:8 | >4:8 2:8 | >1:16";
+  const ash = build({
+    bpm: 172, tonic: 61, scale: "phrygianDominant", swing: 0, level: 0.665,
+    reverb: { seconds: 2.2, damp: 0.6, level: 0.85 }, delay: { beats: 0.75, feedback: 0.3, level: 0.4 },
+    channels: {
+      saw: { synth: "lead", octave: 0, gain: 1.44, pan: 0.05, reverb: 0.25, delay: 0.12, role: "lead", params: { level: 0.2, wave: "sawtooth", wave2: "sawtooth", detune: 14, mix2: 0.7, cutoff: 3400, vibrato: 10 } },
+      hits: { synth: "brass", octave: -1, gain: .441, pan: -0.2, reverb: 0.3, role: "answer", params: { level: 0.3, bright: 0.85, attack: 0.01, stab: true } },
+      ost: { synth: "strings", octave: -1, gain: 3.12, pan: 0.2, reverb: 0.3, role: "harmony", params: { staccato: true, level: 0.15, cutoff: 1500 } },
+      pad: { synth: "pad", octave: -1, gain: 2.5, reverb: 0.45, role: "harmony", params: { level: 0.07, cutoff: 1400, attack: 0.4, release: 0.8 } },
+      bass: { synth: "bass", octave: -2, gain: 0.36, role: "bass", params: { cutoff: 600, level: 0.32, decay: 0.12, sustain: 0.5, drive: 3 } },
+      kick: { drum: "kick", opts: { deep: true, punch: 1 }, gain: .119, role: "drums" },
+      snare: { drum: "snare", gain: .0991, reverb: 0.3, role: "drums" },
+      tomLo: { drum: "tom", opts: { tone: 0.7 }, gain: .109, pan: -0.25, reverb: 0.3, role: "drums" },
+      tomHi: { drum: "tom", opts: { tone: 1.1 }, gain: .0842, pan: 0.25, reverb: 0.3, role: "drums" },
+      ember: { drum: "snap", gain: .0396, pan: 0.4, reverb: 0.3, role: "drums" },
+      crash: CRASH, riser: RISER,
+      rumble: { synth: "swell", gain: 0.7, reverb: 0.4, role: "fx", params: { level: 0.1, kind: "rumble" } }
+    },
+    parts: {
+      pads: { chord: 16 },
+      stab: { chord: 2, rhythm: "X.....X.....X..." },
+      ost16: { line: "R:1 R:1 3:1 R:1 5:1 R:1 3:1 R:1 R:1 R:1 3:1 R:1 5:1 R:1 8:1 5:1" },
+      ost8: { line: "R:2 3:2 5:2 3:2 R:2 3:2 5:2 8:2" },
+      piston: { line: ">R:2 R:2 R:2 R:2 R:2 R:2 5,:2 R:2" },
+      bassLite: { line: ">R:8 R:4 5,:4" },
+      bassEnd: { line: ">R:16" },
+      tonic: { melody: ">1:16" },
+      quake: { hold: 1, len: 32, every: 32 },
+      b1: { beat: { kick: "X.......X.......", ember: "...x.....x....x." } },
+      b2: { beat: { kick: "X.......X..x....", snare: "....X.......X...", ember: "...x.....x....x." } },
+      b3: { beat: { kick: "X..x....X..x....", snare: "....X.......X...", tomLo: "x.x.x.x.x.x.x.x.", ember: ".x....x....x..x." } },
+      b4: { beat: { kick: "X.x.X.x.X.x.X.x.", snare: "....X.......X...", tomLo: "xxx.xxx.xxx.xxx.", tomHi: "...x...x...x...x", ember: ".x..x.x..x..x.x." } },
+      fill: { beat: { kick: "X.......X.......", tomHi: "........xxxx....", tomLo: "............XXXX" } },
+      brk: { beat: { tomLo: "x.x.x.x.x.x.x.x." } },
+      last: { beat: { kick: "X..............." } }
+    },
+    song: [
+      ["intro", 2, "1 2", { pad: "pads", rumble: "quake", beat: "brk" }],
+      ["A", 5, "1 2 1 7", { saw: mel([ashHook, ashHook2]), ost: "ost8", bass: "bassLite", beat: "b1" }, { fill: "fill" }],
+      ["B", 10, "1 2 1 7", { saw: mel([ashHook, ashHook2]), hits: "stab", ost: "ost8", bass: "piston", beat: "b2" }, { crash: true, fill: "fill" }],
+      ["C", 9, "1 4 2 1", { hits: mel(ashB), saw: mel(".:8 >5:2 4:2 3:4", null, { vel: 0.7 }), ost: "ost16", pad: "pads", bass: "piston", beat: "b3" }, { fill: "fill" }],
+      ["brk", 1, "7", { saw: mel(">2:4 1:4 >7,:8"), rumble: "quake", beat: "brk" }, { riser: 1 }],
+      ["D", 4, "1 2 1 7", { saw: mel(ashHook2), hits: "stab", ost: "ost16", pad: "pads", bass: "piston", beat: "b4", rumble: "quake" }, { crash: true }],
+      ["E", 5, "4 2 1 7 1", { hits: mel(ashB, ">1:16"), saw: mel(".:8 >3:4 5:4"), ost: "ost16", pad: "pads", bass: "piston", beat: "b3" }, { fill: "fill" }],
+      ["F", 5, "1 2 1 7 1", { saw: mel(ashHook), ost: "ost8", bass: "piston", beat: "b2" }],
+      ["G", 2, "2 1", { saw: mel(">2:4 1:4 >7,:8 | >1:16"), pad: "pads", bass: "bassLite", beat: "b1", rumble: "quake" }],
+      ["end", 1, "1", { saw: "tonic", hits: { part: "stab" }, pad: "pads", bass: "bassEnd", beat: "last" }]
+    ]
+  });
+
+  /* ---------------- 21 · Echo Palace: a baroque hall, in G harmonic minor ----------------
+     A harpsichord spins the hook in running eighths, a bell answers and its echoes answer back in time, strings
+     hold the chords, an upright walks quarters, timpani mark the cadences, all in a long marble reverb. 44 bars. */
+  const palHook = ">1:2 2:2 3:2 1:2 >5:4 3:4 | >4:2 3:2 2:2 4:2 >7,:4 5,:4 | >1:2 3:2 5:2 8:2 >7:2 6:2 5:2 4:2 | >3:4 2:4 >1:8";
+  const palHook2 = ">5:2 6:2 7:2 5:2 >8:4 5:4 | >6:2 5:2 4:2 6:2 >5:4 3:4 | >4:2 5:2 6:2 4:2 >3:2 4:2 5:2 3:2 | >2:4 7,:4 >5,:8";
+  const palB = ">8:4 7:4 >6:8 | >5:4 4:4 >3:8 | >4:4 5:4 >7:4 5:4 | >5:16";
+  const palace = build({
+    bpm: 176, tonic: 67, scale: "harmonicMinor", swing: 0, level: 0.838,
+    reverb: { seconds: 3.6, damp: 0.35, level: 0.95 }, delay: { beats: 0.75, feedback: 0.45, level: 0.6 },
+    channels: {
+      harpsi: { tone: "harpsi", octave: 0, gain: 2.75, pan: -0.05, reverb: 0.35, delay: 0.15, role: "lead" },
+      bell: { tone: "bell", octave: 1, gain: .352, pan: 0.3, reverb: 0.5, delay: 0.45, role: "answer" },
+      strings: { synth: "strings", octave: -1, gain: 1.39, pan: 0.1, reverb: 0.5, role: "harmony", params: { level: 0.09, cutoff: 2400, attack: 0.3, release: 0.7 } },
+      continuo: { tone: "harpsi", octave: -1, gain: .836, pan: 0.3, reverb: 0.3, role: "harmony" },
+      bass: { tone: "upright", octave: -2, gain: 1.12, role: "bass" },
+      timp: { tone: "timp", octave: -2, gain: .297, reverb: 0.4, role: "drums" },
+      kick: { drum: "kick", opts: { deep: true, punch: 0.4 }, gain: .126, role: "drums" },
+      snare: { drum: "snare", gain: .104, reverb: 0.45, role: "drums" },
+      tick: { drum: "tick", gain: .0667, pan: -0.3, role: "drums" },
+      crash: CRASH, riser: RISER
+    },
+    parts: {
+      pads: { chord: 16 },
+      broken: { line: "R:2 5:2 3:2 5:2 R:2 5:2 3:2 5:2" },
+      roll: { line: ROLL },
+      walk: { line: ">R:4 3:4 5:4 8:4" },
+      walk2: { line: ">R:4 5,:4 3:4 5:4" },
+      bassEnd: { line: ">R:16" },
+      timpA: { line: ".:8 >R:4 5,:4" },
+      timpRoll: { line: "R:1 R:1 R:1 R:1 R:1 R:1 R:1 R:1 >R:1 R:1 R:1 R:1 >R:4" },
+      tonic: { melody: ">1:16" },
+      b1: { beat: { tick: "x...x...x...x..." } },
+      b2: { beat: { kick: "X.......X.......", snare: "....x.......x...", tick: "x.x.x.x.x.x.x.x." } },
+      b3: { beat: { kick: "X.......X.......", snare: "....X.......X...", tick: "xoxoxoxoxoxoxoxo" } },
+      b4: { beat: { kick: "X...x...X...x...", snare: "....X.......X..x", tick: "xoxoxoxoxoxoxoxo" } },
+      fill: { beat: { kick: "X.......X.......", snare: "........x.x.xxxx" } },
+      brk: { beat: { tick: "x...x...x...x..." } },
+      last: { beat: { kick: "X..............." } }
+    },
+    song: [
+      ["intro", 2, "1 5", { strings: "pads", continuo: { part: "broken", vel: 0.7 }, beat: "brk" }],
+      ["A", 6, "1 6 2 5", { harpsi: mel([palHook, palHook2], ">3:4 2:4 >1:8"), strings: "pads", bass: "walk", beat: "b1" }, { end: "1", fill: "fill" }],
+      ["B", 9, "1 6 2 5", { harpsi: mel([palHook, palHook2]), bell: mel(".:12 >5:2 8:2 | .:16", null, { vel: 0.7 }), continuo: "broken", strings: "pads", bass: "walk", timp: "timpA", beat: "b2" }, { crash: true, fill: "fill" }],
+      ["C", 7, "4 1 5 1", { bell: mel(palB), harpsi: mel(".:8 >5:2 6:2 7:2 5:2", null, { vel: 0.7 }), continuo: "broken", strings: "pads", bass: "walk2", timp: "timpA", beat: "b3" }, { fill: "fill" }],
+      ["brk", 1, "5", { harpsi: mel(">2:4 7,:4 >5,:8"), timp: "timpRoll", beat: "brk" }, { riser: 1 }],
+      ["D", 3, "1 6 2", { harpsi: mel(palHook2), bell: mel(palHook2, null, { vel: 0.5 }), continuo: "broken", strings: "pads", bass: "walk", timp: "timpA", beat: "b4" }, { crash: true }],
+      ["E", 8, "5 4 1 5 1 6 2 5", { bell: mel([">5:4 7,:4 >5,:8", palB]), harpsi: mel(".:8 >3:2 4:2 5:2 3:2"), continuo: "broken", strings: "pads", bass: "walk2", timp: "timpA", beat: "b3" }, { fill: "fill" }],
+      ["F", 6, "1 6 2 5", { harpsi: mel(palHook), strings: "pads", bass: "walk", beat: "b2" }],
+      ["G", 2, "5 1", { harpsi: mel(">3:4 2:4 >7,:8 | >1:16"), strings: "pads", bass: "walk", beat: "b1" }],
+      ["end", 1, "1", { harpsi: "roll", bell: "tonic", strings: "pads", timp: "timpRoll", bass: "bassEnd", beat: "last" }]
+    ]
+  });
+
+  /* ---------------- 22 · Library of Dust: a quiet study, in D minor ----------------
+     Pizzicato strings tiptoe the hook, a clarinet sighs the answer, a celesta turns broken chords, a reedy bassoon
+     carries the bass; brushes, a rim and a soft shaker like pages turning, in a small wooden room. 44 bars. */
+  const libHook = ">5:2 .:2 5:2 6:2 >5:2 3:2 .:4 | >4:2 .:2 4:2 5:2 >4:2 2:2 .:4 | >3:2 .:2 3:2 4:2 >5:2 8:2 7:2 6:2 | >5:4 4:2 2:2 >1:8";
+  const libHook2 = ">8:2 .:2 8:2 9:2 >8:2 6:2 .:4 | >7:2 .:2 7:2 8:2 >7:2 5:2 .:4 | >6:2 .:2 6:2 5:2 >4:2 3:2 2:2 3:2 | >4:4 2:4 >5,:8";
+  const libB = ">3:6 4:2 >5:8 | >4:6 3:2 >2:8 | >3:6 4:2 >5:4 6:4 | >5:16";
+  const library = build({
+    bpm: 176, tonic: 62, scale: "aeolian", swing: 0.08, level: 0.721,
+    reverb: { seconds: 1.3, damp: 0.7, level: 0.75 }, delay: { beats: 0.75, feedback: 0.25, level: 0.35 },
+    channels: {
+      pizz: { tone: "pizz", octave: 0, gain: 2.89, pan: -0.05, reverb: 0.3, role: "lead" },
+      clar: { synth: "reed", octave: 0, gain: .601, pan: 0.25, reverb: 0.35, role: "answer", params: { level: 0.12, cutoff: 1500, detune: 0, vibrato: 6 } },
+      celesta: { tone: "celesta", octave: 0, gain: .294, pan: 0.3, reverb: 0.4, delay: 0.15, role: "harmony" },
+      pad: { synth: "pad", octave: -1, gain: .47, reverb: 0.45, role: "harmony", params: { level: 0.07, cutoff: 1100, wave: "triangle", attack: 0.5, release: 0.8 } },
+      bassoon: { synth: "reed", octave: -2, gain: .706, role: "bass", params: { level: 0.14, cutoff: 900, detune: 0 } },
+      brush: { drum: "brush", gain: .166, pan: 0.2, role: "drums" },
+      rim: { drum: "rim", gain: .143, pan: -0.2, reverb: 0.2, role: "drums" },
+      kick: { drum: "kick", opts: { deep: true, punch: 0.3 }, gain: .178, role: "drums" },
+      shaker: { drum: "shaker", gain: .107, pan: 0.35, role: "drums" },
+      crash: CRASH, riser: RISER
+    },
+    parts: {
+      pads: { chord: 16 },
+      broken: { line: "R:2 5:2 8:2 5:2 R:2 5:2 8:2 5:2" },
+      broken16: { line: "R:1 5:1 8:1 5:1 10:1 8:1 5:1 8:1 R:1 5:1 8:1 5:1 10:1 8:1 12:1 10:1" },
+      roll: { line: ROLL },
+      bassA: { line: ">R:4 .:4 5,:4 .:4" },
+      bassB: { line: ">R:4 5,:4 R:4 5,:4" },
+      bassEnd: { line: ">R:16" },
+      tonic: { melody: ">1:16" },
+      b1: { beat: { brush: "x.o.x.o.x.o.x.o." } },
+      b2: { beat: { kick: "X.......X.......", rim: "....x.......x...", brush: "x.o.x.o.x.o.x.o." } },
+      b3: { beat: { kick: "X.......X..x....", rim: "....x.......x...", brush: "xoxoxoxoxoxoxoxo", shaker: "..x...x...x...x." } },
+      b4: { beat: { kick: "X...x...X..x....", rim: "....X..x....X..x", brush: "xoxoxoxoxoxoxoxo", shaker: "x.x.x.x.x.x.x.x." } },
+      fill: { beat: { kick: "X.......X.......", rim: "........x.x.xxxx" } },
+      brk: { beat: { brush: "x...x...x...x..." } },
+      last: { beat: { kick: "X..............." } }
+    },
+    song: [
+      ["intro", 2, "1 7", { celesta: { part: "broken", vel: 0.7 }, pad: "pads", beat: "brk" }],
+      ["A", 6, "1 4 6 7", { pizz: mel([libHook, libHook2], ">5:4 4:2 2:2 >1:8"), pad: "pads", bassoon: "bassA", beat: "b1" }, { end: "1", fill: "fill" }],
+      ["B", 9, "1 4 6 7", { pizz: mel([libHook, libHook2]), clar: mel(".:12 >5:4 | .:16", null, { vel: 0.7 }), celesta: "broken", bassoon: "bassA", beat: "b2" }, { crash: true, fill: "fill" }],
+      ["C", 7, "6 7 4 5", { clar: mel(libB), pizz: mel(".:8 >5:2 .:2 5:2 6:2", null, { vel: 0.7 }), celesta: "broken", pad: "pads", bassoon: "bassB", beat: "b3" }, { fill: "fill" }],
+      ["brk", 1, "5", { pizz: mel(">4:4 2:4 >5,:8"), celesta: "broken", beat: "brk" }, { riser: 1 }],
+      ["D", 3, "1 4 6", { pizz: mel(libHook2), clar: mel(libHook2, null, { vel: 0.6 }), celesta: "broken16", pad: "pads", bassoon: "bassB", beat: "b4" }, { crash: true }],
+      ["E", 8, "6 7 4 5 6 7 4 5", { clar: mel(libB), pizz: mel(".:8 >3:2 .:2 3:2 4:2"), celesta: "broken16", pad: "pads", bassoon: "bassB", beat: "b3" }, { fill: "fill" }],
+      ["F", 6, "1 4 6 7", { pizz: mel(libHook), celesta: "broken", bassoon: "bassA", beat: "b2" }],
+      ["G", 2, "5 1", { pizz: mel(">5:4 4:2 2:2 >5,:8 | >1:16"), pad: "pads", bassoon: "bassA", beat: "b1" }],
+      ["end", 1, "1", { pizz: "tonic", celesta: "roll", pad: "pads", bassoon: "bassEnd", beat: "last" }]
+    ]
+  });
+
+  /* ---------------- 23 · Stained Cathedral: a great nave, in F minor ----------------
+     A pipe organ intones the hook over its own pedal, a choir sings "ah", tubular bells toll the answer, timpani,
+     taiko and a deep kick roll under a long dark reverb; the snare joins only for the climbs. 45 bars. */
+  const cathHook = ">1:4 3:4 >5:4 4:2 3:2 | >4:4 6:4 >8:8 | >7:4 6:2 5:2 >4:4 3:4 | >2:4 7,:4 >1:8";
+  const cathHook2 = ">8:4 10:4 >12:4 11:2 10:2 | >9:4 8:4 >6:8 | >6:4 8:2 6:2 >5:4 4:4 | >3:4 2:4 >5,:8";
+  const cathB = ">8:8 5:8 | >6:8 4:8 | >5:8 3:8 | >5,:16";
+  const cathedral = build({
+    bpm: 180, tonic: 65, scale: "aeolian", swing: 0, level: 0.673,
+    reverb: { seconds: 4.4, damp: 0.65, level: 1 }, delay: { beats: 1, feedback: 0.25, level: 0.3 },
+    channels: {
+      organ: { synth: "organ", octave: 0, gain: 1.51, pan: 0.05, reverb: 0.5, role: "lead", params: { pipe: true, level: 0.12 } },
+      bells: { tone: "bell", octave: 0, gain: .345, pan: -0.3, reverb: 0.6, role: "answer" },
+      choir: { synth: "choir", octave: -1, gain: 1.41, pan: 0.15, reverb: 0.6, role: "harmony", params: { level: 0.18, f1: 780, f2: 1150, f3: 2700, attack: 0.5, release: 1 } },
+      pedal: { synth: "organ", octave: -2, gain: 1.16, reverb: 0.4, role: "bass", params: { pipe: true, level: 0.12 } },
+      timp: { tone: "timp", octave: -2, gain: .137, reverb: 0.45, role: "drums" },
+      taiko: { drum: "taiko", gain: .0754, reverb: 0.45, role: "drums" },
+      kick: { drum: "kick", opts: { deep: true }, gain: .0685, role: "drums" },
+      snare: { drum: "snare", gain: .0514, reverb: 0.5, role: "drums" },
+      tomLo: { drum: "tom", opts: { tone: 0.6 }, gain: .0685, pan: -0.25, reverb: 0.45, role: "drums" },
+      crash: CRASH, riser: RISER
+    },
+    parts: {
+      pads: { chord: 16 },
+      chorale: { chord: 8 },
+      toll: { melody: ">1:16" },
+      tollUp: { melody: ">8:8 5:8" },
+      pedalA: { line: ">R:16" },
+      pedalB: { line: ">R:8 5,:8" },
+      timpA: { line: ">R:4 .:4 5,:4 .:4" },
+      timpRoll: { line: "R:1 R:1 R:1 R:1 R:1 R:1 R:1 R:1 >R:1 R:1 R:1 R:1 >R:4" },
+      tonic: { melody: ">1:16" },
+      b1: { beat: { taiko: "X...............", kick: "........X......." } },
+      b2: { beat: { taiko: "X.......X.......", kick: "X.......X.......", tomLo: "..............x." } },
+      b3: { beat: { taiko: "X.......X.......", kick: "X.....x.X.......", snare: "....X.......X...", tomLo: "..............xx" } },
+      b4: { beat: { taiko: "X...X...X...X...", kick: "X...x...X...x...", snare: "....X.......X...", tomLo: "..x.......x...xx" } },
+      fill: { beat: { taiko: "X.......X.......", tomLo: "........x.x.xxXX" } },
+      brk: { beat: { taiko: "X..............." } },
+      last: { beat: { taiko: "X..............." } }
+    },
+    song: [
+      ["intro", 2, "1 5", { choir: "pads", pedal: "pedalA", bells: { part: "toll", vel: 0.7 } }],
+      ["A", 5, "1 6 4 5", { organ: mel([cathHook, cathHook2], ">2:4 7,:4 >1:8"), choir: "pads", pedal: "pedalA", timp: "timpA", beat: "b1" }, { end: "1", fill: "fill" }],
+      ["B", 11, "1 6 4 5", { organ: mel([cathHook, cathHook2]), bells: { part: "toll", vel: 0.6 }, choir: "chorale", pedal: "pedalB", timp: "timpA", beat: "b2" }, { crash: true, fill: "fill" }],
+      ["C", 7, "4 5 1 1", { bells: mel(cathB), organ: mel(".:8 >5:4 4:2 3:2", null, { vel: 0.7 }), choir: "chorale", pedal: "pedalB", timp: "timpA", beat: "b3" }, { fill: "fill" }],
+      ["brk", 1, "5", { organ: mel(">2:4 7,:4 >5,:8"), timp: "timpRoll", beat: "brk" }, { riser: 1 }],
+      ["D", 3, "1 6 4", { organ: mel(cathHook2), bells: { part: "tollUp", vel: 0.8 }, choir: "chorale", pedal: "pedalB", timp: "timpA", beat: "b4" }, { crash: true }],
+      ["E", 9, "4 5 1 1 6 4 5 5 1", { bells: mel([cathB, ">8:8 10:8 | >9:8 7:8"]), organ: mel(".:8 >3:4 5:4"), choir: "chorale", pedal: "pedalB", timp: "timpA", beat: "b3" }, { fill: "fill" }],
+      ["F", 5, "1 6 4 5 1", { organ: mel(cathHook), choir: "pads", pedal: "pedalA", timp: "timpA", beat: "b2" }],
+      ["G", 2, "5 1", { organ: mel(">2:4 7,:4 >5,:8 | >1:16"), choir: "pads", pedal: "pedalA", beat: "b1" }],
+      ["end", 1, "1", { organ: "tonic", bells: "toll", choir: "pads", timp: "timpRoll", pedal: "pedalA", beat: "last" }]
+    ]
+  });
+
+  /* ---------------- 24 · High Steel: a skyscraper big band, in E Dorian ----------------
+     Trumpet stabs punch the hook, a saxophone answers, an organ comps, an upright walks; a swung kit with a ride,
+     a cowbell and girders clanging (an anvil). The long climax climbs in three steps. 46 bars. */
+  const steelHook = ">5:1 .:1 5:2 .:2 >7:2 .:2 5:2 .:2 >8:2 | >7:1 .:1 7:2 .:2 >5:2 .:2 3:2 .:4 | >4:1 .:1 4:2 .:2 >6:2 .:2 4:2 .:2 >5:2 | >3:2 1:2 .:2 7,:2 >1:8";
+  const steelHook2 = ">8:2 .:2 8:2 .:2 >10:4 8:2 7:2 | >6:2 .:2 6:2 .:2 >8:4 6:2 5:2 | >4:2 .:2 4:2 5:2 >6:2 .:2 8:2 .:2 | >7:4 6:2 5:2 >4:8";
+  const steelB = ">3:3 5:3 7:2 >6:4 5:4 | >4:3 6:3 8:2 >7:8 | >6:3 5:3 4:2 >3:4 1:4 | >2:16";
+  const steel = build({
+    bpm: 184, tonic: 64, scale: "dorian", swing: 0.1, level: 0.705,
+    reverb: { seconds: 1.8, damp: 0.5, level: 0.8 }, delay: { beats: 0.75, feedback: 0.25, level: 0.35 },
+    channels: {
+      trumpets: { synth: "brass", octave: 0, gain: .962, pan: 0.05, reverb: 0.25, role: "lead", params: { level: 0.28, bright: 0.9, attack: 0.015, stab: true } },
+      sax: { synth: "reed", octave: 0, gain: .934, pan: -0.25, reverb: 0.3, role: "answer", params: { level: 0.13, cutoff: 2600, detune: 4, vibrato: 10 } },
+      organ: { synth: "organ", octave: -1, gain: 1.77, pan: 0.25, reverb: 0.25, role: "harmony", params: { level: 0.08 } },
+      bass: { tone: "upright", octave: -2, gain: 1.05, role: "bass" },
+      kick: { drum: "kick", opts: { punch: 0.7 }, gain: .182, role: "drums" },
+      snare: { drum: "snare", gain: .155, reverb: 0.2, role: "drums" },
+      ride: { drum: "hat", opts: { open: true }, gain: .0547, pan: 0.3, role: "drums" },
+      hat: { drum: "hat", gain: .073, pan: 0.3, role: "drums" },
+      cowbell: { drum: "cowbell", gain: .073, pan: -0.35, role: "drums" },
+      girder: { drum: "anvil", gain: .0912, pan: 0.4, reverb: 0.45, role: "drums" },
+      crash: CRASH, riser: RISER
+    },
+    parts: {
+      comp: { chord: 2, rhythm: "..X.....x.X....." },
+      comp2: { chord: 2, rhythm: "X..x..X...x..x.." },
+      hold: { chord: 16 },
+      roll: { line: ROLL },
+      walk: { line: ">R:4 3:4 5:4 7:4" },
+      walk2: { line: ">R:4 5,:4 7,:4 R:4" },
+      bassEnd: { line: ">R:16" },
+      tonic: { melody: ">1:16" },
+      b1: { beat: { ride: "x...x.x.x...x.x.", hat: "....x.......x..." } },
+      b2: { beat: { kick: "X.......X.......", snare: "....x.......x...", ride: "x...x.x.x...x.x.", hat: "....x.......x..." } },
+      b3: { beat: { kick: "X.....x.X.......", snare: "....X..o....X..o", ride: "x...x.x.x...x.x.", cowbell: "x...x...x...x...", girder: "..............x." } },
+      b4: { beat: { kick: "X..x..x.X..x....", snare: "....X..o....X.xo", ride: "x.x.x.x.x.x.x.x.", cowbell: "x.x.x.x.x.x.x.x.", girder: "......x.......x." } },
+      fill: { beat: { kick: "X.......X.......", snare: "........xoxoXxXX" } },
+      brk: { beat: { ride: "x...x.x.x...x.x." } },
+      last: { beat: { kick: "X..............." } }
+    },
+    song: [
+      ["intro", 2, "1 4", { organ: "hold", bass: "walk", beat: "brk" }],
+      ["A", 7, "17 47 17 77", { trumpets: mel([steelHook, steelHook2]), organ: "comp", bass: "walk", beat: "b1" }, { fill: "fill" }],
+      ["B", 10, "17 47 17 77", { trumpets: mel([steelHook, steelHook2]), sax: mel(".:12 >5:2 6:2 | .:16", null, { vel: 0.7 }), organ: "comp", bass: "walk", beat: "b2" }, { crash: true, fill: "fill" }],
+      ["C", 7, "47 17 77 57", { sax: mel(steelB), trumpets: mel(".:8 >5:1 .:1 5:2 .:2 7:2", null, { vel: 0.7 }), organ: "comp2", bass: "walk2", beat: "b3" }, { fill: "fill" }],
+      ["brk", 1, "57", { trumpets: mel(">3:2 1:2 .:2 7,:2 >5,:8"), beat: "brk" }, { riser: 1 }],
+      ["D1", 4, "17 47 17 77", { trumpets: mel(steelHook2), sax: mel(steelHook2, null, { shift: -2, vel: 0.6 }), organ: "comp2", bass: "walk", beat: "b4" }, { crash: true }],
+      ["D2", 4, "47 17 77 57", { sax: mel(steelB), trumpets: mel(".:8 >8:2 .:2 8:2 .:2"), organ: "comp2", bass: "walk2", beat: "b4" }, { crash: true }],
+      ["D3", 5, "17 47 17 77 57", { trumpets: mel([steelHook, ">8:2 .:2 8:2 .:2 >10:8"]), sax: mel(steelHook, null, { octave: -1, vel: 0.55 }), organ: "comp2", bass: "walk", beat: "b4" }, { crash: true, fill: "fill" }],
+      ["F", 5, "17 47 17 77 17", { trumpets: mel(steelHook), organ: "comp", bass: "walk", beat: "b2" }],
+      ["G", 1, "1", { trumpets: mel(">3:2 1:2 .:2 7,:2 >1:8"), organ: "hold", bass: "walk", beat: "b1" }],
+      ["end", 1, "1", { trumpets: "tonic", sax: "roll", organ: "hold", bass: "bassEnd", beat: "last" }]
+    ]
+  });
+
   return { 0: home, 1: pines, 2: roof, 3: harbor, 4: attic, 5: kite, 6: dune, 7: ice, 8: zen, 9: cave, 10: iron,
-    11: reef, 12: storm, 13: alp, 14: carn, 15: rift, 16: garden, 17: steppe };
+    11: reef, 12: storm, 13: alp, 14: carn, 15: rift, 16: garden, 17: steppe,
+    18: ship, 19: geyser, 20: ash, 21: palace, 22: library, 23: cathedral, 24: steel };
 })();
