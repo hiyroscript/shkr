@@ -36,7 +36,7 @@
    ========================================================================== */
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
-const ROOT = path.resolve(__dirname, ".."), FILES = ["js/sim.js", "js/levels.js", "js/fixes.js", "js/music.js"];
+const ROOT = path.resolve(__dirname, ".."), FILES = ["js/sim.js", "js/levels.js", "js/fixes.js", "js/synth.js", "js/themes.js", "js/music.js"];
 const args = process.argv.slice(2), RENDER = args.indexOf("--render") >= 0, PERF = args.indexOf("--perf") >= 0;
 const only = args.filter(function (a) { return /^\d+$/.test(a); }).map(Number);
 
@@ -65,11 +65,13 @@ tracks.forEach(function (n) {
     (leadAt[Math.round(cell)] || (leadAt[Math.round(cell)] = [])).push(e);
   });
   let actions = 0;
-  if (sp.noLead) {
+  /* a composed theme (js/themes.js) is free of the chart: no lead on the actions to check, and none expected */
+  const TH = S.theme;
+  if (sp.noLead && !TH) {
     const n2 = E.filter(function (e) { return e.y === "n" && LEADG[e.g]; }).length;
     if (n2) errs.push("lead none, but " + n2 + " lead, doubling or cue notes");
   }
-  for (let p = 0; p < passes && !sp.noLead; p++) for (let c = 0; c < bars * 8; c++) {
+  for (let p = 0; p < passes && !sp.noLead && !TH; p++) for (let c = 0; c < bars * 8; c++) {
     const a = S.chart[c], cell = p * bars * 8 + c, list = leadAt[cell] || [], main = list.filter(function (e) { return e.g === "l"; });
     if (a) {
       actions++;
@@ -85,13 +87,13 @@ tracks.forEach(function (n) {
   const gridBad = E.filter(function (e) { return Math.abs(e.b * TPQ - Math.round(e.b * TPQ)) > 1e-6; }).length;
   if (gridBad) errs.push(gridBad + " events off the integer grid");
   if (!S.loop) {
-    const close = E.filter(function (e) { return e.y === "n" && e.g === "b" && e.b >= bars * 4; });
+    const close = E.filter(function (e) { return (TH ? e.y === "t" : e.y === "n" && e.g === "b") && e.b >= bars * 4; });
     if (!close.length || Math.abs(close[0].b * S.spb - bars * 4 * S.spb) > .001) errs.push("closing chord not at bars * 4 * spb");
     const lastIn = Math.max.apply(null, E.filter(function (e) { return e.b < bars * 4; }).map(function (e) { return e.b; }));
     if (lastIn >= bars * 4) errs.push("events past the last bar");
   }
   /* groove */
-  const G = api.MUSIC._t.GROOVE[sp.groove], sw = (G[0] - .5) * 2 * S.spb / 4;
+  const G = api.MUSIC._t.GROOVE[sp.groove], sw = TH ? (TH.swing || 0) * S.spb / 4 : (G[0] - .5) * 2 * S.spb / 4;
   /* the strum spread and the rolled closing chord are part of the playing, not timing */
   let worst = 0;
   E.forEach(function (e) {
@@ -102,8 +104,9 @@ tracks.forEach(function (n) {
   if (worst > .0081) errs.push("groove offset " + (worst * 1000).toFixed(1) + " ms beyond the swing");
   const ok = function (b) { return b ? "ok" : "FAIL"; };
   const alignOk = !errs.some(function (x) { return /cell|lead/.test(x); }), gridOk = !errs.some(function (x) { return /grid|closing|past/.test(x); }), grooveOk = !errs.some(function (x) { return /groove/.test(x); });
-  rows.push([String(n), t.def.name, String(S.bpm), String(E.length), String(actions), sp.noLead && alignOk ? "none" : ok(alignOk), ok(gridOk), ok(grooveOk) + " " + (worst * 1000).toFixed(1) + "ms",
-    (sp.noLead ? "none" : sp.lead) + " / " + (sp.noAnswer ? "none" : sp.answer) + " / " + sp.kit + " / " + sp.space]);
+  const roles = TH ? function (r) { return Object.keys(TH.channels).filter(function (k) { return TH.channels[k].role === r; }).map(function (k) { return TH.channels[k].tone || TH.channels[k].synth; }).join("+") || "none"; } : null;
+  rows.push([String(n), t.def.name, String(S.bpm), String(E.length), String(actions), TH ? "theme" : sp.noLead && alignOk ? "none" : ok(alignOk), ok(gridOk), ok(grooveOk) + " " + (worst * 1000).toFixed(1) + "ms",
+    TH ? "theme: " + roles("lead") + " / " + roles("answer") + " / " + TH.scale + " " + TH.bpm : (sp.noLead ? "none" : sp.lead) + " / " + (sp.noAnswer ? "none" : sp.answer) + " / " + sp.kit + " / " + sp.space]);
   if (errs.length) { fails++; errs.slice(0, 5).forEach(function (x) { console.log("  " + t.def.name + ": " + x); }); }
 });
 table(rows);

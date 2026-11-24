@@ -83,7 +83,7 @@ hits="$(cd "$OUT" && find . \( -name dev.js -o -name dev-config.js \) -print)"
 for s in 'dev.js' 'dev-config.js' 'dev-only' 'shadowskirr.dev'; do
   if hits="$(grep -rnF -- "$s" "$OUT")"; then leak "'$s' found" "$hits"; fi
 done
-for s in 'shkr-dev' 'shkrDev' 'Unlock all' 'Put progress back' 'Soundtracks'; do   # dev panel ids, classes and text
+for s in 'shkr-dev' 'shkrDev' 'Unlock all' 'Put progress back' 'music outside a run'; do   # dev panel ids, classes and text
   if hits="$(grep -rniF -- "$s" "$OUT")"; then leak "developer panel text '$s' found" "$hits"; fi
 done
 # definitions of the dev globals (assignments, object keys, defineProperty); read-only uses are allowed
