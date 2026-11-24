@@ -695,6 +695,9 @@ const INF = (function () {
       const tier = sp.bar < 30 ? 0 : sp.bar < RAMP ? 1 : 2, want = sp.want * sp.n;
       /* obstacle characters: what the last 36 bars still need to average the band's middle, within this chunk's own range */
       const bd = band(sp.bar < WARM ? 3 : 12), mid = (bd.lo + bd.hi) / 2, dh0 = densHist(), dm0 = densMin(sp.bar);
+      /* combos: none more once a minute has 8 places (its D would run away); more where a seed runs short of them
+         (under 5 places a minute over the last two) */
+      const fullC = sp.bar >= WARM && minuteCombos(sp.bar) >= 8, lowC = !fullC && sp.bar >= RAMP + 18 && comboRate() < 5;
       /* ...and what keeps the minute it starts in (tools/infinite-check.js averages each minute) a little inside the band */
       let dens = mid * (dh0.bars + sp.n) - dh0.chars;
       if (sp.bar >= WARM) dens = Math.max((bd.lo + 0.1) * (dm0.bars + sp.n) - dm0.chars, Math.min((bd.hi - 0.1) * (dm0.bars + sp.n) - dm0.chars, dens));
@@ -708,9 +711,7 @@ const INF = (function () {
       else {
         /* which template: a hazard piece, a combo (peaks only) or a plain flavour */
         const hazChance = sp.ph === "warm" ? 0.75 : sp.ph === "cool" ? 0.55 : 0.85;
-        /* a seed running short of combos (under 4.6 places a minute over the last two) leans on them harder */
-        const low = sp.bar >= RAMP + 18 && comboRate() < 4.6;
-        const comboChance = sp.ph === "peak" || sp.ph === "peak2" ? (sp.bar < RAMP ? 0.4 : low ? 1 : 0.8) : sp.ph === "build" && sp.bar >= RAMP ? (low ? 0.6 : 0.3) : 0;
+        const comboChance = fullC ? 0 : sp.ph === "peak" || sp.ph === "peak2" ? (sp.bar < RAMP ? 0.4 : lowC ? 1 : 0.8) : sp.ph === "build" && sp.bar >= RAMP ? (lowC ? 0.6 : 0.3) : sp.ph === "cool" && lowC ? 0.3 : 0;
         const TR = rng(mix(seed, 5000 + sp.i, a < KNOB_TRIES ? 0 : a));
         const tryTpl = function (t, loose) {
           for (let k = 0; k < 8; k++) {
@@ -813,7 +814,7 @@ const INF = (function () {
           if (first && gaps[0]) { gaps[1] += gaps[0]; gaps[0] = 0; }
           for (let q = 0; q <= nb0; q++) gaps[q] += need[q];
           /* an accent often sits right against the main piece: two hazards within two beats make a combo place */
-          for (let q = 1; q < nb0; q++) if ((blocks[q - 1].main || blocks[q].main) && FR() < 0.75 && gaps[q] > need[q]) { gaps[nb0] += gaps[q] - need[q]; gaps[q] = need[q]; }
+          for (let q = 1; q < nb0; q++) if ((blocks[q - 1].main || blocks[q].main) && FR() < (fullC ? 0.3 : lowC ? 0.95 : 0.75) && gaps[q] > need[q]) { gaps[nb0] += gaps[q] - need[q]; gaps[q] = need[q]; }
           const lp = Object.assign({}, ln); if (plain) for (const q in plain.lean) lp[q] = (lp[q] || 1) * plain.lean[q];
           const pw = Math.max(0, want - bp), pd = Math.max(0, dens - bc);
           let tt = "", hh = "", y = L.base, fl = flatRun + 1, lead = 3, okJ = true;
@@ -877,6 +878,14 @@ const INF = (function () {
     }
     /* the share of bars in [b0, b1) that the wave plan makes breathers */
     function restPlan(b0, b1) { let r = 0; for (let b = b0; b < b1; b++) if (phaseAt(b).ph === "rest") r++; return r / Math.max(1, b1 - b0); }
+    /* combo places so far in bar's minute (36 bars from a multiple of 36), as the check counts them */
+    function minuteCombos(bar) {
+      const w0 = Math.floor(bar / (BPM / 4)) * (BPM / 4);
+      let hz = [];
+      for (let i = g.chunks.length - 1; i >= 0 && g.chunks[i].bar + g.chunks[i].bars > w0 && g.chunks[i].hz; i--) hz = g.chunks[i].hz.concat(hz);
+      hz = hz.filter(function (h) { return h.x1 > w0 * BAR; }).sort(function (a, b) { return a.x0 - b.x0; });
+      return combos(hz).filter(function (x) { return x >= w0 * BAR; }).length;
+    }
     /* combo places a minute over the last 72 bars (2 minutes), memoised per bar count */
     const crMemo = { b: -1, v: 0 };
     function comboRate() {
@@ -1090,18 +1099,18 @@ const INF = (function () {
       }
       const vw = view(j.S, acts, true);
       if (vw.worst > vw.max || vw.late.length) { reject(j, "view"); return false; }
-      /* the minute's guard: once two thirds of a minute are made, a chunk may not take that minute's D out of the band
-         (README › Infinite Shadow). It is tried again with fewer presses (or more, for the last chunk of a minute that
-         came out too easy); the last template tries are free of it, so the guard never forces the safe generator */
+      /* the minute's guard: once a third of a minute is made, a chunk may not take that minute's D so far out of the
+         band (a little wider until two thirds are made; README › Infinite Shadow). It is tried again with fewer presses,
+         or more; the last template tries are free of it, so the guard never forces the safe generator */
       if (!j.cd.safe && sp.ph !== "rest" && sp.ph !== "intro" && j.a < KNOB_TRIES + TPL_TRIES - 2) {
         const MW = BPM / 4, w0 = Math.floor(sp.bar / MW) * MW, end = Math.min(sp.bar + sp.n, w0 + MW), D_TOP = w0 ? D_HI : D_WARM;
-        if (end - w0 >= 24) {
+        if (end - w0 >= 12) {
           g.chunks.push({ bar: sp.bar, bars: sp.n, ph: sp.ph, lv: sp.lv, acts: acts.map(function (a) { return a.t; }), hz: hazards(j.S).filter(function (h) { return h.x0 < j.ch.x1; }) });
-          const dm = dEst(w0, end); g.chunks.pop();
-          if (dm && dm.D > D_TOP - 0.03) { sp.want *= 0.85; reject(j, "minute D " + dm.D.toFixed(3)); return false; }
+          const dm = dEst(w0, end), late = end - w0 >= 24; g.chunks.pop();
+          if (dm && dm.D > D_TOP + (late ? -0.03 : 0.05)) { sp.want *= 0.85; reject(j, "minute D " + dm.D.toFixed(3)); return false; }
           /* on the low side, as if every chunk of the minute kept the most slack D counts (0.3, not the 0.2 each one is
              probed at), which takes a tenth off */
-          if (dm && end === w0 + MW && w0 >= 2 * MW && dm.D / 1.1 < D_LO + 0.01) { sp.want *= 1.15; reject(j, "minute D " + dm.D.toFixed(3)); return false; }
+          if (dm && w0 >= 2 * MW && dm.D / 1.1 < D_LO + (late ? 0.01 : -0.03)) { sp.want *= 1.15; reject(j, "minute D " + dm.D.toFixed(3)); return false; }
         }
       }
       /* append for real, and replay the path on the real stream from the real seam state */
