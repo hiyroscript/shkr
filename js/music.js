@@ -493,8 +493,8 @@ const MUSIC = (function () {
      event is sent that much early and beat b still reaches the speakers at t0 + b * spb (plus output latency, which
      the game's clock already allows for) */
   const PROC = 0.012, MIX = .42;
-  /* group levels (the lead is always on top: the action notes are gameplay information), role -> group, role pans */
-  const GRP = { k: .68, d: .48, b: .72, h: .42, l: 1.15, a: .55, x: .5 };
+  /* group levels (the lead sits inside the mix, a light accent on the actions, not a line over the music), role -> group, role pans */
+  const GRP = { k: .68, d: .48, b: .72, h: .42, l: .5, a: .55, x: .5 };
   const ROLE = { l: "l", l2: "l", c: "l", a: "a", m: "a", p: "h", h: "h", r: "h", z: "h", b: "b", x: "x" };
   const RPAN = { l: 0, l2: .06, c: .12, a: -.32, m: .3, p: 0, h: -.28, r: .34, z: 0, b: 0, x: 0 };
 
@@ -774,6 +774,8 @@ const MUSIC = (function () {
       fx: (x.fx || "dot8").split(" "), ambience: x.ambience || null, col: x.col || "", drop: x.drop || "", motif: x.motif || def.name };
     ["wet", "trim", "rv", "dl", "drv", "rise", "rev"].forEach(function (k) { if (x[k] !== undefined) s[k] = x[k]; });
     s.bass = x.bass || BPATCH[s.bassStyle] || "finger";
+    /* lead / answer "none": that voice is left out (its line is still written, so the answers can echo it) */
+    s.noLead = x.lead === "none"; s.noAnswer = x.answer === "none";
     if (!PATCH[s.lead]) s.lead = "pluck"; if (!PATCH[s.answer]) s.answer = "chime";
     return s;
   }
@@ -957,11 +959,14 @@ const MUSIC = (function () {
       if (e >= 4 && b === s.from) add({ y: "n", g: "b", p: "sub", b: bt / TPQ, o: 0, m: Math.max(24, br - 12 + semi(S, CH[b * 2]) - semi(S, 0)), d: 4, v: .55 });
     }
 
-    /* ---- the lead: a note on every action, motif-based ---- */
+    /* ---- the lead: a note on every action, motif-based ----
+       A light accent inside the mix, not a line over it: short notes (held patches stop well before the next
+       action), no slides, no doubling. On a level with lead "none" the line is only written, for the answers. */
+    const addL = sp.noLead ? function () {} : add;
     const M = motif(hash(sp.motif)), lb = baseFor(S, LP), lo = LP.rng[0], hi = LP.rng[1];
     const cells = [];
     for (let b = 0; b < NB; b++) for (let c = 0; c < 8; c++) { const a = S.chart[(b % bars) * 8 + c]; if (a) cells.push({ b: b, c: c, a: a }); }
-    let prev = null, prevM = 0, lastSec = -1, phr = -1;
+    let prev = null, lastSec = -1, phr = -1;
     const seedRot = S.seed % 4;
     cells.forEach(function (x, i) {
       const s = sec[secOf[x.b]], si = secOf[x.b], dens = S.dens[x.b % bars], rel = x.b - s.from;
@@ -979,27 +984,14 @@ const MUSIC = (function () {
       prev = r;
       const at = (x.b * 8 + x.c) * 24, gap = nxt ? ((nxt.b * 8 + nxt.c) - (x.b * 8 + x.c)) * .5 : 4;
       const dense = dens >= 5, eb = E[x.b], ring = !sus(LP) && (LP.ks ? LP.ks[0] : LP.d) > 1.6;
-      const dur = dense ? Math.min(gap, .5) * .6 : sus(LP) ? Math.min(gap, 3) - .04 : Math.min(gap, 4);
-      const vel = (eb >= 2 ? .92 : eb === 1 ? .84 : .78) + (x.c % 4 === 0 ? .06 : 0) - (dense && x.c % 2 ? .06 : 0);
-      const glide = sus(LP) && LP.gl && !dense && gap <= 1 && Math.abs(m - prevM) <= 4 && prevM ? prevM : 0;
+      const dur = dense ? Math.min(gap, .5) * .6 : sus(LP) ? Math.min(gap, 1) * .7 : Math.min(gap, 4);
+      const vel = (eb >= 2 ? .74 : eb === 1 ? .68 : .62) + (x.c % 4 === 0 ? .05 : 0) - (dense && x.c % 2 ? .05 : 0);
       if (x.a === 2) {
         const m2 = m - 12 >= lo ? m - 12 : m;
-        add({ y: "n", g: "l", p: sp.lead, b: at / TPQ, o: 0, m: m2, d: Math.max(.25, dur * .8), v: Math.min(1, vel + .06), bd: [3, .07], act: 2, cut: dense ? 1 : 0, ch: ring ? "lead" : 0 });
-        prevM = m2;
+        addL({ y: "n", g: "l", p: sp.lead, b: at / TPQ, o: 0, m: m2, d: Math.max(.25, dur * .8), v: vel, bd: [3, .07], act: 2, cut: 1, ch: ring ? "lead" : 0 });
       } else {
-        add({ y: "n", g: "l", p: sp.lead, b: at / TPQ, o: 0, m: m, d: dur, v: vel, act: x.a, gl: glide, cut: dense || sus(LP) ? 1 : 0, ch: ring ? "lead" : 0 });
-        if (x.a === 3) {
-          let cm = m + 12; while (cm > 104) cm -= 12;
-          add({ y: "n", g: "c", p: "cue", b: at / TPQ, o: 0, m: cm, d: Math.max(.5, dur), v: .8 });
-          if (eb >= 3) add({ y: "n", g: "c", p: "cue", b: at / TPQ, o: 0, m: cm + 7 <= 108 ? cm + 7 : cm - 5, d: Math.max(.5, dur), v: .4 });
-        }
-        prevM = m;
-      }
-      /* the climax doubles the line: a third (or sixth) under it on held patches, an octave over it on struck ones;
-         never on a roll, whose bend is the cue */
-      if (eb >= 4 && !dense && x.a !== 2) {
-        if (sus(LP)) { let d3 = lb + semi(S, r - 2); while (d3 >= m) d3 -= 12; while (d3 < m - 9) d3 += 12; add({ y: "n", g: "l2", p: sp.lead, b: at / TPQ, o: 0, m: d3, d: dur, v: vel * .5, cut: 1 }); }
-        else add({ y: "n", g: "l2", p: sp.lead, b: at / TPQ, o: 0, m: m + 12, d: dur, v: vel * .32 });
+        addL({ y: "n", g: "l", p: sp.lead, b: at / TPQ, o: 0, m: m, d: dur, v: vel, act: x.a, cut: dense || sus(LP) ? 1 : 0, ch: ring ? "lead" : 0 });
+        if (x.a === 3) { let cm = m + 12; while (cm > 104) cm -= 12; addL({ y: "n", g: "c", p: "cue", b: at / TPQ, o: 0, m: cm, d: Math.max(.5, dur), v: .5 }); }
       }
       x.r = r;
     });
@@ -1007,7 +999,7 @@ const MUSIC = (function () {
     /* ---- answers: in empty bars and breathers, a second voice echoes the last phrase in another register ---- */
     const ab = baseFor(S, AP), lead0 = inRange(S, lb, 0, lo, hi), ans = Math.abs(ab - lead0) < 7 ? (ab + 12 <= AP.rng[1] - 5 ? ab + 12 : ab - 12) : ab;
     let echo = [M[0], M[2], M[4]];
-    for (let b = 0; b < NB; b++) {
+    for (let b = 0; b < NB && !sp.noAnswer; b++) {
       const s = sec[secOf[b]], bt = b * 4 * TPQ, has = act(b);
       cells.forEach(function (x) { if (x.b === b - 1 || (x.b === b - 2 && !act(b - 1))) { echo.push(x.r); if (echo.length > 4) echo.shift(); } });
       let room = has ? 0 : 8;
@@ -1079,8 +1071,9 @@ const MUSIC = (function () {
       if (CP) { const cf = voice(S, 0, cv, Math.max(CP.rng[0], 48), Math.min(CP.rng[1], 76), 4); cf.forEach(function (m, k) { add({ y: "n", g: "h", p: sp.comp, b: B, o: k * .028, m: m, d: 3, v: .7, rl: 1.8 }); }); }
       add({ y: "n", g: "b", p: sp.bass, b: B, o: 0, m: br, d: 3, v: .9, rl: 1.2 });
       add({ y: "n", g: "b", p: "sub", b: B, o: 0, m: br - 12 >= 24 ? br - 12 : br, d: 3, v: .7, rl: 1.5 });
-      add({ y: "n", g: "l", p: sp.lead, b: B, o: 0, m: inRange(S, lb, nearest(S, prev || 0, [0]), lo, hi), d: 3, v: .85, rl: 2 });
-      add({ y: "n", g: "c", p: "cue", b: B, o: 0, m: Math.min(100, inRange(S, lb, 4, lo, hi) + 12), d: 2, v: .5 });
+      /* the last note on the tonic: the lead's, or without one the answer's */
+      addL({ y: "n", g: "l", p: sp.lead, b: B, o: 0, m: inRange(S, lb, nearest(S, prev || 0, [0]), lo, hi), d: 2, v: .62, rl: 2 });
+      if (sp.noLead && !sp.noAnswer) add({ y: "n", g: "a", p: sp.answer, b: B, o: 0, m: inRange(S, ans, 0, AP.rng[0], AP.rng[1]), d: 2, v: .5, rl: 2 });
       add({ y: "d", l: "r", pc: crash, b: B, o: 0, v: .9 });
       add({ y: "d", l: "k", pc: PC.k, b: B, o: 0, v: 1 });
       if (sp.ambience) add({ y: "a", b: B + 2, o: 0, v: 0 });

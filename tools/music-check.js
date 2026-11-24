@@ -16,7 +16,8 @@
      align    every chart cell > 0 has exactly one lead onset, of its kind
               (1 jump, 2 roll, 3 special), at exactly cell / 2 beats with no
               groove offset; no lead, doubling or cue onset anywhere else in
-              a bar that has actions
+              a bar that has actions. A level whose spec says lead "none"
+              must have no lead, doubling or cue note at all ("none")
      grid     every event sits on an integer tick (48 a beat); the closing
               chord is at bars * 4 beats, i.e. bars * 4 * spb (< 1 ms)
      groove   every other offset is the groove's swing plus at most 8 ms
@@ -64,7 +65,11 @@ tracks.forEach(function (n) {
     (leadAt[Math.round(cell)] || (leadAt[Math.round(cell)] = [])).push(e);
   });
   let actions = 0;
-  for (let p = 0; p < passes; p++) for (let c = 0; c < bars * 8; c++) {
+  if (sp.noLead) {
+    const n2 = E.filter(function (e) { return e.y === "n" && LEADG[e.g]; }).length;
+    if (n2) errs.push("lead none, but " + n2 + " lead, doubling or cue notes");
+  }
+  for (let p = 0; p < passes && !sp.noLead; p++) for (let c = 0; c < bars * 8; c++) {
     const a = S.chart[c], cell = p * bars * 8 + c, list = leadAt[cell] || [], main = list.filter(function (e) { return e.g === "l"; });
     if (a) {
       actions++;
@@ -80,8 +85,8 @@ tracks.forEach(function (n) {
   const gridBad = E.filter(function (e) { return Math.abs(e.b * TPQ - Math.round(e.b * TPQ)) > 1e-6; }).length;
   if (gridBad) errs.push(gridBad + " events off the integer grid");
   if (!S.loop) {
-    const close = E.filter(function (e) { return e.g === "l" && e.b >= bars * 4; });
-    if (close.length !== 1 || Math.abs(close[0].b * S.spb - bars * 4 * S.spb) > .001) errs.push("closing chord not at bars * 4 * spb");
+    const close = E.filter(function (e) { return e.y === "n" && e.g === "b" && e.b >= bars * 4; });
+    if (!close.length || Math.abs(close[0].b * S.spb - bars * 4 * S.spb) > .001) errs.push("closing chord not at bars * 4 * spb");
     const lastIn = Math.max.apply(null, E.filter(function (e) { return e.b < bars * 4; }).map(function (e) { return e.b; }));
     if (lastIn >= bars * 4) errs.push("events past the last bar");
   }
@@ -97,7 +102,8 @@ tracks.forEach(function (n) {
   if (worst > .0081) errs.push("groove offset " + (worst * 1000).toFixed(1) + " ms beyond the swing");
   const ok = function (b) { return b ? "ok" : "FAIL"; };
   const alignOk = !errs.some(function (x) { return /cell|lead/.test(x); }), gridOk = !errs.some(function (x) { return /grid|closing|past/.test(x); }), grooveOk = !errs.some(function (x) { return /groove/.test(x); });
-  rows.push([String(n), t.def.name, String(S.bpm), String(E.length), String(actions), ok(alignOk), ok(gridOk), ok(grooveOk) + " " + (worst * 1000).toFixed(1) + "ms", sp.lead + " / " + sp.answer + " / " + sp.kit + " / " + sp.space]);
+  rows.push([String(n), t.def.name, String(S.bpm), String(E.length), String(actions), sp.noLead && alignOk ? "none" : ok(alignOk), ok(gridOk), ok(grooveOk) + " " + (worst * 1000).toFixed(1) + "ms",
+    (sp.noLead ? "none" : sp.lead) + " / " + (sp.noAnswer ? "none" : sp.answer) + " / " + sp.kit + " / " + sp.space]);
   if (errs.length) { fails++; errs.slice(0, 5).forEach(function (x) { console.log("  " + t.def.name + ": " + x); }); }
 });
 table(rows);

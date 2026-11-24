@@ -173,7 +173,7 @@
     listEl.innerHTML = TRACKS.map(function (t, i) {
       const s = MUSIC._t.spec(t.def);
       return '<button class="shkr-dev-snd-row" data-i="' + i + '"><b>' + (t.n ? pad2(t.n) : "home") + "</b><span>" + (t.n ? t.def.name : "Home screen") + "</span><i>" +
-        t.def.mu[0] + " · " + s.kit + " · " + s.lead + " / " + s.answer + "</i></button>";
+        t.def.mu[0] + " · " + s.kit + " · " + (s.noLead ? "no lead" : s.lead) + " / " + (s.noAnswer ? "no answer" : s.answer) + "</i></button>";
     }).join("");
 
     function song(t) { return t.S || (t.S = MUSIC.makeSong(t.def, t.L, t.loop)); }
@@ -200,7 +200,7 @@
       const t = TRACKS[P.i], S = song(t), s = S.spec, list = [];
       $s("shkrDevSndTag").textContent = t.n ? "level " + pad2(t.n) : "home screen · loops";
       $s("shkrDevSndName").textContent = t.n ? t.def.name : "Home";
-      list.push(t.def.mu[0] + " bpm", keyName(t.def), "kit " + s.kit, "groove " + s.groove, "lead " + s.lead, "answer " + s.answer,
+      list.push(t.def.mu[0] + " bpm", keyName(t.def), "kit " + s.kit, "groove " + s.groove, "lead " + (s.noLead ? "none" : s.lead), "answer " + (s.noAnswer ? "none" : s.answer),
         "bass " + s.bassStyle + " (" + s.bass + ")");
       if (s.comp) list.push(s.harm + " " + s.comp); if (s.pad) list.push("pad " + s.pad); if (s.drone) list.push("drone " + s.drone); if (s.arp) list.push("arp " + s.arp);
       list.push("space " + s.space + (s.ambience ? " + " + s.ambience : ""), "fx " + s.fx.join(" "));
