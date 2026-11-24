@@ -9,7 +9,7 @@
    (MUSIC.makeSong), headless.
 
      node tools/music-check.js            every track: theme, grid, groove
-     node tools/music-check.js 0 7 30     some tracks (0 is the home track)
+     node tools/music-check.js 0 7 30     some tracks (0 is the home track, inf Infinite Shadow's)
      node tools/music-check.js --render   also render every track in Chromium
      node tools/music-check.js --perf     also time the live scheduler
 
@@ -25,6 +25,13 @@
      groove   every offset is the theme's swing (odd sixteenths) or nothing,
               within 8 ms
 
+     stream   (Infinite Shadow, written bar by bar from a fixed seed: INF.create
+              plus MUSIC.makeStream / extend) every chart cell that asks for an
+              action has a lead note exactly on its half-beat, with no swing;
+              the four-stick count-in sits in the bar before the first; every
+              bar the generator made (but its last) is written, and the
+              scheduler's list stays short as it plays
+
    --render (needs the pre-installed Playwright + Chromium)
      MUSIC.renderStats at 22050 Hz, full volume: peak <= 0.98, whole-song RMS
      within ±2 dB of the median, no silent second outside energy-0 bars, the
@@ -39,17 +46,18 @@
    ========================================================================== */
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
-const ROOT = path.resolve(__dirname, ".."), FILES = ["js/sim.js", "js/levels.js", "js/fixes.js", "js/synth.js", "js/themes.js", "js/music.js"];
+const ROOT = path.resolve(__dirname, ".."), FILES = ["js/sim.js", "js/levels.js", "js/fixes.js", "js/infinite.js", "js/synth.js", "js/themes.js", "js/music.js"];
 const args = process.argv.slice(2), RENDER = args.indexOf("--render") >= 0, PERF = args.indexOf("--perf") >= 0;
-const only = args.filter(function (a) { return /^\d+$/.test(a); }).map(Number);
+const only = args.filter(function (a) { return /^\d+$/.test(a); }).map(Number), withInf = !only.length || args.indexOf("inf") >= 0;
+const INF_SEED = 20261124, INF_BARS = 120;
 
 const ctx = vm.createContext({ console: console });
 FILES.forEach(function (f) { new vm.Script(fs.readFileSync(path.join(ROOT, f), "utf8"), { filename: f }).runInContext(ctx); });
-const api = vm.runInContext("({ MUSIC: MUSIC, LEVELS: LEVELS, HOME: HOME, SIM: SIM, FIX: typeof FIXES !== 'undefined' ? FIXES : {} })", ctx);
+const api = vm.runInContext("({ MUSIC: MUSIC, LEVELS: LEVELS, HOME: HOME, SIM: SIM, INF: INF, FIX: typeof FIXES !== 'undefined' ? FIXES : {} })", ctx);
 const TPQ = api.MUSIC._t.TPQ;
 let fails = 0;
 function track(n) { const def = n ? api.LEVELS[n - 1] : api.HOME; if (n) def.fix = api.FIX[n] || []; return { def: def, L: api.SIM.compile(def) }; }
-const tracks = (only.length ? only : Array.from({ length: api.LEVELS.length + 1 }, function (_, i) { return i; }));
+const tracks = (only.length ? only : args.indexOf("inf") >= 0 ? [] : Array.from({ length: api.LEVELS.length + 1 }, function (_, i) { return i; }));
 
 /* ---------------------------------------------------------------- headless */
 const SYN = vm.runInContext("SYNTH", ctx), CHORD_TONES = ["R", "3", "5", "7", "8", "9", "10", "12"];
@@ -115,6 +123,39 @@ tracks.forEach(function (n) {
     roles("lead") + " / " + roles("answer") + " / " + T.scale]);
   if (errs.length) { fails++; errs.slice(0, 5).forEach(function (x) { console.log("  " + t.def.name + ": " + x); }); }
 });
+/* Infinite Shadow: its theme, and a stream written from a fixed seed */
+if (withInf) {
+  const errs = [], INF = api.INF, def = { n: "inf", name: "Infinite Shadow", mu: [INF.BPM] }, T = api.MUSIC._t.themeOf(def);
+  themeErrors(T).forEach(function (x) { errs.push(x); });
+  let S = null, g = null;
+  try { g = INF.create(INF_SEED); g.fill(24); S = api.MUSIC.makeStream(def, g); } catch (e) { errs.push(e.message); }
+  if (S) {
+    /* grow it the way a run does: a few bars generated, then extend, many times */
+    let longest = 0;
+    while (g.bars < INF_BARS) { g.fill(g.bars + 3); api.MUSIC.extend(S); longest = Math.max(longest, S.ev.length); }
+    if (S.bars !== g.bars - 1) errs.push("stream: " + S.bars + " bars written of " + g.bars);
+    const E = S.ev, leads = {};
+    Object.keys(T.pairs).forEach(function (k) { leads[T.pairs[k][0]] = 1; });
+    const gridBad = E.filter(function (e) { return Math.abs(e.b * TPQ - Math.round(e.b * TPQ)) > 1e-6; }).length;
+    if (gridBad) errs.push("grid: " + gridBad + " events off the integer grid");
+    const sw = (T.swing || 0) * S.spb / 4;
+    let worst = 0;
+    E.forEach(function (e) { const tick = Math.round(e.b * TPQ), swing = tick % 12 === 0 && (tick / 12) % 2 ? sw : 0; worst = Math.max(worst, Math.abs(e.o - swing)); });
+    if (worst > .0081) errs.push("groove: offset " + (worst * 1000).toFixed(1) + " ms beyond the swing");
+    const at = {};
+    E.forEach(function (e) { if (leads[e.c]) { if (e.o !== 0) errs.push("stream: a lead note is swung at beat " + e.b); at[Math.round(e.b * 2)] = 1; } });
+    let acts = 0, miss = 0;
+    for (let cell = 0; cell < S.bars * 8; cell++) if (S.chart[cell]) { acts++; if (!at[cell]) miss++; }
+    if (miss) errs.push("stream: " + miss + " of " + acts + " action cells have no lead note on their half-beat");
+    const count = E.filter(function (e) { return e.b < 0; });
+    if (count.length !== 4 || count.some(function (e) { return e.b < -4 || e.c !== "tick"; })) errs.push("stream: the count-in is not four sticks in the bar before the first");
+    /* the scheduler drops what it has played: a stream's list never holds more than a few bars ahead of it */
+    rows.push(["inf", "Infinite Shadow (seed " + INF_SEED + ", " + S.bars + " bars)", String(S.bpm), String(E.length), errs.some(function (x) { return !/^(grid|groove|stream):/.test(x); }) ? "FAIL" : "ok",
+      errs.some(function (x) { return /^grid:/.test(x); }) ? "FAIL" : "ok", (errs.some(function (x) { return /^groove:/.test(x); }) ? "FAIL" : "ok") + " " + (worst * 1000).toFixed(1) + "ms",
+      Object.keys(leads).join("+") + " / pairs by world / " + T.scale + " (" + acts + " actions, " + (acts - miss) + " on the lead)"]);
+  } else rows.push(["inf", "Infinite Shadow", String(INF.BPM), "-", "FAIL", "-", "-", "-"]);
+  if (errs.length) { fails++; errs.slice(0, 6).forEach(function (x) { console.log("  Infinite Shadow: " + x); }); }
+}
 table(rows);
 
 function table(R) {
@@ -176,6 +217,20 @@ async function browser() {
       if (notes.length) fails++;
       R.push([String(r.n), r.name, r.peak.toFixed(3), lv.toFixed(1), (trim >= 0 ? "+" : "") + trim.toFixed(1), String(silent), String(r.voices), String(r.events), notes.join(" ") || "ok" + (r.seam ? " (3 loops, seams clean)" : "")]);
     });
+    if (withInf) {
+      /* Infinite Shadow: 90 s of a stream from the fixed seed, against the same median */
+      const r = await page.evaluate(async function (a) {
+        const g = INF.create(a.seed); g.fill(64);
+        const def = { n: "inf", name: "Infinite Shadow", mu: [INF.BPM] }, S = MUSIC.makeStream(def, g);
+        const s = await MUSIC.renderStats(def, g.L, 90, { song: S });
+        return { peak: s.peak, rms: s.rms, secs: s.secs, voices: s.voices, events: s.events };
+      }, { seed: INF_SEED });
+      const lv = db(r.rms), trim = med - lv, notes = [];
+      let silent = 0; for (let k = 4; k < 88; k++) if (db(r.secs[k]) < -50) silent++;
+      if (r.peak > .98) notes.push("CLIP"); if (Math.abs(trim) > 2) notes.push("LEVEL"); if (silent) notes.push("SILENT"); if (r.voices > 60) notes.push("VOICES");
+      if (notes.length) fails++;
+      R.push(["inf", "Infinite Shadow (90 s)", r.peak.toFixed(3), lv.toFixed(1), (trim >= 0 ? "+" : "") + trim.toFixed(1), String(silent), String(r.voices), String(r.events), notes.join(" ") || "ok"]);
+    }
     table(R);
     console.log("  median " + med.toFixed(1) + " dBFS RMS, spread " + (levels[levels.length - 1] - levels[0]).toFixed(1) + " dB");
   }

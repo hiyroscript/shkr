@@ -120,7 +120,7 @@
     "settings.obj": "Objective tips",
     "settings.obj.body": "Show the goal and controls at the start of a level, and the spike tip on level 1.",
     "settings.reset": "Reset progress",
-    "settings.reset.body": "Clears every unlock, star and try count.",
+    "settings.reset.body": "Clears every unlock, star and try count, and your Infinite Shadow best.",
     "settings.reset.btn": "reset",
     "levels.title": "Levels",
 
@@ -211,7 +211,34 @@
     "level.27.name": "Lantern Bazaar",
     "level.28.name": "Stormfront Armada",
     "level.29.name": "Inverted Citadel",
-    "level.30.name": "The Last Light"
+    "level.30.name": "The Last Light",
+    /* Infinite Shadow */
+    "inf.title": "Infinite Shadow",
+    "inf.place": "The Convergence",
+    "inf.tag": "endless",
+    "inf.best": "best {n}",
+    "inf.none": "no runs yet",
+    "inf.obj": "Survive as long as you can",
+    "inf.newbest": "new best",
+    "inf.marker": "best",
+    "inf.peek.up": "infinite shadow",
+    "inf.peek.down": "levels",
+    "inf.aria.card": "Infinite Shadow",
+    "inf.aria.levels": "Levels",
+    "inf.aria.play": "Play Infinite Shadow",
+    "inf.pop.combo": "+{n} combo",
+    "inf.results.title": "run over",
+    "inf.results.oldBest": "old best {n}",
+    "inf.results.time": "time",
+    "inf.results.distance": "distance",
+    "inf.results.meters": "{n} m",
+    "inf.results.uses.one": "hazard used",
+    "inf.results.uses.few": "hazards used",
+    "inf.results.uses.many": "hazards used",
+    "inf.results.uses.other": "hazards used",
+    "inf.results.most": "most used: {name}",
+    "hud.best": "best {n}",
+    "card.inf.again": "run again"
   };
 
   /* ======================================================================= 中文 (Simplified Chinese) */
@@ -301,7 +328,7 @@
     "settings.obj": "目标提示",
     "settings.obj.body": "在关卡开始时显示目标和操作，并在第 1 关显示尖刺提示。",
     "settings.reset": "重置进度",
-    "settings.reset.body": "清除所有解锁、星星和尝试次数。",
+    "settings.reset.body": "清除所有解锁、星星和尝试次数，以及无尽之影的最佳成绩。",
     "settings.reset.btn": "重置",
     "levels.title": "关卡",
 
@@ -392,7 +419,34 @@
     "level.27.name": "灯笼集市",
     "level.28.name": "风暴舰队",
     "level.29.name": "倒悬城堡",
-    "level.30.name": "最后的光"
+    "level.30.name": "最后的光",
+    /* Infinite Shadow */
+    "inf.title": "无尽之影",
+    "inf.place": "交汇之地",
+    "inf.tag": "无尽",
+    "inf.best": "最佳 {n}",
+    "inf.none": "还没有记录",
+    "inf.obj": "尽可能活得久",
+    "inf.newbest": "新纪录",
+    "inf.marker": "最佳",
+    "inf.peek.up": "无尽之影",
+    "inf.peek.down": "关卡",
+    "inf.aria.card": "无尽之影",
+    "inf.aria.levels": "关卡",
+    "inf.aria.play": "开始无尽之影",
+    "inf.pop.combo": "+{n} 连携",
+    "inf.results.title": "跑局结束",
+    "inf.results.oldBest": "旧纪录 {n}",
+    "inf.results.time": "时间",
+    "inf.results.distance": "距离",
+    "inf.results.meters": "{n} 米",
+    "inf.results.uses.one": "用到的机关",
+    "inf.results.uses.few": "用到的机关",
+    "inf.results.uses.many": "用到的机关",
+    "inf.results.uses.other": "用到的机关",
+    "inf.results.most": "最常用：{name}",
+    "hud.best": "最佳 {n}",
+    "card.inf.again": "再跑一次"
   };
 
   /* ======================================================================= Español */
@@ -482,7 +536,7 @@
     "settings.obj": "Consejos de objetivo",
     "settings.obj.body": "Muestra la meta y los controles al empezar un nivel, y el consejo de los pinchos en el nivel 1.",
     "settings.reset": "Borrar progreso",
-    "settings.reset.body": "Borra todos los desbloqueos, estrellas e intentos.",
+    "settings.reset.body": "Borra todos los desbloqueos, estrellas e intentos, y tu récord de Sombra infinita.",
     "settings.reset.btn": "borrar",
     "levels.title": "Niveles",
 
@@ -573,7 +627,34 @@
     "level.27.name": "Bazar de los faroles",
     "level.28.name": "Armada de la tormenta",
     "level.29.name": "Ciudadela invertida",
-    "level.30.name": "La última luz"
+    "level.30.name": "La última luz",
+    /* Infinite Shadow */
+    "inf.title": "Sombra infinita",
+    "inf.place": "La Convergencia",
+    "inf.tag": "sin fin",
+    "inf.best": "récord {n}",
+    "inf.none": "aún sin carreras",
+    "inf.obj": "Sobrevive todo lo que puedas",
+    "inf.newbest": "nuevo récord",
+    "inf.marker": "récord",
+    "inf.peek.up": "sombra infinita",
+    "inf.peek.down": "niveles",
+    "inf.aria.card": "Sombra infinita",
+    "inf.aria.levels": "Niveles",
+    "inf.aria.play": "Jugar a Sombra infinita",
+    "inf.pop.combo": "+{n} combo",
+    "inf.results.title": "fin de la carrera",
+    "inf.results.oldBest": "récord anterior {n}",
+    "inf.results.time": "tiempo",
+    "inf.results.distance": "distancia",
+    "inf.results.meters": "{n} m",
+    "inf.results.uses.one": "peligro usado",
+    "inf.results.uses.few": "peligros usados",
+    "inf.results.uses.many": "peligros usados",
+    "inf.results.uses.other": "peligros usados",
+    "inf.results.most": "el más usado: {name}",
+    "hud.best": "récord {n}",
+    "card.inf.again": "correr otra vez"
   };
 
   /* ======================================================================= Русский */
@@ -663,7 +744,7 @@
     "settings.obj": "Подсказки цели",
     "settings.obj.body": "Показывать цель и управление в начале уровня и подсказку о шипах на уровне 1.",
     "settings.reset": "Сбросить прогресс",
-    "settings.reset.body": "Удаляет все открытые уровни, звёзды и счётчики попыток.",
+    "settings.reset.body": "Удаляет все открытые уровни, звёзды и счётчики попыток, а также рекорд «Бесконечной тени».",
     "settings.reset.btn": "сбросить",
     "levels.title": "Уровни",
 
@@ -754,7 +835,34 @@
     "level.27.name": "Базар фонарей",
     "level.28.name": "Штормовая армада",
     "level.29.name": "Перевёрнутая цитадель",
-    "level.30.name": "Последний свет"
+    "level.30.name": "Последний свет",
+    /* Infinite Shadow */
+    "inf.title": "Бесконечная тень",
+    "inf.place": "Схождение",
+    "inf.tag": "без конца",
+    "inf.best": "рекорд {n}",
+    "inf.none": "ещё нет забегов",
+    "inf.obj": "Продержись как можно дольше",
+    "inf.newbest": "новый рекорд",
+    "inf.marker": "рекорд",
+    "inf.peek.up": "бесконечная тень",
+    "inf.peek.down": "уровни",
+    "inf.aria.card": "Бесконечная тень",
+    "inf.aria.levels": "Уровни",
+    "inf.aria.play": "Играть в «Бесконечную тень»",
+    "inf.pop.combo": "+{n} комбо",
+    "inf.results.title": "забег окончен",
+    "inf.results.oldBest": "прежний рекорд {n}",
+    "inf.results.time": "время",
+    "inf.results.distance": "дистанция",
+    "inf.results.meters": "{n} м",
+    "inf.results.uses.one": "ловушка",
+    "inf.results.uses.few": "ловушки",
+    "inf.results.uses.many": "ловушек",
+    "inf.results.uses.other": "ловушки",
+    "inf.results.most": "чаще всего: {name}",
+    "hud.best": "рекорд {n}",
+    "card.inf.again": "ещё забег"
   };
 
   /* ======================================================================= 日本語 */
@@ -844,7 +952,7 @@
     "settings.obj": "目標のヒント",
     "settings.obj.body": "レベルの開始時に目標と操作方法を、レベル1ではトゲのヒントを表示します。",
     "settings.reset": "進行状況をリセット",
-    "settings.reset.body": "すべてのアンロック、星、挑戦回数を消去します。",
+    "settings.reset.body": "すべてのアンロック、星、挑戦回数と、インフィニット・シャドウのベストを消去します。",
     "settings.reset.btn": "リセット",
     "levels.title": "レベル",
 
@@ -935,7 +1043,34 @@
     "level.27.name": "ランタンの市場",
     "level.28.name": "嵐の艦隊",
     "level.29.name": "逆さまの城塞",
-    "level.30.name": "最後の光"
+    "level.30.name": "最後の光",
+    /* Infinite Shadow */
+    "inf.title": "インフィニット・シャドウ",
+    "inf.place": "コンバージェンス",
+    "inf.tag": "エンドレス",
+    "inf.best": "ベスト {n}",
+    "inf.none": "まだ記録なし",
+    "inf.obj": "できるだけ長く生き延びよう",
+    "inf.newbest": "ベスト更新",
+    "inf.marker": "ベスト",
+    "inf.peek.up": "インフィニット・シャドウ",
+    "inf.peek.down": "レベル",
+    "inf.aria.card": "インフィニット・シャドウ",
+    "inf.aria.levels": "レベル",
+    "inf.aria.play": "インフィニット・シャドウをプレイ",
+    "inf.pop.combo": "+{n} コンボ",
+    "inf.results.title": "ラン終了",
+    "inf.results.oldBest": "前のベスト {n}",
+    "inf.results.time": "タイム",
+    "inf.results.distance": "距離",
+    "inf.results.meters": "{n} m",
+    "inf.results.uses.one": "使ったギミック",
+    "inf.results.uses.few": "使ったギミック",
+    "inf.results.uses.many": "使ったギミック",
+    "inf.results.uses.other": "使ったギミック",
+    "inf.results.most": "いちばん使った: {name}",
+    "hud.best": "ベスト {n}",
+    "card.inf.again": "もう一度走る"
   };
 
   /* ======================================================================= Português (Brasil) */
@@ -1025,7 +1160,7 @@
     "settings.obj": "Dicas de objetivo",
     "settings.obj.body": "Mostra o objetivo e os controles no início de uma fase, e a dica dos espinhos na fase 1.",
     "settings.reset": "Apagar progresso",
-    "settings.reset.body": "Apaga todos os desbloqueios, estrelas e tentativas.",
+    "settings.reset.body": "Apaga todos os desbloqueios, estrelas e tentativas, e o seu recorde da Sombra Infinita.",
     "settings.reset.btn": "apagar",
     "levels.title": "Fases",
 
@@ -1116,7 +1251,34 @@
     "level.27.name": "Bazar das lanternas",
     "level.28.name": "Armada da tempestade",
     "level.29.name": "Cidadela invertida",
-    "level.30.name": "A última luz"
+    "level.30.name": "A última luz",
+    /* Infinite Shadow */
+    "inf.title": "Sombra Infinita",
+    "inf.place": "A Convergência",
+    "inf.tag": "sem fim",
+    "inf.best": "recorde {n}",
+    "inf.none": "nenhuma corrida ainda",
+    "inf.obj": "Sobreviva o máximo que puder",
+    "inf.newbest": "novo recorde",
+    "inf.marker": "recorde",
+    "inf.peek.up": "sombra infinita",
+    "inf.peek.down": "fases",
+    "inf.aria.card": "Sombra Infinita",
+    "inf.aria.levels": "Fases",
+    "inf.aria.play": "Jogar Sombra Infinita",
+    "inf.pop.combo": "+{n} combo",
+    "inf.results.title": "fim da corrida",
+    "inf.results.oldBest": "recorde anterior {n}",
+    "inf.results.time": "tempo",
+    "inf.results.distance": "distância",
+    "inf.results.meters": "{n} m",
+    "inf.results.uses.one": "perigo usado",
+    "inf.results.uses.few": "perigos usados",
+    "inf.results.uses.many": "perigos usados",
+    "inf.results.uses.other": "perigos usados",
+    "inf.results.most": "mais usado: {name}",
+    "hud.best": "recorde {n}",
+    "card.inf.again": "correr de novo"
   };
 
   /* ======================================================================= Deutsch */
@@ -1206,7 +1368,7 @@
     "settings.obj": "Ziel-Tipps",
     "settings.obj.body": "Zeigt Ziel und Steuerung zu Beginn eines Levels und den Stachel-Tipp in Level 1.",
     "settings.reset": "Fortschritt löschen",
-    "settings.reset.body": "Löscht alle Freischaltungen, Sterne und Versuche.",
+    "settings.reset.body": "Löscht alle Freischaltungen, Sterne und Versuche und deinen Bestwert in Unendlicher Schatten.",
     "settings.reset.btn": "löschen",
     "levels.title": "Level",
 
@@ -1297,7 +1459,34 @@
     "level.27.name": "Laternenbasar",
     "level.28.name": "Sturmfront-Armada",
     "level.29.name": "Umgekehrte Zitadelle",
-    "level.30.name": "Das letzte Licht"
+    "level.30.name": "Das letzte Licht",
+    /* Infinite Shadow */
+    "inf.title": "Unendlicher Schatten",
+    "inf.place": "Die Konvergenz",
+    "inf.tag": "endlos",
+    "inf.best": "Bestwert {n}",
+    "inf.none": "noch keine Läufe",
+    "inf.obj": "Überlebe so lange wie möglich",
+    "inf.newbest": "neuer Bestwert",
+    "inf.marker": "Bestwert",
+    "inf.peek.up": "Unendlicher Schatten",
+    "inf.peek.down": "Level",
+    "inf.aria.card": "Unendlicher Schatten",
+    "inf.aria.levels": "Level",
+    "inf.aria.play": "Unendlicher Schatten spielen",
+    "inf.pop.combo": "+{n} Combo",
+    "inf.results.title": "Lauf vorbei",
+    "inf.results.oldBest": "alter Bestwert {n}",
+    "inf.results.time": "Zeit",
+    "inf.results.distance": "Strecke",
+    "inf.results.meters": "{n} m",
+    "inf.results.uses.one": "Gefahr genutzt",
+    "inf.results.uses.few": "Gefahren genutzt",
+    "inf.results.uses.many": "Gefahren genutzt",
+    "inf.results.uses.other": "Gefahren genutzt",
+    "inf.results.most": "am meisten: {name}",
+    "hud.best": "Bestwert {n}",
+    "card.inf.again": "nochmal laufen"
   };
 
   /* ======================================================================= Français (U+00A0 before ? ! :) */
@@ -1387,7 +1576,7 @@
     "settings.obj": "Astuces d'objectif",
     "settings.obj.body": "Affiche le but et les commandes au début d'un niveau, et l'astuce des pics au niveau 1.",
     "settings.reset": "Effacer la progression",
-    "settings.reset.body": "Efface tous les déblocages, étoiles et essais.",
+    "settings.reset.body": "Efface tous les déblocages, étoiles et essais, et ton record d'Ombre infinie.",
     "settings.reset.btn": "effacer",
     "levels.title": "Niveaux",
 
@@ -1478,7 +1667,34 @@
     "level.27.name": "Bazar aux lanternes",
     "level.28.name": "Armada de l'orage",
     "level.29.name": "Citadelle inversée",
-    "level.30.name": "La dernière lumière"
+    "level.30.name": "La dernière lumière",
+    /* Infinite Shadow */
+    "inf.title": "Ombre infinie",
+    "inf.place": "La Convergence",
+    "inf.tag": "sans fin",
+    "inf.best": "record {n}",
+    "inf.none": "aucune course pour l'instant",
+    "inf.obj": "Survis le plus longtemps possible",
+    "inf.newbest": "nouveau record",
+    "inf.marker": "record",
+    "inf.peek.up": "ombre infinie",
+    "inf.peek.down": "niveaux",
+    "inf.aria.card": "Ombre infinie",
+    "inf.aria.levels": "Niveaux",
+    "inf.aria.play": "Jouer à Ombre infinie",
+    "inf.pop.combo": "+{n} combo",
+    "inf.results.title": "course terminée",
+    "inf.results.oldBest": "ancien record {n}",
+    "inf.results.time": "temps",
+    "inf.results.distance": "distance",
+    "inf.results.meters": "{n} m",
+    "inf.results.uses.one": "danger utilisé",
+    "inf.results.uses.few": "dangers utilisés",
+    "inf.results.uses.many": "dangers utilisés",
+    "inf.results.uses.other": "dangers utilisés",
+    "inf.results.most": "le plus utilisé : {name}",
+    "hud.best": "record {n}",
+    "card.inf.again": "courir encore"
   };
 
   /* ======================================================================= 한국어 */
@@ -1568,7 +1784,7 @@
     "settings.obj": "목표 안내",
     "settings.obj.body": "레벨을 시작할 때 목표와 조작법을, 레벨 1에서는 가시 팁을 보여 줘요.",
     "settings.reset": "진행 초기화",
-    "settings.reset.body": "모든 잠금 해제, 별, 시도 횟수를 지워요.",
+    "settings.reset.body": "모든 잠금 해제, 별, 시도 횟수와 인피니트 섀도 최고 기록을 지워요.",
     "settings.reset.btn": "초기화",
     "levels.title": "레벨",
 
@@ -1659,7 +1875,34 @@
     "level.27.name": "등불 시장",
     "level.28.name": "폭풍 함대",
     "level.29.name": "뒤집힌 성채",
-    "level.30.name": "마지막 빛"
+    "level.30.name": "마지막 빛",
+    /* Infinite Shadow */
+    "inf.title": "인피니트 섀도",
+    "inf.place": "컨버전스",
+    "inf.tag": "무한",
+    "inf.best": "최고 {n}",
+    "inf.none": "아직 기록이 없어요",
+    "inf.obj": "최대한 오래 버티세요",
+    "inf.newbest": "최고 기록 갱신",
+    "inf.marker": "최고",
+    "inf.peek.up": "인피니트 섀도",
+    "inf.peek.down": "레벨",
+    "inf.aria.card": "인피니트 섀도",
+    "inf.aria.levels": "레벨",
+    "inf.aria.play": "인피니트 섀도 플레이",
+    "inf.pop.combo": "+{n} 콤보",
+    "inf.results.title": "달리기 끝",
+    "inf.results.oldBest": "이전 최고 {n}",
+    "inf.results.time": "시간",
+    "inf.results.distance": "거리",
+    "inf.results.meters": "{n} m",
+    "inf.results.uses.one": "사용한 기믹",
+    "inf.results.uses.few": "사용한 기믹",
+    "inf.results.uses.many": "사용한 기믹",
+    "inf.results.uses.other": "사용한 기믹",
+    "inf.results.most": "가장 많이 쓴 것: {name}",
+    "hud.best": "최고 {n}",
+    "card.inf.again": "다시 달리기"
   };
 
   /* ======================================================================= Polski */
@@ -1749,7 +1992,7 @@
     "settings.obj": "Wskazówki celu",
     "settings.obj.body": "Pokazuje cel i sterowanie na początku poziomu oraz wskazówkę o kolcach na poziomie 1.",
     "settings.reset": "Resetuj postęp",
-    "settings.reset.body": "Usuwa wszystkie odblokowania, gwiazdki i liczniki prób.",
+    "settings.reset.body": "Usuwa wszystkie odblokowania, gwiazdki i liczniki prób oraz rekord Nieskończonego cienia.",
     "settings.reset.btn": "resetuj",
     "levels.title": "Poziomy",
 
@@ -1840,7 +2083,34 @@
     "level.27.name": "Bazar latarni",
     "level.28.name": "Armada burzy",
     "level.29.name": "Odwrócona cytadela",
-    "level.30.name": "Ostatnie światło"
+    "level.30.name": "Ostatnie światło",
+    /* Infinite Shadow */
+    "inf.title": "Nieskończony cień",
+    "inf.place": "Zbieżność",
+    "inf.tag": "bez końca",
+    "inf.best": "rekord {n}",
+    "inf.none": "jeszcze bez biegów",
+    "inf.obj": "Przetrwaj jak najdłużej",
+    "inf.newbest": "nowy rekord",
+    "inf.marker": "rekord",
+    "inf.peek.up": "nieskończony cień",
+    "inf.peek.down": "poziomy",
+    "inf.aria.card": "Nieskończony cień",
+    "inf.aria.levels": "Poziomy",
+    "inf.aria.play": "Graj w Nieskończony cień",
+    "inf.pop.combo": "+{n} combo",
+    "inf.results.title": "koniec biegu",
+    "inf.results.oldBest": "poprzedni rekord {n}",
+    "inf.results.time": "czas",
+    "inf.results.distance": "dystans",
+    "inf.results.meters": "{n} m",
+    "inf.results.uses.one": "pułapka",
+    "inf.results.uses.few": "pułapki",
+    "inf.results.uses.many": "pułapek",
+    "inf.results.uses.other": "pułapki",
+    "inf.results.most": "najczęściej: {name}",
+    "hud.best": "rekord {n}",
+    "card.inf.again": "biegnij znowu"
   };
 
   /* ======================================================================= engine */

@@ -121,6 +121,86 @@ const MUSIC = (function () {
     S.ev = ev;
     return S;
   }
+  /* ---------------- streams (Infinite Shadow) ----------------
+     An endless song, written bar by bar as the world is (extend() after the generator appends chunks), on the same
+     integer grid and with the same notes as makeSong. Each bar plays the section of its phase in the generator's wave
+     (T.phases), in that phase's mode (T.modes), with a crash where a peak starts, a fill into one, and the breather's
+     riser. The pair of instruments that leads follows the biome's world family (T.pairs): the sections' counter-lines,
+     written for "ans", move to the pair's answer instrument. The lead is the action line: on every chart cell that asks
+     for an action it plays the home hook's note at that moment (snapped to a chord tone on the beat), straight on the
+     half-beat with no swing; a roll is an octave lower and accented, a hazard's special action rings the cue an octave
+     up. A combo piece gets the soft riser in the bar before it. Bars are written one behind the generator, so a combo
+     that starts a new chunk can still mark the bar before it. The scheduler drops what it has played (makeStream songs
+     have stream: true), so the list stays short however long the run. */
+  const degSemis = function (scale, d) { const k = d - 1, o = Math.floor(k / 7), i = ((k % 7) + 7) % 7; return scale[i] + 12 * o; };
+  function makeStream(def, g) {
+    const T = themeOf(def);
+    if (!T || !T.phases) throw new Error("[music] " + def.name + " has no stream theme in js/themes.js");
+    const bpm = def.mu[0], th = SYNTH.compileTheme(T), spb = 60 / bpm;
+    if (T.bpm !== bpm) throw new Error("[music] the theme of " + def.name + " is at " + T.bpm + " bpm, the run at " + bpm);
+    /* chart: the stream's own array, read each time (it is replaced when it grows) */
+    const S = { bpm: bpm, spb: spb, theme: T, th: th, stream: true, loop: false, cycle: 0, g: g, get chart() { return g.L.chart; }, energy: g.L.energy, bars: 0,
+      combo: {}, ci: 0, written: 0, ev: [], seed: hash("inf:" + g.seed), endBeat: Infinity, T: null };
+    S.R = rng(S.seed ^ 0x51ED);
+    /* the count-in: four sticks in the bar before the first */
+    const ver = { scale: SYNTH.SCALES[T.scale], transpose: 0, swing: 0, overtime: null };
+    if (T.countIn) for (const e of SYNTH.renderBar(th, ver, th.sections[T.countIn], 0, 0, 0)) S.ev.push({ y: "t", c: e.channel, b: (e.step - 16) / 4, o: 0, t: (e.step - 16) / 4, m: e.midi, n: e.len, v: e.vel });
+    extend(S);
+    return S;
+  }
+  function writeBar(S, b, out) {
+    const g = S.g, T = S.theme, th = S.th, L = g.L, st = S.spb / 4;
+    const ph = g.phaseOf(b), nx = g.phaseOf(b + 1), sec = th.sections[T.phases[ph.ph]];
+    const inPh = b - ph.b0, bi = inPh % sec.bars, pass = Math.floor(b / 16) % 4, last = b === ph.b0 + ph.n - 1;
+    const scale = SYNTH.SCALES[(T.modes && T.modes[ph.ph]) || T.scale], ver = { scale: scale, transpose: 0, swing: T.swing || 0, overtime: null };
+    const fill = last && T.fill && T.fill[nx.ph] && nx.ph !== ph.ph;
+    const sc = Object.assign({}, sec, { crash: inPh === 0 && !!(T.crash && T.crash[ph.ph]), riser: ph.ph === "rest" ? 1 : 0, fill: fill ? "fill" : null, bars: fill ? bi + 1 : bi + 2 });
+    const pair = T.pairs[INF.FAM[g.biomeAt(b).w]] || T.pairs.hall, lead = T.channels[pair[0]], ans = T.channels[pair[1]];
+    const shift = 12 * ((ans.octave || 0) - (T.channels.ans.octave || 0));
+    for (const e of SYNTH.renderBar(th, ver, sc, bi, pass, 0)) {
+      let c = e.channel, m = e.midi, ms = e.midis;
+      if (c === "ans") { c = pair[1]; if (m !== undefined) m += shift; if (ms) ms = ms.map(function (x) { return x + shift; }); }
+      out.push({ y: "t", c: c, b: (b * 16 + e.step) / 4, o: e.step % 2 ? ver.swing * st : 0, m: m, ms: ms, n: e.len, v: Math.min(1, e.vel * (0.95 + S.R() * 0.1)), cents: e.cents });
+    }
+    /* the action line */
+    const hook = th.parts[T.hook], hl = hook.steps, chord = sec.chords[bi % sec.chords.length], cells = [];
+    for (let c = 0; c < 8; c++) { const v = L.chart[b * 8 + c - (L.c00 || 0)]; if (v) cells.push([c, v]); }
+    const tones = [chord.degree, chord.degree + 2, chord.degree + 4];
+    cells.forEach(function (cv, k) {
+      const c = cv[0], v = cv[1], gs = ((b * 16 + c * 2) % hl + hl) % hl;
+      let he = hook.events[0];
+      for (const e of hook.events) { if (e.step <= gs) he = e; else break; }
+      let d = he.value;
+      if (c % 2 === 0) {
+        /* on the beat, the nearest chord tone */
+        let best = d, bd = 99;
+        for (const t0 of tones) for (let o = -14; o <= 14; o += 7) { const t = t0 + o, dd = Math.abs(degSemis(scale, t) - degSemis(scale, d)); if (dd < bd) { bd = dd; best = t; } }
+        d = best;
+      }
+      const next = k + 1 < cells.length ? cells[k + 1][0] : 8, len = Math.max(2, Math.min(4, (next - c) * 2));
+      let m = T.tonic + degSemis(scale, d) + (c % 2 ? he.acc : 0) + 12 * (he.octave + (lead.octave || 0));
+      if (v === 2) m -= 12;
+      out.push({ y: "t", c: pair[0], b: (b * 16 + c * 2) / 4, o: 0, m: m, n: len, v: v === 2 ? 1 : 0.85 });
+      if (v === 3 && T.cue) out.push({ y: "t", c: T.cue, b: (b * 16 + c * 2) / 4, o: 0, m: m + 12 + 12 * ((T.channels[T.cue].octave || 0) - (lead.octave || 0)), n: 2, v: 0.7 });
+    });
+    /* the combo cue: a soft riser across the second half of the bar before a combo */
+    const rc = T.channels.riser;
+    if (rc && S.combo[b + 1]) out.push({ y: "t", c: "riser", b: b * 4 + 2, o: 0, m: T.tonic + 12 * (rc.octave || 0), n: 8, v: 0.5 });
+  }
+  /* write the bars the generator has added since the last call (all but its last bar, see above) */
+  function extend(S) {
+    if (!S || !S.stream) return 0;
+    const g = S.g, out = [];
+    for (; S.ci < g.chunks.length; S.ci++) { const c = g.chunks[S.ci]; if (c.combo && c.cx0 !== undefined) S.combo[Math.floor(c.cx0 / 16)] = 1; }
+    const to = g.bars - 1, from = S.written;
+    while (S.written < to) writeBar(S, S.written++, out);
+    if (!out.length) return 0;
+    out.forEach(function (e) { e.t = e.b + e.o / S.spb; });
+    out.sort(function (a, b) { return a.t - b.t; });
+    for (const e of out) S.ev.push(e);
+    S.bars = S.written;
+    return S.written - from;
+  }
   /* a theme's bus: its channels (made on first use), the kick's pump, its own reverb and ping-pong delay */
   function newThemeBus(S, at) {
     const c = ctx, T = S.theme, b = { out: c.createGain(), lv: c.createGain(), mix: c.createGain(), pump: c.createGain(), src: [], act: [], at: at, strips: {}, last: {} };
@@ -170,6 +250,7 @@ const MUSIC = (function () {
   function schedule() {
     if (!song || !ctx || !bus) return;
     const w0 = offline ? 0 : performance.now(), now = ctx.currentTime, until = now + (offline ? 1e9 : LOOK), E = song.ev, spb = song.spb;
+    if (song.stream && ei > 256) { E.splice(0, ei); wi = Math.max(0, wi - ei); ei = 0; }
     for (;;) {
       if (ei >= E.length) { if (!song.loop) break; ei = 0; cyc++; }
       const e = E[ei], t = t0 + (cyc * song.cycle + e.t) * spb - PROC;
@@ -206,6 +287,7 @@ const MUSIC = (function () {
       if (sp.drum) { bank.drum(sp.drum, sp.opts || {}); use("drum:" + sp.drum + ":" + JSON.stringify(sp.opts || {})); }
       else if (sp.tone) for (const n of e.ms || [e.m]) { const lb = (S.loop ? e.b % S.cycle : e.b) - (S.loop ? (from || 0) % S.cycle : from || 0); if (lb >= 0 && lb < 12) bank.tone(sp.tone, n); use("tone:" + sp.tone + ":" + Math.round(n)); }
     }
+    if (S.stream) for (const k in T.channels) { const sp = T.channels[k]; if (sp.drum) { bank.drum(sp.drum, sp.opts || {}); use("drum:" + sp.drum + ":" + JSON.stringify(sp.opts || {})); } }
     for (const k of Array.from(bank.cache.keys())) if (!keep[k] && k.indexOf("drum:") !== 0) bank.cache.delete(k);
   }
   function start(S, fromBeat) {
@@ -333,7 +415,7 @@ const MUSIC = (function () {
     const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     const sr = (opt && opt.sr) || 22050, oc = new OC(2, Math.ceil(sr * seconds), sr), keep = [ctx, mix, volG, pz, song, bus, cache, t0, ei, cyc, vol];
     offline = true; vol = 1; build(oc);
-    const S = makeSong(def, L, !!(opt && opt.loop)); song = S;
+    const S = opt && opt.song ? opt.song : makeSong(def, L, !!(opt && opt.loop)); song = S;
     prepare(S); t0 = 0.05; ei = 0; cyc = 0; stats.maxV = 0; stats.skipped = 0; stats.played = 0;
     bus = newThemeBus(S, 0); bus.out.gain.value = 1;
     const span = seconds - .3; let n = 0;
@@ -352,7 +434,7 @@ const MUSIC = (function () {
     });
   }
   return {
-    init: init, makeSong: makeSong, start: start, stop: stop, beat: beat, schedule: schedule, renderStats: renderStats, sfx: sfx,
+    init: init, makeSong: makeSong, makeStream: makeStream, extend: extend, start: start, stop: stop, beat: beat, schedule: schedule, renderStats: renderStats, sfx: sfx,
     get ctx() { return ctx; }, get song() { return song; }, get t0() { return t0; }, get stats() { return stats; },
     setVol: function (v) { vol = v; if (volG) volG.gain.setTargetAtTime(v, ctx.currentTime, .03); },
     resume: resume, suspend: suspend,
