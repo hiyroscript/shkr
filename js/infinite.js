@@ -137,7 +137,7 @@ const INF = (function () {
   /* README › Difficulty: D and its fixed weights */
   const W = { a: 0.2, b: 0.15, c: 0.3, d: 0.5, e: 0.1 }, SLACK_MAX = 0.3;
   /* the cruise band: D of levels 10 and 14 on the 1.10-per-level curve from level 1's 0.403 */
-  const D_LO = 0.403 * Math.pow(1.1, 9), D_HI = 0.403 * Math.pow(1.1, 13);
+  const D_LO = 0.403 * Math.pow(1.1, 9), D_HI = 0.403 * Math.pow(1.1, 13), D_WARM = 0.403 * Math.pow(1.1, 11);   /* the first minute's ceiling: D(12) */
   function scoreD(t) {
     return t.aps * (1 + W.a * t.mech) * (1 + W.b * t.combo / 10) * (1 + W.c * (SLACK_MAX - t.slack) / SLACK_MAX) *
       (1 - W.d * t.rest) * Math.pow(0.25 / Math.max(t.gap10, 0.12), W.e);
@@ -694,9 +694,12 @@ const INF = (function () {
       const c = { y: L.base, par: g.s.par, room: room };
       const tier = sp.bar < 30 ? 0 : sp.bar < RAMP ? 1 : 2, want = sp.want * sp.n;
       /* obstacle characters: what the last 36 bars still need to average the band's middle, within this chunk's own range */
-      const bd = band(sp.bar < WARM ? 3 : 12), mid = (bd.lo + bd.hi) / 2, dh0 = densHist();
-      const dens = Math.max((bd.lo - 0.8) * sp.n, Math.min((bd.hi + 0.8) * sp.n, mid * (dh0.bars + sp.n) - dh0.chars));
-      let piece = null, tpl = null, haz = [], combo = false, safe = false, first = false, plain = null, kind = "", accents = [];
+      const bd = band(sp.bar < WARM ? 3 : 12), mid = (bd.lo + bd.hi) / 2, dh0 = densHist(), dm0 = densMin(sp.bar);
+      /* ...and what keeps the minute it starts in (tools/infinite-check.js averages each minute) a little inside the band */
+      let dens = mid * (dh0.bars + sp.n) - dh0.chars;
+      if (sp.bar >= WARM) dens = Math.max((bd.lo + 0.1) * (dm0.bars + sp.n) - dm0.chars, Math.min((bd.hi - 0.1) * (dm0.bars + sp.n) - dm0.chars, dens));
+      dens = Math.max((bd.lo - 0.8) * sp.n, Math.min((bd.hi + 0.8) * sp.n, dens));
+      let piece = null, tpl = null, haz = [], combo = false, safe = false, first = false, plain = null, kind = "", accents = [], due = false;
       if (sp.ph === "intro") kind = "intro";
       else if (a >= 20) kind = "flat";
       else if (sp.ph === "rest" && a < 3) kind = "rest";
@@ -709,11 +712,11 @@ const INF = (function () {
         const low = sp.bar >= RAMP + 18 && comboRate() < 4.6;
         const comboChance = sp.ph === "peak" || sp.ph === "peak2" ? (sp.bar < RAMP ? 0.4 : low ? 1 : 0.8) : sp.ph === "build" && sp.bar >= RAMP ? (low ? 0.6 : 0.3) : 0;
         const TR = rng(mix(seed, 5000 + sp.i, a < KNOB_TRIES ? 0 : a));
-        const tryTpl = function (t) {
+        const tryTpl = function (t, loose) {
           for (let k = 0; k < 8; k++) {
             const pc = t.gen(R, c);
             if (!pc || pc.t.length > room - 1) continue;
-            if ((pc.p === undefined ? presses(pc.t) : pc.p) > want * 1.8 + 1) continue;
+            if ((pc.p === undefined ? presses(pc.t) : pc.p) > want * (loose ? 2.7 : 1.8) + 1) continue;
             if (lastKn[t.k]) { let d = 0; const a0 = lastKn[t.k]; pc.kn.forEach(function (v, i) { if (String(v) !== String(a0[i])) d++; }); if (d < Math.min(2, pc.kn.length)) continue; }
             const sg = t.k + "|" + pc.kn.join(",") + "|" + t.haz.join(",");
             if (sigs[sg] !== undefined && sp.bar - sigs[sg] < 180) continue;
@@ -721,14 +724,15 @@ const INF = (function () {
           }
           return null;
         };
-        /* a hazard not seen for 75 bars gets its own set piece now, so every one is in every 3 minutes */
+        /* a hazard not seen for 66 bars gets its own set piece now, so every one is in every 3 minutes (108 bars); such a
+           piece may ask for half as many presses again as the wave would (a Flicker run is all hops) */
         const tierNow = sp.bar < 30 ? 1 : sp.bar < RAMP + 10 ? 2 : 3;
         let overdue = null;
-        HK.forEach(function (k) { if (TIER[k] <= tierNow && sp.bar - lastHaz[k] > 75 && (!overdue || lastHaz[k] < lastHaz[overdue])) overdue = k; });
+        HK.forEach(function (k) { if (TIER[k] <= tierNow && sp.bar - lastHaz[k] > 66 && (!overdue || lastHaz[k] < lastHaz[overdue])) overdue = k; });
         const roll = overdue ? 1 : TR();
         if (overdue) {
           const opts = TPL.filter(function (t) { return t.haz[0] === overdue && !avoid[t.k]; });
-          while (opts.length && !piece) { const t = opts.splice(Math.floor(TR() * opts.length), 1)[0]; piece = tryTpl(t); if (piece) tpl = t; else avoid[t.k] = 1; }
+          while (opts.length && !piece) { const t = opts.splice(Math.floor(TR() * opts.length), 1)[0]; piece = tryTpl(t, true); if (piece) { tpl = t; due = true; } else avoid[t.k] = 1; }
         }
         if (!piece && roll < comboChance && sp.n >= 2) {
           tpl = wpick(TR, COMBO, function (cb) {
@@ -833,7 +837,7 @@ const INF = (function () {
         const tk = kind === "piece" ? tpl.k : kind === "plain" ? "plain:" + plain.k : kind;
         const kn = (kind === "piece" ? piece.kn : [body.t]).concat(accents.map(function (a) { return a.k + ":" + a.t; }));
         /* the signature: template, its main knobs and its hazards (the no-repeat memory keeps it 5 minutes) */
-        const cd = { t: t, h: h, tpl: tk, haz: haz, combo: combo, kn: kn, safe: safe,
+        const cd = { t: t, h: h, tpl: tk, haz: haz, combo: combo, kn: kn, safe: safe, due: due,
           sig: kind === "piece" ? tpl.k + "|" + piece.kn.join(",") + "|" + tpl.haz.join(",") : tk + "|" + body.t + "|" + haz.join(",") };
         why = staticOk(sp, cd);
         if (!why) return cd;
@@ -845,7 +849,7 @@ const INF = (function () {
     /* the running difficulty estimate over the last 36 bars (README › Difficulty) */
     function dEst(f0, f1) {
       let bars = 0, acts = [], hz = [], lvw = 0;
-      for (let i = g.chunks.length - 1; i >= 0 && bars < 36; i--) {
+      for (let i = g.chunks.length - 1; i >= 0 && (f0 !== undefined || bars < 36); i--) {
         const q = g.chunks[i];
         if (f1 !== undefined && q.bar >= f1) continue;
         if (f0 !== undefined && q.bar + q.bars <= f0) break;
@@ -906,6 +910,13 @@ const INF = (function () {
       const per = need / Math.max(1, shape) * actsFor(sp.lv);
       return Math.max(0.6 * actsFor(sp.lv), Math.min(1.6 * actsFor(sp.lv) + 0.3, per));
     }
+    /* the same for the chunks that start in bar's minute (36 bars from a multiple of 36), as the check counts a minute */
+    function densMin(bar) {
+      const w0 = Math.floor(bar / (BPM / 4)) * (BPM / 4);
+      let chars = 0, bars = 0;
+      for (let i = g.chunks.length - 1; i >= 0 && g.chunks[i].bar >= w0; i--) { const q = g.chunks[i]; if (q.ph === "rest" || q.ph === "intro" || q.bar < WARM || q.tpl === "last") continue; chars += q.obst; bars += q.bars; }
+      return { chars: chars, bars: bars };
+    }
     /* the obstacle characters and bars of the last 36 bars that count for density (no breather, intro or warm-up) */
     function densHist() {
       let chars = 0, bars = 0;
@@ -924,6 +935,12 @@ const INF = (function () {
         const bd = band(sp.bar < WARM ? 3 : 12), per = st.obst / (n / 8), dh0 = densHist();
         if (per < bd.lo - 0.8 - 1e-9 || per > bd.hi + 0.8 + 1e-9) return "density " + per.toFixed(2);
         if (sp.bar >= WARM && dh0.bars >= 12) { const av = (dh0.chars + st.obst) / (dh0.bars + sp.n); if (av < bd.lo - 1e-9 || av > bd.hi + 1e-9) return "density avg " + av.toFixed(2); }
+        /* the last chunk to start in a minute closes that minute's average */
+        const MW = BPM / 4;
+        if (sp.bar >= WARM && Math.floor((sp.bar + sp.n) / MW) > Math.floor(sp.bar / MW)) {
+          const dm0 = densMin(sp.bar), av = (dm0.chars + st.obst) / (dm0.bars + sp.n);
+          if (dm0.bars + sp.n >= 12 && (av < bd.lo - 1e-9 || av > bd.hi + 1e-9)) return "density minute " + av.toFixed(2);
+        }
         /* gaps, counted on from the chunk before (after a breather it may stretch) */
         const lim = bd.gap * 2;
         let run = gapRun;
@@ -1067,7 +1084,7 @@ const INF = (function () {
       if (sp.ph === "rest" && acts.length) { reject(j, "rest has input"); return false; }
       if (!j.cd.safe && sp.ph !== "rest" && sp.ph !== "intro" && j.a < KNOB_TRIES + TPL_TRIES) {
         /* the density band alone asks for about 1.5 presses a bar, so the cap never goes under 1.75 */
-        const hi = Math.max(sp.n <= 2 ? 2.25 : 2, want * 1.3 + 0.2), lo = want * 0.65 - 0.1;
+        const hi = Math.max(sp.n <= 2 ? 2.25 : 2, want * 1.3 + 0.2) * (j.cd.due ? 1.5 : 1), lo = want * 0.65 - 0.1;
         if (per > hi) { reject(j, "too many actions " + per.toFixed(2)); return false; }
         if (per < lo && sp.bar >= WARM) { reject(j, "too few actions " + per.toFixed(2)); return false; }
       }
@@ -1076,12 +1093,12 @@ const INF = (function () {
       /* the minute's guard: once two thirds of a minute are made, a chunk may not take that minute's D out of the band
          (README › Infinite Shadow). It is tried again with fewer presses (or more, for the last chunk of a minute that
          came out too easy); the last template tries are free of it, so the guard never forces the safe generator */
-      if (!j.cd.safe && sp.ph !== "rest" && sp.ph !== "intro" && j.a < KNOB_TRIES + TPL_TRIES - 2 && sp.bar >= 36) {
-        const MW = BPM / 4, w0 = Math.floor(sp.bar / MW) * MW, end = Math.min(sp.bar + sp.n, w0 + MW);
+      if (!j.cd.safe && sp.ph !== "rest" && sp.ph !== "intro" && j.a < KNOB_TRIES + TPL_TRIES - 2) {
+        const MW = BPM / 4, w0 = Math.floor(sp.bar / MW) * MW, end = Math.min(sp.bar + sp.n, w0 + MW), D_TOP = w0 ? D_HI : D_WARM;
         if (end - w0 >= 24) {
           g.chunks.push({ bar: sp.bar, bars: sp.n, ph: sp.ph, lv: sp.lv, acts: acts.map(function (a) { return a.t; }), hz: hazards(j.S).filter(function (h) { return h.x0 < j.ch.x1; }) });
           const dm = dEst(w0, end); g.chunks.pop();
-          if (dm && dm.D > D_HI - 0.03) { sp.want *= 0.85; reject(j, "minute D " + dm.D.toFixed(3)); return false; }
+          if (dm && dm.D > D_TOP - 0.03) { sp.want *= 0.85; reject(j, "minute D " + dm.D.toFixed(3)); return false; }
           /* on the low side, as if every chunk of the minute kept the most slack D counts (0.3, not the 0.2 each one is
              probed at), which takes a tenth off */
           if (dm && end === w0 + MW && w0 >= 2 * MW && dm.D / 1.1 < D_LO + 0.01) { sp.want *= 1.15; reject(j, "minute D " + dm.D.toFixed(3)); return false; }

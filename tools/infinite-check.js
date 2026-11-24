@@ -125,9 +125,10 @@ function actions(loc, s0, p, m) {
 }
 /* the largest margin (0.08 to 0.3, steps of 0.02) the chunk still solves with from its seam state */
 function slackOf(loc, s0, steps) {
-  /* like tools/difficulty.js: each probe gets at least 3 times what the chunk's own solve needed (and 12000 ticks);
-     a margin the solver cannot beat within it counts as too tight */
-  const budget = Math.max(12000, 3 * (steps || 0));
+  /* like tools/difficulty.js: each probe gets several times what the chunk's own solve needed; a margin the solver cannot
+     beat within it counts as too tight. At least the generator's own probe budget (15000 ticks, 3 times the steps), so a
+     chunk it proved at 0.2 never measures less only because this probe stopped sooner */
+  const budget = Math.max(20000, 4 * (steps || 0));
   const ok = function (m) { const T1 = loc.T1; const r = SIM.search(loc.S, m, DEC, s0, function (s) { return s.tick < T1 ? undefined : INF.calm(s); }).run(budget); return !!(r && r.ok); };
   if (ok(0.3)) return 0.3;
   let lo = 4, hi = 15;   /* 0.08 is known to solve */
