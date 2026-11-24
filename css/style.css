@@ -13,6 +13,10 @@
   --line:rgba(10,10,16,.15); --line-2:rgba(10,10,16,.08); --hover:rgba(10,10,16,.06);
   --thumb:rgba(10,10,16,.22); --track:rgba(10,10,16,.10);
   --done:#0A0A10; --danger:#BE0036; --danger-line:rgba(190,0,54,.40);
+  /* a solid ink edge for the controls that were hard to see: the level arrows, pause, switches and the slider */
+  --edge:var(--ink); --edge-w:2px;
+  /* rebirth level (purple) and clearing progress (red): a solid coloured line, wider than a chip's hairline */
+  --rebirth:#7B2FE0; --tone-w:1.5px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
@@ -43,7 +47,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 .chip:active{transform:scale(.96)}
 .chip.solid{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .chip.solid:hover{opacity:.88;background:var(--fg)}
-.chip.danger{color:var(--fg);border:1px dashed rgba(10,10,16,.6)}
+/* the coloured lines are --tone-w wide; the extra width comes out of the padding so the pill keeps its size */
+.chip.danger,.chip.rebirth{border-width:var(--tone-w);padding:9.5px 13.5px}
+.chip.danger{color:var(--danger);border-color:var(--danger)}
+.chip.rebirth{color:var(--rebirth);border-color:var(--rebirth)}
 #home .chip,#home .arrow{background:#fff}
 /* white pills for the tags over the backdrop; the header's "hiyroscript" stays plain .tag text, as in vl */
 #home main .tag,#home footer .tag{background:#fff;padding:6px 11px;border-radius:100px;color:var(--dim)}
@@ -54,9 +61,11 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 #home .mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   width:100%;min-height:0;gap:0;padding:10px 0}
 .title{font-size:clamp(30px,min(10vw,12.5vh),104px);font-weight:700;letter-spacing:-.045em;line-height:.88;
-  text-transform:uppercase;text-align:center;color:var(--fg);margin-top:clamp(6px,1.2vh,12px);max-width:13ch;text-wrap:balance;
-  -webkit-text-stroke:.16em #fff;paint-order:stroke fill;
-  text-shadow:0 0 14px #fff,0 0 28px #fff}
+  text-transform:uppercase;text-align:center;color:var(--fg);margin-top:clamp(6px,1.2vh,12px);text-wrap:balance;
+  /* plain black on a white box: the backdrop behind it goes dark in every theme. The side padding is added to
+     max-width and cancelled by the margins, so the words wrap exactly as they would with no box */
+  background:#fff;padding:.1em .22em .06em;border-radius:.2em;max-width:calc(13ch + .44em);margin-left:-.22em;margin-right:-.22em}
+.title.locked{color:rgba(10,10,16,.3)}
 .title span{display:inline-block;animation:letterIn .55s cubic-bezier(.2,.9,.2,1) both}
 @keyframes letterIn{from{opacity:0;transform:translateY(16px) scaleY(.92)}to{opacity:1;transform:none}}
 .play-row{margin-top:clamp(14px,3.2vh,40px);display:flex;align-items:center;gap:clamp(18px,5vw,40px)}
@@ -77,7 +86,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
   border-radius:20px 20px 0 0;top:31%;z-index:1}
 @keyframes breathe{0%,100%{transform:scale(.86)}50%{transform:scale(1)}}
 @keyframes halo{0%{transform:scale(.9);opacity:.65}100%{transform:scale(1.42);opacity:0}}
-.arrow{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);flex:0 0 auto;
+.arrow{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;border:var(--edge-w) solid var(--edge);flex:0 0 auto;
   transition:transform .1s,opacity .16s,background .16s}
 .arrow::before{content:"";width:9px;height:9px;border-left:2px solid var(--ink);border-bottom:2px solid var(--ink);
   transform:translateX(2px) rotate(45deg)}
@@ -125,12 +134,14 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 .set-ctl{display:flex;align-items:center;gap:12px;flex:0 0 auto}
 .set-row output{font-family:var(--mono);font-size:12px;color:var(--dim);width:34px;text-align:right;flex:0 0 auto}
 input[type=range]{-webkit-appearance:none;appearance:none;width:clamp(110px,26vw,170px);height:24px;background:none;flex:0 0 auto}
-input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--track);border-radius:2px}
-input[type=range]::-moz-range-track{height:2px;background:var(--track);border-radius:2px}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--fg);margin-top:-7px}
+input[type=range]::-webkit-slider-runnable-track{height:8px;background:var(--surface);border-radius:8px;box-shadow:inset 0 0 0 var(--edge-w) var(--edge)}
+input[type=range]::-moz-range-track{height:8px;background:var(--surface);border-radius:8px;box-shadow:inset 0 0 0 var(--edge-w) var(--edge)}
+input[type=range]::-moz-range-progress{height:8px;background:var(--fg);border-radius:8px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--fg);margin-top:-4px}
 input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:var(--fg)}
-.sw{width:46px;height:26px;border-radius:100px;background:var(--track);position:relative;flex:0 0 auto;transition:background .18s}
-.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+.sw{width:46px;height:26px;border-radius:100px;background:var(--track);position:relative;flex:0 0 auto;transition:background .18s;
+  border:var(--edge-w) solid var(--edge)}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;
   background:var(--fg);transition:transform .18s cubic-bezier(.2,.8,.2,1)}
 .sw[aria-pressed=true]{background:var(--fg)}
 .sw[aria-pressed=true]::after{transform:translateX(20px);background:var(--bg)}
@@ -192,7 +203,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
 #hudTry{flex:0 0 auto}
 #hudTry b{font-size:1.35em;letter-spacing:-.01em}
 #pauseBtn{pointer-events:auto;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
-  border:1px solid rgba(10,10,16,.3);color:var(--ink);flex:0 0 auto;background:#fff}
+  border:var(--edge-w) solid var(--edge);color:var(--ink);flex:0 0 auto;background:#fff}
 #pauseBtn::before{content:"";width:4px;height:12px;border-left:3px solid;border-right:3px solid;box-sizing:content-box}
 
 /* objective box: the goal, the controls side by side, and "Don't show again". Interactive only while shown. */
@@ -296,7 +307,7 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
   .play-row{margin-top:8px}
   .pulse{width:56px;height:56px}
   #startLbl{margin-top:6px}
-  #rebirthBtn{margin-top:6px;padding:7px 12px}
+  #rebirthBtn{margin-top:6px;padding:6.5px 11.5px}
   .stars{margin-top:4px}
   .card .pv{width:176px;margin-bottom:10px}
 }

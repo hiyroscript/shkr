@@ -109,7 +109,7 @@
   /* ---------------- cards ---------------- */
   const overlay = $("#overlay"), cardEl = $("#card");
   let cardActs = [], cardStop = null, cardFade = 0;
-  /* o: cls (extra card class), eyebrow, title, accent (a colour under the title), body, stars, stats, acts [{ t, solid, danger, fn }],
+  /* o: cls (extra card class), eyebrow, title, accent (a colour under the title), body, stars, stats, acts [{ t, solid, danger, rebirth, fn }],
      pv (adds a preview canvas above the eyebrow; the text is its label), open (called with the card element once
      it is in the page; it may return a function, which runs when the card goes away) */
   function showCard(o) {
@@ -123,7 +123,7 @@
     if (o.body) html += "<p>" + o.body + "</p>";
     if (o.stats) { html += '<div class="stat-row">'; o.stats.forEach(function (s) { html += "<div><b>" + s[0] + "</b><span>" + s[1] + "</span></div>"; }); html += "</div>"; }
     html += '<div class="acts">';
-    (o.acts || []).forEach(function (a, i) { html += '<button class="chip' + (a.solid ? " solid" : "") + (a.danger ? " danger" : "") + '" data-act="' + i + '">' + a.t + "</button>"; });
+    (o.acts || []).forEach(function (a, i) { html += '<button class="chip' + (a.solid ? " solid" : "") + (a.danger ? " danger" : "") + (a.rebirth ? " rebirth" : "") + '" data-act="' + i + '">' + a.t + "</button>"; });
     html += "</div>";
     cardEl.innerHTML = html; cardEl.className = "card" + (o.cls ? " " + o.cls : ""); cardActs = o.acts || []; overlay.classList.add("on"); G.cardUp = true;
     cardEl.style.animation = "none"; void cardEl.offsetWidth; cardEl.style.animation = "";
@@ -152,11 +152,21 @@
       el.appendChild(w); if (wi < arr.length - 1) el.appendChild(document.createTextNode(" "));
     });
   }
+  /* the title sits on a white box (css .title). A wrapped block is as wide as its max-width, not its longest line, so
+     the box is narrowed to the words' extent; again on resize and once the fonts are in. Hidden home: left alone. */
+  function fitTitle() {
+    const el = $("#title"); el.style.width = "";
+    let l = Infinity, r = -Infinity;
+    for (const w of el.children) { const b = w.getBoundingClientRect(); l = Math.min(l, b.left); r = Math.max(r, b.right); }
+    if (!(r > l)) return;
+    const cs = getComputedStyle(el);
+    el.style.width = Math.ceil(r - l + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 1) + "px";
+  }
   function paintHome(retitle) {
     const n = S.sel, def = LEVELS[n - 1], locked = n > S.unlocked, r = S.rec[n] || { t: 0, s: 0, d: false };
     $("#lvTag").textContent = "level " + pad2(n) + (locked ? "  ·  locked" : "");
-    if (retitle) setLetters($("#title"), def.name);
-    $("#title").style.opacity = locked ? 0.28 : 1;
+    if (retitle) { setLetters($("#title"), def.name); fitTitle(); }
+    $("#title").classList.toggle("locked", locked);   /* greyed letters on a still solid box (css) */
     $("#homeStars").innerHTML = locked ? "" : starsHTML(r.d ? r.s : 0).replace(/^<div class="stars">|<\/div>$/g, "");
     $("#homeStars").style.visibility = locked ? "hidden" : "visible";
     $("#startOrb").classList.toggle("locked", locked);
@@ -200,7 +210,7 @@
   $("#rebirthBtn").addEventListener("click", function () {
     const n = S.sel;
     showCard({ eyebrow: "level " + pad2(n), title: "Rebirth?", body: "This clears the stars and tries of " + LEVELS[n - 1].name + ", as if it had never been played. Every level you have unlocked stays unlocked.",
-      acts: [{ t: "rebirth", danger: true, fn: function () { S.rec[n] = { t: 0, s: 0, d: false }; saveState(); hideCard(); paintHome(false); } }, { t: "cancel", fn: hideCard }] });
+      acts: [{ t: "rebirth", rebirth: true, fn: function () { S.rec[n] = { t: 0, s: 0, d: false }; saveState(); hideCard(); paintHome(false); } }, { t: "cancel", fn: hideCard }] });
   });
 
   /* ---------------- levels panel + settings ---------------- */
@@ -791,8 +801,8 @@
   /* ---------------- boot ---------------- */
   RENDER.resize(cv);
   let rz = 0;
-  const onResize = function () { clearTimeout(rz); rz = setTimeout(function () { RENDER.resize(); G.snap = true; refreshScrollCue(); }, 120); };
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(refreshScrollCue);
+  const onResize = function () { clearTimeout(rz); rz = setTimeout(function () { RENDER.resize(); G.snap = true; refreshScrollCue(); fitTitle(); }, 120); };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { refreshScrollCue(); fitTitle(); });
   window.addEventListener("resize", onResize);
   window.addEventListener("orientationchange", function () { setTimeout(onResize, 160); });
   startHome(); show("home");
