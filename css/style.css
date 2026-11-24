@@ -49,7 +49,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 .chip.solid:hover{opacity:.88;background:var(--fg)}
 /* the coloured lines are --tone-w wide; the extra width comes out of the padding so the pill keeps its size */
 .chip.danger,.chip.rebirth{border-width:var(--tone-w);padding:9.5px 13.5px}
-.chip.danger{color:var(--fg);border-color:var(--danger)}
+.chip.danger{color:var(--danger);border-color:var(--danger)}
 .chip.rebirth{color:var(--rebirth);border-color:var(--rebirth)}
 #home .chip,#home .arrow{background:#fff}
 /* white pills for the tags over the backdrop; the header's "hiyroscript" stays plain .tag text, as in vl */
