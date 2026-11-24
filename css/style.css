@@ -61,11 +61,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 #home .mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   width:100%;min-height:0;gap:0;padding:10px 0}
 .title{font-size:clamp(30px,min(10vw,12.5vh),104px);font-weight:700;letter-spacing:-.045em;line-height:.88;
-  text-transform:uppercase;text-align:center;color:var(--fg);margin-top:clamp(6px,1.2vh,12px);text-wrap:balance;
-  /* plain black on a white box: the backdrop behind it goes dark in every theme. The side padding is added to
-     max-width and cancelled by the margins, so the words wrap exactly as they would with no box */
-  background:#fff;padding:.1em .22em .06em;border-radius:.2em;max-width:calc(13ch + .44em);margin-left:-.22em;margin-right:-.22em}
-.title.locked{color:rgba(10,10,16,.3)}
+  text-transform:uppercase;text-align:center;color:var(--fg);margin-top:clamp(6px,1.2vh,12px);max-width:13ch;text-wrap:balance}
 .title span{display:inline-block;animation:letterIn .55s cubic-bezier(.2,.9,.2,1) both}
 @keyframes letterIn{from{opacity:0;transform:translateY(16px) scaleY(.92)}to{opacity:1;transform:none}}
 .play-row{margin-top:clamp(14px,3.2vh,40px);display:flex;align-items:center;gap:clamp(18px,5vw,40px)}
