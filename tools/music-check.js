@@ -192,7 +192,7 @@ async function browser() {
       MUSIC.stop(.1); return st;
     });
     console.log("\nperf (level 30, 15 s live, 4× CPU throttling): slowest schedule() " + p.worst.toFixed(2) + " ms, start() " + p.start.toFixed(1) +
-      " ms (renders its strings and drums), most voices " + p.voices + ", late events skipped " + p.skipped + " (context " + p.state + ")");
+      " ms (renders its reverb, drums and first notes), most voices " + p.voices + ", late events skipped " + p.skipped + " (context " + p.state + ")");
   }
   await br.close();
 }

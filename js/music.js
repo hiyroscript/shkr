@@ -25,13 +25,13 @@
 const MUSIC = (function () {
   "use strict";
   const TPQ = 48;                  /* grid ticks per beat: 16ths (12), eighths (24) and triplets (16) are all whole numbers */
-  const LOOK = 0.3, TICK = 25, LATE = 0.02;
+  const LOOK = 0.3, TICK = 25, LATE = 0.02, WARM = 3;
   function rng(seed) { let a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 
   /* ---------------- engine ---------------- */
   let ctx = null, mix = null, volG = null, pz = null, song = null, bus = null, cache = null;
-  let t0 = 0, ei = 0, cyc = 0, vol = 0.8, timer = 0, offline = false, susT = 0;
+  let t0 = 0, ei = 0, cyc = 0, wi = 0, wcyc = 0, vol = 0.8, timer = 0, offline = false, susT = 0;
   const stats = { maxV: 0, skipped: 0, worst: 0, played: 0 };
   /* Chrome, Firefox and Safari delay a DynamicsCompressor's output by a 6 ms look-ahead; the master has two, so every
      event is sent that much early and beat b still reaches the speakers at t0 + b * spb (plus output latency, which
@@ -165,7 +165,8 @@ const MUSIC = (function () {
   /* ---------------- scheduler ----------------
      Every event sits at t0 + (cycle · loop length + b) · spb + its groove offset; b comes from an integer grid tick,
      so nothing accumulates. Events more than LATE behind the audio clock (a hiccup, a hidden tab) are skipped, never
-     bunched up at the current time. */
+     bunched up at the current time. What time a call has left (up to 3 ms) renders the tones of the notes in the next
+     WARM seconds, one at a time, so a new section's notes are ready before it starts and no call renders several. */
   function schedule() {
     if (!song || !ctx || !bus) return;
     const w0 = offline ? 0 : performance.now(), now = ctx.currentTime, until = now + (offline ? 1e9 : LOOK), E = song.ev, spb = song.spb;
@@ -180,7 +181,17 @@ const MUSIC = (function () {
       if (t < now - LATE) { stats.skipped++; continue; }
       play(e, Math.max(t, now));
     }
-    if (!offline) stats.worst = Math.max(stats.worst, performance.now() - w0);
+    if (!offline) {
+      if (wcyc < cyc || (wcyc === cyc && wi < ei)) { wcyc = cyc; wi = ei; }
+      while (performance.now() - w0 < 3) {
+        if (wi >= E.length) { if (!song.loop) break; wi = 0; wcyc++; }
+        const e = E[wi], sp = song.theme.channels[e.c];
+        if (t0 + (wcyc * song.cycle + e.t) * spb > now + WARM) break;
+        wi++;
+        if (sp && sp.tone) for (const n of e.ms || [e.m]) cache.bank.tone(sp.tone, n);
+      }
+      stats.worst = Math.max(stats.worst, performance.now() - w0);
+    }
   }
   function play(e, t) { stats.played++; themeNote(e, t); }
   /* a theme's drums, its reverb, the noise and the tones of its first bars, made before it starts so the first bars
@@ -210,7 +221,7 @@ const MUSIC = (function () {
     cyc = S.loop ? Math.floor(fb / S.cycle) : 0;
     const local = fb - cyc * S.cycle, E = S.ev;
     let lo = 0, hi = E.length; while (lo < hi) { const md = (lo + hi) >> 1; if (E[md].t < local - 1e-9) lo = md + 1; else hi = md; }
-    ei = lo;
+    ei = lo; wi = lo; wcyc = cyc;
     if (fb > 0) for (let i = 0; i < lo; i++) {
       const e = E[i], sp = S.theme.channels[e.c] || {}, left = e.b + e.n / 4 - local;
       if (sp.synth && sp.role === "harmony" && left > .25) play(Object.assign({}, e, { n: left * 4 }), t0 + fb * S.spb - PROC);

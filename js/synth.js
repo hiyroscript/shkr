@@ -352,11 +352,23 @@ const SYNTH = (function () {
         }
         continue;
       }
-      for (let i = 0; i < out.length; i += 1) {
+      // (Shadow Skirr) the glide sample by sample only while it lasts (five of its time constants: what is left of it
+      // then shifts the phase by less than 0.02 radian in all), then on by rotation from the same phase and level, so
+      // a timpani note renders several times faster and a new one never stalls the scheduler
+      const g = Math.min(out.length, Math.max(Math.ceil(sr * glideTime * 5), Math.ceil(na)));
+      let i = 0;
+      for (; i < g; i += 1) {
         const t = i / sr;
         const bend = glide ? 2 ** ((glide * Math.exp(-t / glideTime)) / 12) : 1;
         phase += (TAU * f0 * bend) / sr;
         out[i] += Math.sin(phase) * p.amp * Math.exp(-t / p.decay) * Math.min(1, t / attack);
+      }
+      const w = (TAU * f0) / sr, c = Math.cos(w), s = Math.sin(w), d = Math.exp(-1 / (sr * p.decay));
+      let x = Math.cos(phase) * p.amp, y = Math.sin(phase) * p.amp, e = Math.exp(-(i - 1) / sr / p.decay);
+      for (; i < out.length; i += 1) {
+        const nx = x * c - y * s; y = x * s + y * c; x = nx;
+        e *= d;
+        out[i] += y * e;
       }
     }
     return out;
