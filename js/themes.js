@@ -13,8 +13,8 @@
    and they follow its energy (intro, groove, build, peak, breather, climax,
    outro). `end` is the closing sting after the last bar. The home theme has
    `loop` instead, played round and round, each pass (`passes` of them)
-   taking the next entry of a channel's list. A level with no theme here
-   still plays the generated music of js/music.js.
+   taking the next entry of a channel's list. Every level has one: js/music.js
+   plays them, and tools/music-check.js checks them.
    ========================================================================== */
 const THEMES = (function () {
   "use strict";
