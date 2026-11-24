@@ -22,8 +22,8 @@
     <header class="bar">
       <span class="tag">hiyroscript</span>
       <nav>
-        <button class="chip" data-go="howto">how to play</button>
-        <button class="chip" data-go="settings">settings</button>
+        <button class="chip" data-go="howto" data-i18n="home.howto">how to play</button>
+        <span class="set-wrap"><button class="chip" data-go="settings" data-i18n="home.settings">settings</button><button class="flag-btn" id="homeFlag" aria-label="Language: English"></button></span>
       </nav>
     </header>
     <main class="mid">
@@ -31,15 +31,15 @@
       <h1 class="title" id="title"></h1>
       <div class="stars" id="homeStars"></div>
       <div class="play-row">
-        <button class="arrow" id="prevBtn" aria-label="Previous level"></button>
-        <button class="pulse" id="startOrb" aria-label="Play"><i></i><b></b><u aria-hidden="true"></u></button>
-        <button class="arrow next" id="nextBtn" aria-label="Next level"></button>
+        <button class="arrow" id="prevBtn" aria-label="Previous level" data-i18n-aria="aria.prev"></button>
+        <button class="pulse" id="startOrb" aria-label="Play" data-i18n-aria="aria.play"><i></i><b></b><u aria-hidden="true"></u></button>
+        <button class="arrow next" id="nextBtn" aria-label="Next level" data-i18n-aria="aria.next"></button>
       </div>
       <span class="tag" id="startLbl">play</span>
-      <button class="chip rebirth hide" id="rebirthBtn">rebirth level</button>
+      <button class="chip rebirth hide" id="rebirthBtn" data-i18n="home.rebirth">rebirth level</button>
     </main>
     <footer class="bar">
-      <button class="chip" data-go="levels">levels</button>
+      <button class="chip" data-go="levels" data-i18n="home.levels">levels</button>
       <div class="rail"><div class="rail-fill" id="railFill" style="width:0%"></div></div>
       <span class="tag" id="progTag">01 / 30</span>
     </footer>
@@ -49,12 +49,12 @@
 <section id="howto" class="screen paper">
   <div class="col">
     <div class="panel-head">
-      <h2 class="panel-title">How to play</h2>
-      <button class="chip" data-go="home">close</button>
+      <h2 class="panel-title" data-i18n="howto.title">How to play</h2>
+      <button class="chip" data-go="home" data-i18n="common.close">close</button>
     </div>
     <div class="panel-body">
       <div class="demo-shell">
-        <canvas id="demoCv" role="img" aria-label="The move in the game"></canvas>
+        <canvas id="demoCv" role="img" aria-label="The move in the game" data-i18n-aria="howto.demo"></canvas>
         <div>
           <span class="tag" id="demoKind"></span>
           <div class="demo-name" id="demoName"></div>
@@ -62,8 +62,8 @@
           <p class="demo-desc" id="demoDesc"></p>
         </div>
         <div class="demo-nav">
-          <button class="chip" id="demoPrev">back</button>
-          <button class="chip solid" id="demoNext">next</button>
+          <button class="chip" id="demoPrev" data-i18n="howto.back">back</button>
+          <button class="chip solid" id="demoNext" data-i18n="howto.next">next</button>
           <div class="dot-row" id="demoDots"></div>
         </div>
       </div>
@@ -77,29 +77,34 @@
 <section id="settings" class="screen paper">
   <div class="col">
     <div class="panel-head">
-      <h2 class="panel-title">Settings</h2>
-      <button class="chip" data-go="home">close</button>
+      <h2 class="panel-title" data-i18n="settings.title">Settings</h2>
+      <button class="chip" data-go="home" data-i18n="common.close">close</button>
     </div>
     <div class="panel-body">
-      <div class="set-row">
-        <div class="lbl"><b>Sound effects</b><span>A short sound when you crash, and the tape whirr of the level 1 tip's rewind.</span></div>
-        <div class="set-ctl"><button class="sw" id="sfxSw" aria-pressed="true" aria-label="Sound effects"></button></div>
+      <div class="set-row" id="langRow">
+        <div class="lbl"><b data-i18n="settings.lang">Language</b><span data-i18n="settings.lang.body">The language of the menus, cards and tips.</span></div>
+        <div class="set-ctl"><button class="chip lang-cur" id="langBtn" aria-expanded="false" aria-controls="langList" aria-label="Language: English"><span class="flag-i" id="langBtnFlag"></span><span id="langBtnName">English</span></button></div>
+        <div class="lang-list hide" id="langList" role="group" aria-label="Languages" data-i18n-aria="settings.lang.list"></div>
       </div>
       <div class="set-row">
-        <div class="lbl"><b>Music</b><span>The soundtrack of each level.</span></div>
-        <div class="set-ctl"><input type="range" id="volRange" min="0" max="100" step="1" aria-label="Music volume"><output id="volOut">80</output></div>
+        <div class="lbl"><b data-i18n="settings.sfx">Sound effects</b><span data-i18n="settings.sfx.body">A short sound when you crash, and the tape whirr of the level 1 tip's rewind.</span></div>
+        <div class="set-ctl"><button class="sw" id="sfxSw" aria-pressed="true" aria-label="Sound effects" data-i18n-aria="settings.sfx"></button></div>
       </div>
       <div class="set-row">
-        <div class="lbl"><b>Screen shake</b><span>Impact shake on landings and falls.</span></div>
-        <div class="set-ctl"><button class="sw" id="shakeSw" aria-pressed="true" aria-label="Screen shake"></button></div>
+        <div class="lbl"><b data-i18n="settings.music">Music</b><span data-i18n="settings.music.body">The soundtrack of each level.</span></div>
+        <div class="set-ctl"><input type="range" id="volRange" min="0" max="100" step="1" aria-label="Music volume" data-i18n-aria="settings.music.aria"><output id="volOut">80</output></div>
       </div>
       <div class="set-row">
-        <div class="lbl"><b>Objective tips</b><span>Show the goal and controls at the start of a level, and the spike tip on level 1.</span></div>
-        <div class="set-ctl"><button class="sw" id="objSw" aria-pressed="true" aria-label="Objective tips"></button></div>
+        <div class="lbl"><b data-i18n="settings.shake">Screen shake</b><span data-i18n="settings.shake.body">Impact shake on landings and falls.</span></div>
+        <div class="set-ctl"><button class="sw" id="shakeSw" aria-pressed="true" aria-label="Screen shake" data-i18n-aria="settings.shake"></button></div>
       </div>
       <div class="set-row">
-        <div class="lbl"><b>Reset progress</b><span>Clears every unlock, star and try count.</span></div>
-        <div class="set-ctl"><button class="chip danger" id="resetBtn">reset</button></div>
+        <div class="lbl"><b data-i18n="settings.obj">Objective tips</b><span data-i18n="settings.obj.body">Show the goal and controls at the start of a level, and the spike tip on level 1.</span></div>
+        <div class="set-ctl"><button class="sw" id="objSw" aria-pressed="true" aria-label="Objective tips" data-i18n-aria="settings.obj"></button></div>
+      </div>
+      <div class="set-row">
+        <div class="lbl"><b data-i18n="settings.reset">Reset progress</b><span data-i18n="settings.reset.body">Clears every unlock, star and try count.</span></div>
+        <div class="set-ctl"><button class="chip danger" id="resetBtn" data-i18n="settings.reset.btn">reset</button></div>
       </div>
     </div>
   </div>
@@ -108,8 +113,8 @@
 <section id="levels" class="screen paper">
   <div class="col">
     <div class="panel-head">
-      <h2 class="panel-title">Levels</h2>
-      <button class="chip" data-go="home">close</button>
+      <h2 class="panel-title" data-i18n="levels.title">Levels</h2>
+      <button class="chip" data-go="home" data-i18n="common.close">close</button>
     </div>
     <div class="panel-body">
       <div class="grid" id="lvGrid"></div>
@@ -123,29 +128,30 @@
     <div class="meta" id="hudLevel"></div>
     <div class="hud-right">
       <div class="meta" id="hudTry"></div>
-      <button id="pauseBtn" aria-label="Pause"></button>
+      <button id="pauseBtn" aria-label="Pause" data-i18n-aria="aria.pause"></button>
     </div>
   </div>
 </div>
 
 <div id="msBanner">
-  <div class="ob-title">Run to the end</div>
-  <div class="ob-keys"><span class="ob-key"><b>jump</b> <span id="obJump"></span></span><span class="ob-key"><b>roll</b> <span id="obRoll"></span></span></div>
-  <label class="ob-hide"><input type="checkbox" id="obHide"><i class="ob-box" aria-hidden="true"></i>Don't show again</label>
+  <div class="ob-title" data-i18n="ob.title">Run to the end</div>
+  <div class="ob-keys"><span class="ob-key"><b data-i18n="common.jump">jump</b> <span id="obJump"></span></span><span class="ob-key"><b data-i18n="common.roll">roll</b> <span id="obRoll"></span></span></div>
+  <label class="ob-hide"><input type="checkbox" id="obHide"><i class="ob-box" aria-hidden="true"></i><span data-i18n="ob.hide">Don't show again</span></label>
 </div>
 
 <div id="tipNote" role="status" aria-live="polite">
-  <div class="tip-text"><div class="tip-title" id="tipTitle"></div><div class="tip-body" id="tipBody"></div><button class="chip solid" id="tipOk">understood</button></div>
-  <div class="tip-count" aria-label="seconds left"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="tip-track" cx="18" cy="18" r="15.9"/><circle class="tip-arc" id="tipArc" cx="18" cy="18" r="15.9" pathLength="100"/></svg><b id="tipNum">5</b></div>
+  <div class="tip-text"><div class="tip-title" id="tipTitle"></div><div class="tip-body" id="tipBody"></div><button class="chip solid" id="tipOk" data-i18n="common.understood">understood</button></div>
+  <div class="tip-count" aria-label="seconds left" data-i18n-aria="tip.secs"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="tip-track" cx="18" cy="18" r="15.9"/><circle class="tip-arc" id="tipArc" cx="18" cy="18" r="15.9" pathLength="100"/></svg><b id="tipNum">5</b></div>
 </div>
 
-<div id="rewindFx" aria-hidden="true"><i class="rw-band"></i><span class="rw-tag">◀◀ rewind</span></div>
+<div id="rewindFx" aria-hidden="true"><i class="rw-band"></i><span class="rw-tag" data-i18n="rewind">◀◀ rewind</span></div>
 
 <div id="overlay"><div class="card" id="card"></div></div>
 
 <script src="js/dev-config.js"></script> <!-- dev-only -->
 <script src="js/sim.js"></script>
 <script src="js/levels.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/fixes.js"></script>
 <script src="js/demo.js"></script>
 <script src="js/synth.js"></script>

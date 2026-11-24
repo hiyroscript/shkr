@@ -71,10 +71,10 @@
       try { const o = JSON.parse(str); return o && typeof o === "object" && o.rec && typeof o.rec === "object" ? o : null; } catch (e) { return null; }
     }
     function snapshot() { lsSet(SNAP_KEY, JSON.stringify(current())); }
-    /* replace unlocked / sel / rec, keep the settings (music, sound effects, shake, objective tips), then repaint the way the normal reset does */
+    /* replace unlocked / sel / rec, keep the settings (music, sound effects, shake, objective tips, language), then repaint the way the normal reset does */
     function apply(p, goHome) {
       const S = api.S();
-      api.setS({ music: S.music, sfx: S.sfx, shake: S.shake, objective: S.objective, sel: p.sel, unlocked: p.unlocked, rec: p.rec });
+      api.setS({ music: S.music, sfx: S.sfx, shake: S.shake, objective: S.objective, lang: S.lang, sel: p.sel, unlocked: p.unlocked, rec: p.rec });
       api.saveState(); api.paintHome(false); api.paintLevels();
       if (goHome) { api.show("home"); api.startHome(); }
       paintPanel();

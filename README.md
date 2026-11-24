@@ -17,7 +17,7 @@ Either way there is nothing to install: open `index.html` in a browser.
 | Roll | `↓`, `S` | right click | hold the left half of the screen |
 | Pause / resume | `Esc` | pause button (top right) | pause button (top right) |
 
-On the home screen, `←` / `→` browse levels and `Enter` or `Space` starts the selected level. On How to play, `←` / `→` step through the pages. `Esc` closes How to play, Settings or Levels and goes back home. When a card is open (new hazard, pause, level cleared, confirmations), `Enter` picks its first button. On the level 1 spike tip, `Enter` is "understood" and no other key does anything. The game also pauses itself when the tab is hidden or the window loses focus.
+On the home screen, `←` / `→` browse levels and `Enter` or `Space` starts the selected level. On How to play, `←` / `→` step through the pages. `Esc` closes How to play, Settings or Levels and goes back home; in Settings, while the language list is open, the first `Esc` closes only the list. When a card is open (new hazard, pause, level cleared, confirmations), `Enter` picks its first button. On the level 1 spike tip, `Enter` is "understood" and no other key does anything. The game also pauses itself when the tab is hidden or the window loses focus.
 
 ## Features
 
@@ -43,9 +43,39 @@ On the home screen, `←` / `→` browse levels and `Enter` or `Space` starts th
 
 - Star rating per level, based on how many tries the first clear took: 1 try earns three rainbow stars, up to 3 tries three stars, up to 7 tries two stars, more than that one star. Try counts are recorded per level, and clearing a level unlocks the next one.
 - Rebirth: on a cleared level, "rebirth level" clears that level's stars and tries. Unlocked levels stay unlocked.
-- Settings: sound effects on/off (the crash sound and the spike tip's rewind), music volume, screen shake on/off, objective tips on/off (the objective box at the start of a level and the level 1 spike tip), and reset all progress. Resetting progress keeps the settings.
+- Settings: language (the first row; see [Languages](#languages)), sound effects on/off (the crash sound and the spike tip's rewind), music volume, screen shake on/off, objective tips on/off (the objective box at the start of a level and the level 1 spike tip), and reset all progress. Resetting progress keeps the settings, the language included.
+- Language flag: on the home screen, a small round flag of the current language sits right under the "settings" chip. It opens Settings with the language list open.
 - Reduced motion: with `prefers-reduced-motion: reduce`, the play button's pulse animation, the foliage sway and the drifting fog wisps are turned off. The runner keeps all its poses but drops the purely decorative extras: dust kicks and sparks, the ball's motion trail, the Coil shake, head and hand follow-through, the glide bob and the drifting limbs in a Thermal. Its Rail swing settles without wobbling. A new hazard card, and each How to play page, shows one still frame of its demo instead of the loop.
 - Progress and settings are saved in `localStorage`.
+
+## Languages
+
+The whole game can be played in ten languages. English is the main one: it is the default, and any string missing from another language falls back to it.
+
+| Code | Language | Flag | `<html lang>` |
+|---|---|---|---|
+| `en` | English | United States | `en` |
+| `zh` | 中文 (Mandarin, Simplified Chinese) | China | `zh-Hans` |
+| `es` | Español | Spain | `es` |
+| `ru` | Русский | Russia | `ru` |
+| `ja` | 日本語 | Japan | `ja` |
+| `pt` | Português (Brazil) | Brazil | `pt-BR` |
+| `de` | Deutsch | Germany | `de` |
+| `fr` | Français | France | `fr` |
+| `ko` | 한국어 | South Korea | `ko` |
+| `pl` | Polski | Poland | `pl` |
+
+- **Choosing.** Settings has Language as its first row: a chip with the current language's round flag and its own name. It opens a list of all ten, the current one marked (`aria-pressed`, `aria-current`). Arrow keys move between them, `Home` / `End` jump to the ends, `Enter` picks, `Esc` closes the list. Picking applies at once, with no reload: every screen, card, How to play page, the HUD, the objective box, the spike tip and the JUMP / ROLL label on the demos. The round flag under the home screen's "settings" chip shows the current language and opens Settings with the list open.
+- **Default.** Until the player picks one, the game uses the first of the browser's languages (`navigator.languages`) it has, matched by prefix (`zh-TW` → 中文, `pt-PT` → Português), else English. That guess is not saved; a choice is (`lang` in the save, `null` until then). Resetting progress keeps it. `<html lang>` follows the language, so screen readers, hyphenation and fonts follow it too.
+- **Names.** Hazard and level names are translated where a translation reads well, and kept as proper nouns in katakana / Hangul in Japanese and Korean. They read the same on the hazard cards, in How to play and on the home screen. `js/levels.js` keeps its English names as data; the game translates them when it shows them.
+- **Fonts.** Space Grotesk and JetBrains Mono cover Latin (and the mono, Cyrillic). Chinese, Japanese, Korean and Cyrillic otherwise come from system fonts: `--disp` and `--mono` in `css/style.css` end in Cyrillic-capable sans faces and a CJK stack (`--cjk`) whose order follows `:lang()`, so Han characters get Chinese shapes in Chinese and Japanese shapes in Japanese. In Chinese, Japanese and Korean the wide letter-spacing of tags, chips and labels is dropped. Long words (German, Russian, Polish, Portuguese) wrap or hyphenate instead of running out of their box, and a home-screen title with a word too long for it shrinks until it fits.
+- **Flags** are drawn as inline SVG by `I18N.flagSVG(code)`: no image files and no emoji (Windows has no flag emoji). Each flag covers its circle like `object-fit: cover`, centred on the part that matters, with a thin dark outline; the US flag shows its canton and stripes with a reduced star pattern, Spain has no coat of arms, Brazil's globe has no motto, and France uses three equal bands. Every flag gets its own clip-path ids.
+
+**Adding a string.** Give it a stable id, add it to `STR.en` in `js/i18n.js` with the English text, then to every other language. In the page, mark the element `data-i18n="id"` (text) or `data-i18n-aria="id"` (`aria-label`); in `js/game.js`, use `t("id")`, with `{name}` / `{n}` placeholders filled from `t("id", { name: ... })`. A count that changes the words uses a plural family (`id.one`, `id.few`, `id.many`, `id.other`) and `tn("id", n)`, which picks the form with `Intl.PluralRules`. Run `node tools/i18n-check.js`.
+
+**Adding a language.** Add it to `LANGS` in `js/i18n.js` (code, its own name, flag id, `<html lang>` code), a full `STR` table with every English key, and a flag in `FLAGS`. If its script needs other fonts, extend the stacks in `css/style.css`. `tools/i18n-check.js` lists the ten languages it expects, so update it too.
+
+`node tools/i18n-check.js` fails if a language is missing a key English has or has one English doesn't, if a string's placeholders differ from the English ones, if a plural family is incomplete, if the English level or hazard names drift from `js/levels.js`, if `index.html` or `js/game.js` uses an id English doesn't have, or if a flag doesn't draw. It runs on every release build. The developer-only UI (`js/dev.js`) stays in English.
 
 ## Hazards
 
@@ -201,6 +231,7 @@ shkr/
 │   ├── dev-config.js   developer build only: points the save at its own key (loaded first)
 │   ├── sim.js          deterministic fixed-timestep simulation, shared by the game and the Node beatability solver
 │   ├── levels.js       the 30 hand-written charts, the hazard list (HAZ), the newer plain obstacles (OBST) and the home screen chart (HOME)
+│   ├── i18n.js         the languages: every player-visible string in ten languages (I18N.t), and the round flags as inline SVG
 │   ├── fixes.js        per-level fix-ups applied when a level compiles (currently empty)
 │   ├── demo.js         precomputed input for the home screen's attract-mode demo (DEMO_SOL)
 │   ├── synth.js        the instruments and the notation of the themes, ported from hiyroscript/alva's audio engine
@@ -212,6 +243,7 @@ shkr/
 │   └── dev.js          developer build only: rainbow unlock-all default, developer section in Settings, soundtrack player, DEV badge (loaded last)
 ├── tools/
 │   ├── build-release.sh   makes the release: the repo minus the developer code, with a guard against leaks
+│   ├── i18n-check.js      checks the translations: the same keys and placeholders in every language, the ids the game uses, the flags
 │   ├── parity-check.js    proves the release plays exactly like the source
 │   ├── difficulty.js      scores every level's difficulty D and prints it against the 1.10-per-level curve
 │   ├── density.js         measures how busy every chart is (obstacles per bar, gaps) against the density bands
@@ -219,7 +251,7 @@ shkr/
 │   └── music-check.js     checks every soundtrack: its theme's notation and instruments, the grid, the swing; with --render / --perf, loudness, voices and timing in Chromium
 ├── .github/
 │   └── workflows/
-│       └── build.yml   on every push to main: level checks, build, guard, parity check, zip, publish
+│       └── build.yml   on every push to main: translation and level checks, build, guard, parity check, zip, publish
 ├── docs/
 │   └── hazards/        colour swatches for the README's hazard list, one SVG per hazard (colours from HAZ in js/levels.js)
 ├── README.md
@@ -247,7 +279,7 @@ One source tree, two builds:
 
 The developer build needs no build step: Pages keeps deploying the `main` branch root exactly as before. Because the two builds use different save keys, the developer build never reads or writes a player's real save, even on the same origin.
 
-**Developer section** (Settings, below the normal rows). Each progress action asks for confirmation first, keeps the settings (sound effects, music, shake, objective tips), and returns to the home screen.
+**Developer section** (Settings, below the normal rows). Each progress action asks for confirmation first, keeps the settings (sound effects, music, shake, objective tips, language), and returns to the home screen.
 
 - *Unlock all (rainbow)*: every level unlocked with three rainbow stars.
 - *Reset progress*: a fresh game (level 1, no stars, no tries), to test the real first-time flow.
@@ -256,10 +288,10 @@ The developer build needs no build step: Pages keeps deploying the `main` branch
 
 **Release build.** `.github/workflows/build.yml` runs on every push to `main` (except pushes that only touch `max`, Markdown files or `docs/`, none of which go into the release) and on manual runs:
 
-1. `node tools/check-levels.js` checks every level against the rules in [Difficulty](#difficulty) and stops the job on any failure.
+1. `node tools/i18n-check.js` checks the translations (see [Languages](#languages)), then `node tools/check-levels.js` checks every level against the rules in [Difficulty](#difficulty). Either one stops the job on any failure.
 2. `bash tools/build-release.sh dist/release` copies `index.html`, `css/` and `js/` and nothing else (no `README.md`, `max`, `tools/`, `.github/` or `.git`), deletes `js/dev.js` and `js/dev-config.js`, removes the `<!-- dev-only -->` lines from `index.html`, and stamps `<meta name="shkr-build" content="dev">` as `release · <short-sha> · <UTC date>`. Its guard then fails the build if the output still contains `dev.js`, `dev-config.js`, `dev-only`, `shadowskirr.dev`, the developer section's ids or text, or any definition of `SHKR_DEV` / `SHKR_DEV_INIT`; if `index.html` loads a file that is missing; or if the release holds a file that `index.html` does not load.
 3. `node tools/parity-check.js . dist/release` checks that the release holds only `index.html`, `css/` and `js/`, and that every shared file is byte-identical (`index.html` may differ only by the removed dev-only lines and the stamp), then loads `sim.js`, `levels.js`, `fixes.js` and `demo.js` from both trees in separate `vm` contexts. Every level and the home chart must compile identically, each level's solver solution must replay to the same final state, a seeded run that dies part-way must match on every tick, and the attract-mode demo (`DEMO_SOL`) must replay identically. It prints a table and names the first differing field on failure.
-4. Only if all three pass: zip `dist/release` with `index.html` at the root, upload it as the `shadow-skirr-release` artifact, and replace the rolling `latest` release (tag, title "Shadow Skirr — latest build", commit SHA, date and message in the notes). A manual run on another branch builds, checks and uploads the artifact but leaves `latest` alone.
+4. Only if all of them pass: zip `dist/release` with `index.html` at the root, upload it as the `shadow-skirr-release` artifact, and replace the rolling `latest` release (tag, title "Shadow Skirr — latest build", commit SHA, date and message in the notes). A manual run on another branch builds, checks and uploads the artifact but leaves `latest` alone.
 
 The gate cannot be skipped: there is no flag for it, and it runs in the same job as the zip.
 
@@ -279,14 +311,14 @@ node tools/parity-check.js . /tmp/shadow-skirr
 
 ## Development notes
 
-- **Script load order matters.** The JS files are classic scripts that share top-level globals (`SIM`, `HAZ`, `LEVELS`, `HOME`, `FIXES`, `DEMO_SOL`, `SYNTH`, `THEMES`, `MUSIC`, `BACKDROPS`, `RENDER`). They must load in this order, at the end of `<body>`, without `defer`, `async` or `type="module"`:
-  `dev-config.js` → `sim.js` → `levels.js` → `fixes.js` → `demo.js` → `synth.js` → `themes.js` → `music.js` → `backdrops.js` → `render.js` → `game.js` → `dev.js`
+- **Script load order matters.** The JS files are classic scripts that share top-level globals (`SIM`, `HAZ`, `LEVELS`, `HOME`, `I18N`, `FIXES`, `DEMO_SOL`, `SYNTH`, `THEMES`, `MUSIC`, `BACKDROPS`, `RENDER`). They must load in this order, at the end of `<body>`, without `defer`, `async` or `type="module"`:
+  `dev-config.js` → `sim.js` → `levels.js` → `i18n.js` → `fixes.js` → `demo.js` → `synth.js` → `themes.js` → `music.js` → `backdrops.js` → `render.js` → `game.js` → `dev.js`
   `dev-config.js` comes first so `game.js` sees the developer save key, and `dev.js` comes last. Both are stripped from the release, which loads `sim.js` through `game.js` only.
 - **Don't convert to ES modules** unless you also refactor the shared globals and serve the game from a local server. Modules don't share a global scope and don't load from `file://`.
 - **Runner animation** is view-only. The stickman section of `js/render.js` reads the simulation state, the beat and the frame time, but never writes to `SIM` state, so replays and the demo are unaffected. `game.js` passes each simulation event to it through `RENDER.cue`. Every tunable (run cycle keys, blend rates, ball, hang, glide, timings) is in the `ANIM` block at the top of that section.
-- **New hazard cards** (`INTRO` in `js/game.js`): each hazard has its card text and a tiny preview chart in the same chart language as the levels, played by the real simulation with a scripted input (`in`, in beats) and drawn by a second renderer (`RENDER.create`) on the card's own canvas, with its own clock. It never touches the frozen game's state, clock or music. While the card is up the game is in mode `"intro"`: the run is set up and its first frame drawn, but the music and the clock only start on "Understood". If you change how a hazard works, check that its preview still plays out: run its chart and input through `SIM.step` and look for its event (`bounce`, `halo`, `rift`...) and no death before `to`.
+- **New hazard cards** (`INTRO` in `js/game.js`): each hazard has a tiny preview chart in the same chart language as the levels (its card text is `hazard.<k>.body` in `js/i18n.js`), played by the real simulation with a scripted input (`in`, in beats) and drawn by a second renderer (`RENDER.create`) on the card's own canvas, with its own clock. It never touches the frozen game's state, clock or music. While the card is up the game is in mode `"intro"`: the run is set up and its first frame drawn, but the music and the clock only start on "Understood". If you change how a hazard works, check that its preview still plays out: run its chart and input through `SIM.step` and look for its event (`bounce`, `halo`, `rift`...) and no death before `to`.
 - **Spike tip** (`TIP` in `js/game.js`): level 1 only (`lv`), its first compiled object with `v === "sp"` (`find`; `^`, `M` and `I` spikes), so a chart change moves it along. The game freezes `lead` beats before the spike's left edge and rewinds to the start of the bar at least `back` beats before it (tick 709 and tick 384 today). While the tip is still due, `beginRun` keeps `G.hist`, a `SIM.clone` of the state after every tick. In mode `"play"` the stepping loop stops at the freeze tick and the game freezes like a pause (`G.tip = "note"`, `G.paused`, music suspended, input dropped). `G.mark` is passed to `RENDER.frame` as `V.mark`, which draws the red ring; `RENDER.point()` turns its world position into screen pixels to place the `#tipNote` note above it. "Understood", `Enter` or the end of the `secs` countdown sets `G.tipDone` (this run only; `beginRun` clears it, so every run shows the tip) and starts the rewind (`G.tip = "rewind"`): the song stops, `MUSIC.sfx.rewind()` plays, and for `rewind` seconds each frame shows a recorded state further back (eased), with `body.rewinding` and `#rewindFx` giving the tape look. At the end the run carries on from a clone of the recorded state at the bar, with `MUSIC.start(song, beat)` and both clocks set to that beat; if the window lost focus meanwhile, it goes straight to the pause card. The countdown and the rewind only advance while the window has focus. Bot runs (`G.bot`), the home demo, previews and the tools never stop for the tip, and `js/sim.js` knows nothing about it.
-- **How to play** (`HOWTO` in `js/game.js`): the basics and plain obstacle pages have charts in the same format as `INTRO`, and each hazard page reuses its `INTRO` entry. Each page plays through the same `preview()` as a hazard card, on its own renderer (sharper, sized to the canvas) with the JUMP / ROLL label turned on. The same rule applies: if you change how a move or an obstacle works, run every page's chart and input through `SIM.step` and check it reaches `to` with no `die` event. A death in a preview never plays the crash sound or shakes the screen; only a real run (mode `"play"`) does.
+- **How to play** (`HOWTO` in `js/game.js`): the basics and plain obstacle pages have charts in the same format as `INTRO` and an `id` for their text (`howto.<id>.name` / `.body` in `js/i18n.js`), and each hazard page reuses its `INTRO` entry and its hazard's text. Each page plays through the same `preview()` as a hazard card, on its own renderer (sharper, sized to the canvas) with the JUMP / ROLL label turned on. The same rule applies: if you change how a move or an obstacle works, run every page's chart and input through `SIM.step` and check it reaches `to` with no `die` event. A death in a preview never plays the crash sound or shakes the screen; only a real run (mode `"play"`) does.
 - **Crash sound** (`MUSIC.sfx.die()`, vl's "miss" recipe): a falling sawtooth and a closing noise sweep through its own compressor and gain straight to the destination, never through the music's mix or a song bus. `MUSIC.init()` builds that output with the audio context, because a brand-new compressor is nearly silent for its first moments. The offline render (`renderStats`) never builds or plays it.
 - **Music** (`js/themes.js`, `js/synth.js`, `js/music.js`). There are no audio files: every sound is synthesised, and anything struck or plucked is rendered once per audio context into an `AudioBuffer` (drums, strings, mallets, bells, the reverbs) and reused. Every level and the home screen has a theme composed by hand. The engine is hiyroscript/alva's (its notation, instruments, DSP and bar renderer, converted to a classic script), so a theme reads like one of Alva's stage themes:
   - **A theme** is data: `bpm` (the level's own, checked), `tonic` (MIDI of degree 1), `scale`, `swing`, `reverb`, `delay`, `level`, its `channels` (an instrument: a `tone` rendered per note, a `synth` built live or a `drum`; its `gain`, `pan`, `octave`, sends, and its `role`: lead, answer, harmony, bass, drums or fx), its `parts` and its `sections`. Levels 4-30 are written with `build()` at the top of `js/themes.js`: a `song` list of sections `[name, bars, chords, play, options]`, where a melody given as `mel(lines, last)` is fitted to its section's length and ends on its cadence `last`.
@@ -299,9 +331,9 @@ node tools/parity-check.js . /tmp/shadow-skirr
   - **Scheduler.** `schedule()` (every 25 ms and every frame) plays the events inside a 0.3 s look-ahead at `t0 + (loop pass * loop length + beat) * spb`, skips any that are more than 20 ms late, and spreads a busy downbeat over a few calls (about 4 ms of work each while the next note is still 80 ms away). Waveshapers run without oversampling, which would delay their path by 128 samples. `start(song, beat)` brings a synth's held chords back in softly when it starts mid-song, and renders only the tones of the first bars before it starts. The rest are rendered ahead: what time a `schedule()` call has left (up to 3 ms) goes to the tones of the next 3 seconds' notes, one at a time, so a new section never has several to render at once. `suspend()` / `resume()` fade the output over a few milliseconds around the context's own suspend and resume, so a pause never clicks.
   - **A new theme:** read the level's name, backdrop and energy form (`L.energy`), write its hook and sections, add it to `THEMES` under the level's number, run `node tools/music-check.js <n>`, measure its stems and set its channels' gains, set its `level` from `node tools/music-check.js --render <n>`, then listen in the Soundtracks player.
   - **Checks:** `node tools/music-check.js` (headless, a few seconds: the notation, the instruments, the grid and the swing) and `node tools/music-check.js --render --perf` (Chromium via Playwright, about half an hour): peaks, loudness spread, silent seconds, voices, the home loop's seams, the slowest `schedule()` call under 4× CPU throttling.
-- **Save data** lives under the `localStorage` key `shadowskirr.v1` in the release and `shadowskirr.dev.v1` in the developer build. Saves from the old `lumbra.v1` key are migrated automatically on load, for the real key only.
+- **Save data** lives under the `localStorage` key `shadowskirr.v1` in the release and `shadowskirr.dev.v1` in the developer build. Besides progress it holds the settings: `music`, `sfx`, `shake`, `objective` and `lang` (a language code, or `null` to follow the browser). Saves from the old `lumbra.v1` key are migrated automatically on load, for the real key only.
 - **Debug handle:** `window.__SHADOWSKIRR` exposes `G` (game state), `S()` (saved state), `startLevel(n)`, `keys` (input state), `getL(n)` (compiled level), `N` (level count), `saveState()`, `paintHome(retitle)`, `paintLevels()`, `startHome()`, `show(screen)`, `showCard({...})`, `hideCard()` and `setS(obj)`, which replaces the saved state through the same validation as loading. `window.__LUMBRA` is kept as a legacy alias for old scripts.
-- **Fonts** (Space Grotesk, JetBrains Mono) load from Google Fonts. Offline, the page falls back to system fonts.
+- **Fonts** (Space Grotesk, JetBrains Mono) load from Google Fonts. Offline, the page falls back to system fonts. Chinese, Japanese, Korean and (for Space Grotesk) Cyrillic always come from system fonts; see [Languages](#languages).
 
 ## Credits
 

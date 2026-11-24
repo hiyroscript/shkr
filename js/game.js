@@ -13,11 +13,16 @@
   const TOUCH = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   const RM = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const FIX = typeof FIXES !== "undefined" ? FIXES : {};
+  /* every player-visible string comes from js/i18n.js (README: Languages); levels.js keeps its English names as data */
+  const I = window.I18N, t = I.t, tn = I.tn;
+  const esc = function (v) { return String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
+  const lvName = function (n) { return t("level." + n + ".name"); };
+  const hzName = function (h) { return t("hazard." + h.k + ".name"); };
 
   /* ---------------- saved state ---------------- */
   /* optional save-key override (README: Builds); without it, the real key */
   const REAL_KEY = "shadowskirr.v1";
-  const KEY = (window.SHKR_DEV && window.SHKR_DEV.saveKey) || REAL_KEY, LEGACY_KEY = "lumbra.v1", DEFAULTS = { music: 0.8, sfx: true, shake: true, objective: true, sel: 1, unlocked: 1, rec: {} };
+  const KEY = (window.SHKR_DEV && window.SHKR_DEV.saveKey) || REAL_KEY, LEGACY_KEY = "lumbra.v1", DEFAULTS = { music: 0.8, sfx: true, shake: true, objective: true, lang: null, sel: 1, unlocked: 1, rec: {} };
   let S = loadState();
   function loadState() {
     let raw = {}, str = null;
@@ -42,6 +47,7 @@
     if (typeof o.rec !== "object" || !o.rec) o.rec = {};
     o.objective = o.objective !== false;   /* saves from before the setting existed still show the objective box */
     o.sfx = o.sfx !== false;               /* ... and still get the death sound */
+    if (!I.has(o.lang)) o.lang = null;     /* not chosen yet (or a code we don't have): the browser's language is used */
     return o;
   }
   function setS(obj) { S = checkState(obj || {}); return S; }
@@ -90,7 +96,7 @@
     if (el) { void el.offsetWidth; el.classList.add("enter"); }
     if (id === "levels") paintLevels();
     if (id === "home") paintHome(true);
-    if (id === "settings") paintSettings();
+    if (id === "settings") paintSettings(); else closeLang(false);
     if (id === "howto") Demo.start(); else Demo.stop();
     refreshScrollCue();
   }
@@ -144,28 +150,49 @@
   });
 
   /* ---------------- home ---------------- */
+  /* one span per letter, in a no-wrap span per word. A word may also break after a hyphen, and Chinese or Japanese
+     (no spaces) may break between any two characters */
+  const HAN = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/;
   function setLetters(el, text) {
     el.innerHTML = "";
     text.split(" ").forEach(function (word, wi, arr) {
-      const w = document.createElement("span"); w.style.whiteSpace = "nowrap"; w.style.animation = "none";
-      word.split("").forEach(function (ch, i) { const s = document.createElement("span"); s.textContent = ch; s.style.animationDelay = (wi * 0.12 + i * 0.03) + "s"; w.appendChild(s); });
-      el.appendChild(w); if (wi < arr.length - 1) el.appendChild(document.createTextNode(" "));
+      const cjk = HAN.test(word);
+      let i = 0;
+      word.replace(/-/g, "-\u0000").split("\u0000").forEach(function (part) {
+        const w = document.createElement("span"); w.style.whiteSpace = cjk ? "normal" : "nowrap"; w.style.animation = "none";
+        Array.from(part).forEach(function (ch) { const s = document.createElement("span"); s.textContent = ch; s.style.animationDelay = (wi * 0.12 + i++ * 0.03) + "s"; w.appendChild(s); });
+        el.appendChild(w);
+      });
+      if (wi < arr.length - 1) el.appendChild(document.createTextNode(" "));
     });
+    fitTitle();
+  }
+  /* a word longer than the title's 13ch (a long German compound) may use the whole column, and if it is longer than
+     that too, the title shrinks until it fits. (13ch scales with the font, so shrinking alone would never help.)
+     Chinese and Japanese parts can break anywhere, so only no-wrap words count. English titles never get here. */
+  function fitTitle() {
+    const el = $("#title"); el.style.fontSize = ""; el.style.maxWidth = "";
+    const col = el.parentElement.clientWidth; if (!el.clientWidth || !col) return;
+    let max = 0;
+    for (const c of el.children) if (c.style.whiteSpace === "nowrap") max = Math.max(max, c.getBoundingClientRect().width);
+    if (max <= el.clientWidth + 0.5) return;
+    el.style.maxWidth = "100%";
+    if (max > col) el.style.fontSize = Math.floor(parseFloat(getComputedStyle(el).fontSize) * col / max * 0.97) + "px";
   }
   function paintHome(retitle) {
-    const n = S.sel, def = LEVELS[n - 1], locked = n > S.unlocked, r = S.rec[n] || { t: 0, s: 0, d: false };
-    $("#lvTag").textContent = "level " + pad2(n) + (locked ? "  ·  locked" : "");
-    if (retitle) setLetters($("#title"), def.name);
+    const n = S.sel, locked = n > S.unlocked, r = S.rec[n] || { t: 0, s: 0, d: false };
+    $("#lvTag").textContent = t("game.level", { n: pad2(n) }) + (locked ? "  ·  " + t("home.locked") : "");
+    if (retitle) setLetters($("#title"), lvName(n));
     $("#title").style.opacity = locked ? 0.28 : 1;
     $("#homeStars").innerHTML = locked ? "" : starsHTML(r.d ? r.s : 0).replace(/^<div class="stars">|<\/div>$/g, "");
     $("#homeStars").style.visibility = locked ? "hidden" : "visible";
     $("#startOrb").classList.toggle("locked", locked);
-    $("#startLbl").textContent = locked ? "locked" : r.d ? "replay" + "  ·  " + r.t + (r.t === 1 ? " try" : " tries") : r.t ? "play  ·  try " + (r.t + 1) : "play";
+    $("#startLbl").textContent = locked ? t("home.locked") : r.d ? t("common.replay") + "  ·  " + tn("game.tries", r.t) : r.t ? t("home.play") + "  ·  " + t("game.try", { n: r.t + 1 }) : t("home.play");
     $("#rebirthBtn").classList.toggle("hide", !r.d);
     $("#prevBtn").disabled = n <= 1; $("#nextBtn").disabled = n >= N;
     let done = 0; for (let i = 1; i <= N; i++) if (S.rec[i] && S.rec[i].d) done++;
     $("#railFill").style.width = (done / N * 100) + "%";
-    $("#progTag").textContent = pad2(n) + " / " + N;
+    $("#progTag").textContent = t("home.progress", { n: pad2(n), total: N });
   }
   function browse(d) {
     const n = Math.max(1, Math.min(N, S.sel + d)); if (n === S.sel) return;
@@ -199,8 +226,8 @@
   $("#startOrb").addEventListener("click", launch);
   $("#rebirthBtn").addEventListener("click", function () {
     const n = S.sel;
-    showCard({ eyebrow: "level " + pad2(n), title: "Rebirth?", body: "This clears the stars and tries of " + LEVELS[n - 1].name + ", as if it had never been played. Every level you have unlocked stays unlocked.",
-      acts: [{ t: "rebirth", rebirth: true, fn: function () { S.rec[n] = { t: 0, s: 0, d: false }; saveState(); hideCard(); paintHome(false); } }, { t: "cancel", fn: hideCard }] });
+    showCard({ eyebrow: t("game.level", { n: pad2(n) }), title: t("card.rebirth.title"), body: t("card.rebirth.body", { name: esc(lvName(n)) }),
+      acts: [{ t: t("card.rebirth.btn"), rebirth: true, fn: function () { S.rec[n] = { t: 0, s: 0, d: false }; saveState(); hideCard(); paintHome(false); } }, { t: t("common.cancel"), fn: hideCard }] });
   });
 
   /* ---------------- levels panel + settings ---------------- */
@@ -230,9 +257,82 @@
   sw.addEventListener("click", function () { S.shake = !S.shake; paintSettings(); saveState(); });
   osw.addEventListener("click", function () { S.objective = !S.objective; paintSettings(); saveState(); });
   $("#resetBtn").addEventListener("click", function () {
-    showCard({ eyebrow: "settings", title: "Reset everything?", body: "All unlocks, stars and try counts will be cleared.",
-      acts: [{ t: "reset", danger: true, fn: function () { S.rec = {}; S.unlocked = 1; S.sel = 1; saveState(); hideCard(); show("home"); startHome(); } }, { t: "cancel", fn: hideCard }] });
+    /* only progress: the settings, the language among them, stay */
+    showCard({ eyebrow: t("home.settings"), title: t("card.reset.title"), body: t("card.reset.body"),
+      acts: [{ t: t("settings.reset.btn"), danger: true, fn: function () { S.rec = {}; S.unlocked = 1; S.sel = 1; saveState(); hideCard(); show("home"); startHome(); } }, { t: t("common.cancel"), fn: hideCard }] });
   });
+
+  /* ---------------- language ----------------
+     S.lang is the player's choice (null until they make one: then the browser's language, else English). Settings has
+     it as its first row: a chip with the current flag and name that opens the list of all of them; the home screen has
+     the round flag under the settings chip, which opens Settings with the list open. Choosing applies at once. */
+  const AUTO_LANG = I.detect(navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""]);
+  const langBtn = $("#langBtn"), langList = $("#langList"), homeFlag = $("#homeFlag");
+  langList.innerHTML = I.LANGS.map(function (l) {
+    return '<button class="chip lang-opt" data-lang="' + l.code + '" lang="' + l.html + '" aria-pressed="false"><span class="flag-i" aria-hidden="true">' + I.flagSVG(l.code) + "</span><span>" + esc(l.name) + "</span></button>";
+  }).join("");
+  const langOpts = $$(".lang-opt", langList);
+  function langOpen() { return !langList.classList.contains("hide"); }
+  function openLang(focus) {
+    langList.classList.remove("hide"); langBtn.setAttribute("aria-expanded", "true");
+    if (focus) (langList.querySelector('[aria-pressed="true"]') || langOpts[0]).focus();
+    refreshScrollCue();
+  }
+  function closeLang(focus) {
+    if (!langOpen()) return;
+    langList.classList.add("hide"); langBtn.setAttribute("aria-expanded", "false");
+    if (focus) langBtn.focus();
+    refreshScrollCue();
+  }
+  /* a keyboard press on the chip (a click with detail 0) also moves the focus into the list */
+  langBtn.addEventListener("click", function (e) { if (langOpen()) closeLang(false); else openLang(e.detail === 0); });
+  langList.addEventListener("click", function (e) {
+    const b = e.target.closest("[data-lang]"); if (!b) return;
+    S.lang = b.dataset.lang; saveState(); applyLang(); closeLang(true);
+  });
+  /* arrows move between the languages (wrapping), Home / End jump to the ends; Enter or Space picks (native button) */
+  langList.addEventListener("keydown", function (e) {
+    const i = langOpts.indexOf(document.activeElement); if (i < 0) return;
+    const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    let j = -1;
+    if (d) j = (i + d + langOpts.length) % langOpts.length; else if (e.key === "Home") j = 0; else if (e.key === "End") j = langOpts.length - 1;
+    if (j >= 0) { e.preventDefault(); langOpts[j].focus(); }
+  });
+  homeFlag.addEventListener("click", function () {
+    show("settings"); $("#settings .panel-body").scrollTop = 0; openLang(true);
+  });
+  /* the flags and the current language's name, wherever they show */
+  function paintLang() {
+    const L = I.info(), label = t("home.flag", { name: L.name });
+    homeFlag.innerHTML = I.flagSVG(L.code); homeFlag.setAttribute("aria-label", label);
+    $("#langBtnFlag").innerHTML = I.flagSVG(L.code);
+    const nm = $("#langBtnName"); nm.textContent = L.name; nm.setAttribute("lang", L.html);
+    langBtn.setAttribute("aria-label", label);
+    langOpts.forEach(function (b) {
+      const on = b.dataset.lang === L.code;
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      if (on) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current");
+    });
+  }
+  /* switch every string on the page to S.lang (or the browser's language): the marked-up text and labels in
+     index.html, then everything the game writes itself */
+  function applyLang() {
+    I.setLang(S.lang || AUTO_LANG);
+    const L = I.info();
+    document.documentElement.lang = L.html;
+    $$("[data-i18n]").forEach(function (el) { el.textContent = t(el.dataset.i18n); });
+    $$("[data-i18n-aria]").forEach(function (el) { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
+    $("#obJump").textContent = t(TOUCH ? "ob.jumpTouch" : "ob.jumpKeys");
+    $("#obRoll").textContent = t(TOUCH ? "ob.rollTouch" : "ob.rollKeys");
+    KEY_FONT = getComputedStyle(document.documentElement).getPropertyValue("--mono").trim() || "monospace";
+    KEY_CJK = /^(zh|ja|ko)/.test(L.html);
+    paintLang();
+    Demo.relabel();
+    paintHome(true);
+    if (G.def && $("#hud").classList.contains("on")) paintHud();
+    if (G.tip === "note") { $("#tipTitle").textContent = t(TIP.title); $("#tipBody").textContent = t(TIP.body); }
+    refreshScrollCue();
+  }
 
   /* ---------------- objective box ----------------
      The goal and the controls, at the start of a level (S.objective). On its own it sits near the top and goes
@@ -240,8 +340,6 @@
      in a new hazard it docks in the overlay right above the hazard card and leaves with it. */
   const ob = $("#msBanner"), obChk = $("#obHide");
   let obT = 0, obMouse = false;
-  $("#obJump").textContent = TOUCH ? "tap the right side" : "space · ↑ · w · click";
-  $("#obRoll").textContent = TOUCH ? "hold the left side" : "↓ · s · right-click";
   function kbFocus(el) { try { return el.matches(":focus-visible"); } catch (e) { return document.activeElement === el; } }
   function showObjective(dock) {
     hideObjective();
@@ -278,45 +376,31 @@
      (terrain/overlay, 8 cells a bar, README: How it works) played by the real simulation with a scripted input
      and drawn by a second renderer (RENDER.create) in the level's own theme, so it looks exactly like the game.
      in: inputs, used in turn on each loop, as [from beat, to beat, 1 jump | 2 roll]; to: the beat where the loop
-     starts over; still: the beat shown, as one frame, with prefers-reduced-motion. */
+     starts over; still: the beat shown, as one frame, with prefers-reduced-motion. The card's text is
+     hazard.<k>.body in js/i18n.js. */
   const INTRO = {
-    bl: { body: "A bouncy pad. Run onto it and it throws you up really high. Use it to get over big gaps and tall steps.",
-      c: "...H............/..B.............", in: [[]], to: 3.6, still: 1.6 },
-    ha: { body: "A floating ring. Jump through it, then press jump again while you're in the air to jump a second time.",
-      c: "...~~~........../....O...........", in: [[[1.25, 1.4, 1], [2.05, 2.2, 1]]], to: 4, still: 1.6 },
-    D: { body: "Inside the purple area you're light as a bubble. Your jumps go higher and you fall slower.",
-      c: "....._........../.D..........d...", in: [[[2.4, 2.55, 1]]], to: 4.6, still: 3 },
-    F: { body: "Tiles that disappear soon after you step on them. Land on one and jump off right away.",
-      c: "..~~~~~........./...F.F..........", in: [[[0.75, 0.9, 1], [1.8, 1.95, 1], [2.85, 3, 1]]], to: 4.6, still: 2 },
-    ke: { body: "A spinning crystal opens the orange wall after it. Touch the crystal, then run through the wall. If you miss the crystal, the wall stays closed.",
-      c: "................/...K..G.........", in: [[]], to: 4, still: 1.5 },
-    A: { body: "Inside the blue area you're heavy. Your jumps are small and quick, so press fast.",
-      c: "..^^^^........../.A........a.....", in: [[[1, 1.1, 1], [1.5, 1.6, 1], [2, 2.1, 1], [2.5, 2.6, 1]]], to: 4, still: 1.75 },
-    L: { body: "A bar you can hang from. Jump and keep holding jump to grab it. Let go to drop down.",
-      c: "...~~~~~......../...L.....l......", in: [[[1.2, 4.1, 1]]], to: 5.2, still: 2.8 },
-    ri: { body: "A portal that shoots you straight up. Tap roll just before it, so you stand up inside it. It takes you to places too high to jump to.",
-      c: "....H.........../....R...........", in: [[[1.9, 1.95, 2]]], to: 4.2, still: 2.3 },
-    co: { body: "Grab it while you're in the air and you'll glide straight across. Great for long gaps.",
-      c: "...~~~........../...C............", in: [[[1.25, 1.4, 1]]], to: 4.4, still: 2.3 },
-    T: { body: "Warm air pushes you up by itself. Jump doesn't work here. Hold roll to go down.",
-      c: "................/.T.m...n...t....", in: [[[3, 4.2, 2]]], to: 5.4, still: 2 },
-    ey: { body: "The eye watches you, then shoots where you were. If you were on the ground, jump. If you were in the air, stay on the ground.",
-      c: "................/...E...e........", in: [[[3.5, 3.65, 1]], [[1.5, 1.65, 1]]], to: 5, still: 3.9 },
-    X: { body: "You can run on top of it. To break through, roll as you land on it.",
-      c: "..Y............./...XXXX.........", in: [[[2, 2.15, 1], [2.5, 2.95, 2]]], to: 4.6, still: 2.65 },
-    S: { body: "A spring. Roll onto it and hold roll to squeeze it, then let go to fly up. Hold longer to go higher.",
-      c: "....H.........../..SS............", in: [[[0.9, 1.9, 2]]], to: 4, still: 1.75 },
-    1: { body: "Some tiles are solid and some are see-through. Every time you jump, they swap. Count your jumps!",
-      c: "...~~~~~~~....../....2.1.2.......", in: [[[1.3, 1.45, 1], [2.35, 2.5, 1], [3.35, 3.5, 1], [4.4, 4.55, 1]]], to: 5.8, still: 1.8 },
-    Z: { body: "Gravity flips and you run on the ceiling. Jump still works the same way. You flip back when you leave the area.",
-      c: ".....^........../..Z.....z.......", in: [[[2.65, 2.8, 1]]], to: 5.5, still: 2.9 }
+    bl: { c: "...H............/..B.............", in: [[]], to: 3.6, still: 1.6 },
+    ha: { c: "...~~~........../....O...........", in: [[[1.25, 1.4, 1], [2.05, 2.2, 1]]], to: 4, still: 1.6 },
+    D: { c: "....._........../.D..........d...", in: [[[2.4, 2.55, 1]]], to: 4.6, still: 3 },
+    F: { c: "..~~~~~........./...F.F..........", in: [[[0.75, 0.9, 1], [1.8, 1.95, 1], [2.85, 3, 1]]], to: 4.6, still: 2 },
+    ke: { c: "................/...K..G.........", in: [[]], to: 4, still: 1.5 },
+    A: { c: "..^^^^........../.A........a.....", in: [[[1, 1.1, 1], [1.5, 1.6, 1], [2, 2.1, 1], [2.5, 2.6, 1]]], to: 4, still: 1.75 },
+    L: { c: "...~~~~~......../...L.....l......", in: [[[1.2, 4.1, 1]]], to: 5.2, still: 2.8 },
+    ri: { c: "....H.........../....R...........", in: [[[1.9, 1.95, 2]]], to: 4.2, still: 2.3 },
+    co: { c: "...~~~........../...C............", in: [[[1.25, 1.4, 1]]], to: 4.4, still: 2.3 },
+    T: { c: "................/.T.m...n...t....", in: [[[3, 4.2, 2]]], to: 5.4, still: 2 },
+    ey: { c: "................/...E...e........", in: [[[3.5, 3.65, 1]], [[1.5, 1.65, 1]]], to: 5, still: 3.9 },
+    X: { c: "..Y............./...XXXX.........", in: [[[2, 2.15, 1], [2.5, 2.95, 2]]], to: 4.6, still: 2.65 },
+    S: { c: "....H.........../..SS............", in: [[[0.9, 1.9, 2]]], to: 4, still: 1.75 },
+    1: { c: "...~~~~~~~....../....2.1.2.......", in: [[[1.3, 1.45, 1], [2.35, 2.5, 1], [3.35, 3.5, 1], [4.4, 4.55, 1]]], to: 5.8, still: 1.8 },
+    Z: { c: ".....^........../..Z.....z.......", in: [[[2.65, 2.8, 1]]], to: 5.5, still: 2.9 }
   };
   const PV_FROM = -0.6, PV_BPM = 132;   /* the loop starts a little before beat 0; previews play at the level's tempo, at most PV_BPM */
   let pvR = null;
   function newHazard(n) { for (const h of HAZ) if (h.lv === n) return h; return null; }
   function hazardCard(h) {
-    showCard({ cls: "wide", pv: "The " + h.name + " in the game", eyebrow: "new hazard", title: h.name, accent: h.col, body: INTRO[h.k].body,
-      acts: [{ t: "understood", solid: true, fn: startRun }],
+    showCard({ cls: "wide", pv: esc(t("card.hazard.pv", { name: hzName(h) })), eyebrow: t("card.hazard.eyebrow"), title: hzName(h), accent: h.col, body: t("hazard." + h.k + ".body"),
+      acts: [{ t: t("common.understood"), solid: true, fn: startRun }],
       open: function (el) { return preview($("canvas", el), INTRO[h.k], G.def); } });
     showObjective(true);
   }
@@ -368,44 +452,47 @@
      obstacles have their charts here; each hazard page reuses its INTRO entry (text and chart), so the screen and the
      hazard cards always say the same thing. While a scripted input is held, JUMP or ROLL shows at the bottom of the
      canvas. If you change how something works, check its page still plays out like INTRO (README: Development notes). */
-  const BASICS = "the basics", OBSTACLE = "obstacle";
+  const BASICS = "basics", OBSTACLE = "obstacle";   /* howto.kind.<kind>; a page's name and text are howto.<id>.name / .body */
   const HOWTO = [
-    { kind: BASICS, name: "Jump", body: "Press jump to hop. You stay in the air for one beat, so jump with the music. Use it to clear spikes and gaps.",
+    { kind: BASICS, id: "jump",
       c: "....^.........../................", in: [[[2, 2.15, 1]]], to: 4, still: 2.5 },
-    { kind: BASICS, name: "Roll", body: "Hold roll to curl into a ball and slide under things. You stay down as long as something is above you.",
+    { kind: BASICS, id: "roll",
       c: "....-.........../................", in: [[[1.85, 2.95, 2]]], to: 4, still: 2.4 },
-    { kind: BASICS, name: "Dive", body: "Roll while you're in the air to drop down fast. It cuts a jump short.",
+    { kind: BASICS, id: "dive",
       c: "....^.-........./................", in: [[[2, 2.15, 1], [2.6, 3.7, 2]]], to: 4.6, still: 2.75 },
-    { kind: OBSTACLE, name: "Spikes", body: "Spikes kill you if you touch them. Jump over them. Wide and tall spikes need a well-timed jump.",
+    { kind: OBSTACLE, id: "spikes",
       c: "..^...M...I...../................", in: [[[1, 1.15, 1], [3, 3.15, 1], [5, 5.15, 1]]], to: 6.6, still: 3.5 },
-    { kind: OBSTACLE, name: "Pits", body: "A gap in the ground. Jump across. Falling in sends you back to the start.",
+    { kind: OBSTACLE, id: "pits",
       c: "...._...U......./................", in: [[[2, 2.15, 1], [4.3, 4.45, 1]]], to: 6.4, still: 4.9 },
-    { kind: OBSTACLE, name: "Bars", body: "A bar hanging just above the ground. Roll under it.",
+    { kind: OBSTACLE, id: "bars",
       c: "...-....-......./................", in: [[[1.4, 2.35, 2], [3.9, 4.85, 2]]], to: 6, still: 2 },
-    { kind: OBSTACLE, name: "Hanging walls", body: "A wall that hangs down to just above your head. Stay on the ground and don't jump.",
+    { kind: OBSTACLE, id: "walls",
       c: "...'..'..'....../................", in: [[]], to: 6, still: 2 },
-    { kind: OBSTACLE, name: "Steps", body: "The ground climbs and drops. Jump onto a step up. Running into its side will knock you out.",
+    { kind: OBSTACLE, id: "steps",
       c: "...+...#..v.V.../................", in: [[[1.5, 1.65, 1], [3.4, 3.55, 1]]], to: 7, still: 3.8 },
-    { kind: OBSTACLE, name: "Floating spike blocks", ob: "*", body: "Spikes floating at middle height. Roll under them, or jump early to clear them.",
+    { kind: OBSTACLE, id: "floating", ob: "*",
       c: "...*.....*....../................", in: [[[1.6, 2.3, 2], [4.5, 4.65, 1]]], to: 6.6, still: 5 },
-    { kind: OBSTACLE, name: "Spiked steps", ob: "%", body: "A step with spikes on top. Jump from further back so you land past the spikes.",
+    { kind: OBSTACLE, id: "spiked", ob: "%",
       c: "...%...v.%..v.../................", in: [[[1.55, 1.7, 1], [4.55, 4.7, 1]]], to: 7, still: 2.1 },
-    { kind: OBSTACLE, name: "Low tunnels", ob: "=", body: "A long, low roof with spikes on it. Roll and keep rolling until you're out. You can't jump inside.",
+    { kind: OBSTACLE, id: "tunnels", ob: "=",
       c: "...=====......../................", in: [[[1.5, 4.4, 2]]], to: 5.8, still: 3 },
-    { kind: OBSTACLE, name: "Hurdles", ob: "&", body: "A spike, then a bar right after it. Jump the spike, then roll as soon as you land.",
+    { kind: OBSTACLE, id: "hurdles", ob: "&",
       c: "....&.........../................", in: [[[1.95, 2.1, 1], [2.92, 3.7, 2]]], to: 4.8, still: 3.2 },
-    { kind: OBSTACLE, name: "Crushers", ob: "|", body: "Heavy blocks that slam down and lift up with the beat. If it's down, jump over it. If it's up, stay on the ground and run under.",
+    { kind: OBSTACLE, id: "crushers", ob: "|",
       c: "....|..|......../................", in: [[[2, 2.15, 1]]], to: 5.6, still: 2.5 },
-    { kind: OBSTACLE, name: "Rolling blades", ob: "@", body: "Saws rolling toward you along the ground. Jump them just as they reach you.",
+    { kind: OBSTACLE, id: "blades", ob: "@",
       c: "....@....@....../................", in: [[[2, 2.15, 1], [4.5, 4.65, 1]]], to: 6.4, still: 2.4 }
   ];
   /* the newer obstacles say which level brings them in (OBST); every page plays in a level's colours: the basics and
      the first obstacles in level 1's, a newer obstacle or a hazard in its own level's */
   HOWTO.forEach(function (p) { if (p.ob) for (const o of OBST) if (o.ch === p.ob) p.lv = o.lv; p.def = LEVELS[(p.lv || 1) - 1]; });
-  HAZ.forEach(function (h) { HOWTO.push({ kind: "hazard", name: h.name, body: INTRO[h.k].body, D: INTRO[h.k], h: h, lv: h.lv, def: LEVELS[h.lv - 1] }); });
+  HAZ.forEach(function (h) { HOWTO.push({ kind: "hazard", D: INTRO[h.k], h: h, lv: h.lv, def: LEVELS[h.lv - 1] }); });
+  function pageName(p) { return p.h ? hzName(p.h) : t("howto." + p.id + ".name"); }
+  function pageBody(p) { return p.h ? t("hazard." + p.h.k + ".body") : t("howto." + p.id + ".body"); }
   /* JUMP / ROLL over the bottom centre of a How to play canvas (on the dark ground band). A tap stays up for at least
      KEY_HOLD s so it can be read, but goes out KEY_GAP s before the next press, so every press shows on its own. */
-  const KEY_HOLD = 0.3, KEY_GAP = 0.09, KEY_FADE = 0.08, KEY_FONT = getComputedStyle(document.documentElement).getPropertyValue("--mono").trim() || "monospace";
+  const KEY_HOLD = 0.3, KEY_GAP = 0.09, KEY_FADE = 0.08;
+  let KEY_FONT = "monospace", KEY_CJK = false;   /* set by applyLang: --mono for the language (CJK fallbacks), no tracking for CJK */
   function keyLabel(cvs, inp, beat, spb) {
     let v = 0, a = 0;
     for (const q of inp) {
@@ -415,18 +502,19 @@
       if (beat >= q[0] && beat < end) { v |= q[2]; a = Math.max(a, Math.min(1, (end - beat) * spb / KEY_FADE)); }
     }
     if (!v || !cvs.clientWidth) return;
-    const text = (v & 1 ? "jump" : "") + (v === 3 ? " + " : "") + (v & 2 ? "roll" : "");
-    const g = cvs.getContext("2d"), k = cvs.width / cvs.clientWidth, ls = 11 * .18 * k;
+    let text = (v & 1 ? t("common.jump") : "") + (v === 3 ? " + " : "") + (v & 2 ? t("common.roll") : "");
+    try { text = text.toLocaleUpperCase(I.info().html); } catch (e) { text = text.toUpperCase(); }
+    const g = cvs.getContext("2d"), k = cvs.width / cvs.clientWidth, ls = KEY_CJK ? 0 : 11 * .18 * k;
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = a;
     g.font = "700 " + (11 * k).toFixed(2) + "px " + KEY_FONT; g.textAlign = "center"; g.textBaseline = "middle";
     const spaced = "letterSpacing" in g;
     if (spaced) g.letterSpacing = ls.toFixed(2) + "px";
-    const w = g.measureText(text.toUpperCase()).width + 18 * k, h = 21 * k, x = cvs.width / 2, y = cvs.height - 9 * k - h / 2;
+    const w = g.measureText(text).width + 18 * k, h = 21 * k, x = cvs.width / 2, y = cvs.height - 9 * k - h / 2;
     /* a dark pill, invisible on the black ground and enough to read the label over a pit, where the pale sky shows */
     g.fillStyle = "rgba(10,10,16,.5)"; g.beginPath();
     if (g.roundRect) g.roundRect(x - w / 2, y - h / 2, w, h, h / 2); else g.rect(x - w / 2, y - h / 2, w, h);
     g.fill();
-    g.fillStyle = "rgba(237,239,242,.75)"; g.fillText(text.toUpperCase(), x + (spaced ? ls / 2 : 0), y);   /* spacing trails the last letter */
+    g.fillStyle = "rgba(237,239,242,.75)"; g.fillText(text, x + (spaced ? ls / 2 : 0), y);   /* spacing trails the last letter */
     g.restore();
   }
   const Demo = (function () {
@@ -435,16 +523,19 @@
     const fit = { w: 220, h: 140, dpr: 2, sc: 14, px: .3, gy: .84, top: 4 };
     let R = null, i = 0, halt = null, on = false;
     dots.innerHTML = HOWTO.map(function () { return "<i></i>"; }).join("");
-    $("#legend").innerHTML = HAZ.map(function (h) { return '<div><s style="background:' + h.col + '"></s><span>' + h.name + "</span></div>"; }).join("");
-    $("#howtoFoot").textContent = "Run to the end of the level. Everything moves to the music, so the beat tells you when to act. Touch anything deadly or fall into a pit and you start the level again. Jump: Space, ↑ or W, left click, or tap the right side of the screen. Roll: ↓ or S, right click, or hold the left side of the screen.";
+    /* the legend and the summary under the carousel, in the current language (applyLang calls this again) */
+    function paintStatic() {
+      $("#legend").innerHTML = HAZ.map(function (h) { return '<div><s style="background:' + h.col + '"></s><span>' + esc(hzName(h)) + "</span></div>"; }).join("");
+      $("#howtoFoot").textContent = t("howto.foot");
+    }
     function paint() {
       const p = HOWTO[i];
-      $("#demoKind").textContent = p.kind; $("#demoName").textContent = p.name; $("#demoDesc").textContent = p.body;
-      $("#demoMeta").innerHTML = p.lv ? (p.h ? '<s style="background:' + p.h.col + '"></s>' : "") + '<span class="tag">from level ' + pad2(p.lv) + "</span>" : "";
-      cv.setAttribute("aria-label", p.name + " in the game");
+      $("#demoKind").textContent = t("howto.kind." + p.kind); $("#demoName").textContent = pageName(p); $("#demoDesc").textContent = pageBody(p);
+      $("#demoMeta").innerHTML = p.lv ? (p.h ? '<s style="background:' + p.h.col + '"></s>' : "") + '<span class="tag">' + esc(t("howto.from", { n: pad2(p.lv) })) + "</span>" : "";
+      cv.setAttribute("aria-label", t("howto.inGame", { name: pageName(p) }));
       if (i === 0 && document.activeElement === prevB) nextB.focus();
       prevB.style.display = i === 0 ? "none" : "";
-      nextB.textContent = i === HOWTO.length - 1 ? "start over" : "next";
+      nextB.textContent = i === HOWTO.length - 1 ? t("howto.startOver") : t("howto.next");
       $$("i", dots).forEach(function (d, k) { d.classList.toggle("on", k === i); });
     }
     /* one loop at a time: the page's loop starts over on every start and every page change */
@@ -464,18 +555,19 @@
     nextB.addEventListener("click", next);
     /* taps on the demo are never game input (the game canvas sits under the panel anyway) */
     cv.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
-    paint();
+    paintStatic(); paint();
     return {
       start: function () { on = true; paint(); play(); },
       stop: function () { on = false; halt0(); },
-      prev: prev, next: next
+      prev: prev, next: next,
+      relabel: function () { paintStatic(); paint(); }
     };
   })();
 
   /* ---------------- play ---------------- */
   function paintHud() {
-    $("#hudLevel").innerHTML = "level <b>" + pad2(G.n) + "</b> &nbsp;·&nbsp; " + G.def.name;
-    $("#hudTry").innerHTML = "try <b>" + G.tryN + "</b>";
+    $("#hudLevel").innerHTML = t("game.level", { n: "<b>" + pad2(G.n) + "</b>" }) + " &nbsp;·&nbsp; " + esc(lvName(G.n));
+    $("#hudTry").innerHTML = t("game.try", { n: "<b>" + G.tryN + "</b>" });
   }
   function startLevel(n) {
     G.n = n; G.def = LEVELS[n - 1]; G.L = getL(n); G.spb = 60 / G.def.mu[0]; G.session = 0;
@@ -557,11 +649,11 @@
     setTimeout(function () {
       if (G.mode !== "won" || G.n !== n) return;
       const acts = [];
-      if (n < N) acts.push({ t: "next level", solid: true, fn: function () { hideCard(); MUSIC.stop(0.2); S.sel = n + 1; saveState(); startLevel(n + 1); } });
-      acts.push({ t: "replay", solid: n >= N, fn: function () { hideCard(); MUSIC.stop(0.2); startLevel(n); } });
-      acts.push({ t: "home", fn: function () { hideCard(); if (n < N) S.sel = n + 1; saveState(); show("home"); startHome(); } });
-      showCard({ eyebrow: "level " + pad2(n) + " cleared", title: G.def.name, stars: shown,
-        stats: first ? [[tries, tries === 1 ? "try" : "tries"]] : [[tries, "this run"], [r.t, "record tries"]], acts: acts });
+      if (n < N) acts.push({ t: t("card.win.next"), solid: true, fn: function () { hideCard(); MUSIC.stop(0.2); S.sel = n + 1; saveState(); startLevel(n + 1); } });
+      acts.push({ t: t("common.replay"), solid: n >= N, fn: function () { hideCard(); MUSIC.stop(0.2); startLevel(n); } });
+      acts.push({ t: t("card.win.home"), fn: function () { hideCard(); if (n < N) S.sel = n + 1; saveState(); show("home"); startHome(); } });
+      showCard({ eyebrow: t("card.win.eyebrow", { n: pad2(n) }), title: esc(lvName(n)), stars: shown,
+        stats: first ? [[tries, tn("stat.tries", tries)]] : [[tries, t("stat.thisRun")], [r.t, t("stat.record")]], acts: acts });
     }, 1150);
   }
 
@@ -577,8 +669,7 @@
      hidden tab). The Objective tips setting turns it off. Only real play: the home demo, previews and bot runs never
      stop for it, and the sim doesn't know about it: the rewind puts back states recorded during the run (G.hist).
      G.tip: false, "note" (frozen, note up) or "rewind". */
-  const TIP = { lv: 1, find: "sp", lead: 1, back: 4, secs: 5, rewind: 1.1, title: "Avoid the spikes",
-    body: TOUCH ? "Tap the right side of the screen to jump over them" : "Jump over them: space, ↑, w or click" };
+  const TIP = { lv: 1, find: "sp", lead: 1, back: 4, secs: 5, rewind: 1.1, title: "tip.title", body: TOUCH ? "tip.bodyTouch" : "tip.body" };   /* i18n ids */
   /* the spike (the first "sp" object by x0; objs are sorted), the tick where the game freezes (lead beats before its
      left edge) and the tick the rewind goes back to; found in the compiled level, so a chart change can't break it */
   let tipAt;
@@ -606,7 +697,7 @@
     hideObjective();
     /* the ring: round the spike's box, with some air */
     G.mark = { x: o.x, y: (o.y0 + o.y1) / 2, r: Math.max(o.x1 - o.x0, o.y1 - o.y0) / 2 + .55, flip: o.flip, fb: o.fb || 0 };
-    $("#tipTitle").textContent = TIP.title; $("#tipBody").textContent = TIP.body;
+    $("#tipTitle").textContent = t(TIP.title); $("#tipBody").textContent = t(TIP.body);
     tipLeft = TIP.secs; paintTip();
     tipEl.classList.add("show");
   }
@@ -663,10 +754,10 @@
   function pauseGame() {
     if (G.mode !== "play" || G.paused) return;
     G.paused = true; G.pauseT = now(); MUSIC.suspend(); keys.j = keys.s = false;
-    showCard({ eyebrow: "level " + pad2(G.n) + "  ·  try " + G.tryN, title: "Paused",
-      acts: [{ t: "resume", solid: true, fn: resumeGame },
-        { t: "restart", fn: function () { hideCard(); MUSIC.resume(); beginRun(false); } },
-        { t: "quit", fn: function () { hideCard(); MUSIC.resume(); G.paused = false; show("home"); startHome(); } }] });
+    showCard({ eyebrow: t("game.level", { n: pad2(G.n) }) + "  ·  " + t("game.try", { n: G.tryN }), title: t("card.pause.title"),
+      acts: [{ t: t("card.pause.resume"), solid: true, fn: resumeGame },
+        { t: t("card.pause.restart"), fn: function () { hideCard(); MUSIC.resume(); beginRun(false); } },
+        { t: t("card.pause.quit"), fn: function () { hideCard(); MUSIC.resume(); G.paused = false; show("home"); startHome(); } }] });
   }
   function resumeGame() { hideCard(); unfreeze(); }
   /* back into the run after a freeze (pause or level tip): the music picks up where it stopped, and the frame clock is
@@ -708,7 +799,7 @@
     /* Esc: pause / resume in a run (nothing while a level tip counts down); on a panel (How to play, Settings, Levels) with no card open, back home */
     /* the spike tip: Enter is "understood"; no other key does anything, so nothing is queued for the run */
     if (G.tip) { if (c === "Enter" && G.tip === "note") { e.preventDefault(); leaveTip(); } else if (c === "Space" || c.indexOf("Arrow") === 0) e.preventDefault(); return; }
-    if (c === "Escape") { if (G.mode === "play" && !G.paused) pauseGame(); else if (G.paused && !thawing) resumeGame(); else if (!G.cardUp && panelOn()) show("home"); return; }
+    if (c === "Escape") { if (langOpen() && !G.cardUp) { closeLang(true); return; } if (G.mode === "play" && !G.paused) pauseGame(); else if (G.paused && !thawing) resumeGame(); else if (!G.cardUp && panelOn()) show("home"); return; }
     if (c === "Space" && e.target === obChk) return;   /* the keyboard is on "Don't show again": Space ticks it */
     if (G.cardUp) { if (c === "Enter" && cardActs[0]) { e.preventDefault(); cardActs[0].fn(); } return; }
     if (G.mode === "play") {
@@ -791,10 +882,11 @@
   /* ---------------- boot ---------------- */
   RENDER.resize(cv);
   let rz = 0;
-  const onResize = function () { clearTimeout(rz); rz = setTimeout(function () { RENDER.resize(); G.snap = true; refreshScrollCue(); }, 120); };
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(refreshScrollCue);
+  const onResize = function () { clearTimeout(rz); rz = setTimeout(function () { RENDER.resize(); G.snap = true; refreshScrollCue(); fitTitle(); }, 120); };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { refreshScrollCue(); fitTitle(); });
   window.addEventListener("resize", onResize);
   window.addEventListener("orientationchange", function () { setTimeout(onResize, 160); });
+  applyLang();
   startHome(); show("home");
   requestAnimationFrame(loop);
   window.__SHADOWSKIRR = { G: G, S: function () { return S; }, startLevel: startLevel, keys: keys, getL: getL,

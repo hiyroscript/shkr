@@ -41,6 +41,12 @@ jobs:
         with:
           node-version: 20
 
+      # Gate 0a: every language has exactly the English keys, with the same
+      # {placeholders}; the English names match js/levels.js; every id
+      # index.html and game.js use exists; every flag draws. A second or two.
+      - name: Check translations (keys, placeholders, flags)
+        run: node tools/i18n-check.js
+
       # Gate 0: every level is one minute long, solvable with a fairness
       # margin, reuses the hazards it should, and sits on the difficulty
       # curve (README, Difficulty). Several minutes: it solves each level
