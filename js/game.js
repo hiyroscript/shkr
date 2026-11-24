@@ -152,11 +152,21 @@
       el.appendChild(w); if (wi < arr.length - 1) el.appendChild(document.createTextNode(" "));
     });
   }
+  /* the title sits on a white box (css .title). A wrapped block is as wide as its max-width, not its longest line, so
+     the box is narrowed to the words' extent; again on resize and once the fonts are in. Hidden home: left alone. */
+  function fitTitle() {
+    const el = $("#title"); el.style.width = "";
+    let l = Infinity, r = -Infinity;
+    for (const w of el.children) { const b = w.getBoundingClientRect(); l = Math.min(l, b.left); r = Math.max(r, b.right); }
+    if (!(r > l)) return;
+    const cs = getComputedStyle(el);
+    el.style.width = Math.ceil(r - l + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 1) + "px";
+  }
   function paintHome(retitle) {
     const n = S.sel, def = LEVELS[n - 1], locked = n > S.unlocked, r = S.rec[n] || { t: 0, s: 0, d: false };
     $("#lvTag").textContent = "level " + pad2(n) + (locked ? "  ·  locked" : "");
-    if (retitle) setLetters($("#title"), def.name);
-    $("#title").style.opacity = locked ? 0.28 : 1;
+    if (retitle) { setLetters($("#title"), def.name); fitTitle(); }
+    $("#title").classList.toggle("locked", locked);   /* greyed letters on a still solid box (css) */
     $("#homeStars").innerHTML = locked ? "" : starsHTML(r.d ? r.s : 0).replace(/^<div class="stars">|<\/div>$/g, "");
     $("#homeStars").style.visibility = locked ? "hidden" : "visible";
     $("#startOrb").classList.toggle("locked", locked);
@@ -791,8 +801,8 @@
   /* ---------------- boot ---------------- */
   RENDER.resize(cv);
   let rz = 0;
-  const onResize = function () { clearTimeout(rz); rz = setTimeout(function () { RENDER.resize(); G.snap = true; refreshScrollCue(); }, 120); };
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(refreshScrollCue);
+  const onResize = function () { clearTimeout(rz); rz = setTimeout(function () { RENDER.resize(); G.snap = true; refreshScrollCue(); fitTitle(); }, 120); };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { refreshScrollCue(); fitTitle(); });
   window.addEventListener("resize", onResize);
   window.addEventListener("orientationchange", function () { setTimeout(onResize, 160); });
   startHome(); show("home");
