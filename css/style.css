@@ -130,10 +130,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 .set-ctl{display:flex;align-items:center;gap:12px;flex:0 0 auto}
 .set-row output{font-family:var(--mono);font-size:12px;color:var(--dim);width:34px;text-align:right;flex:0 0 auto}
 input[type=range]{-webkit-appearance:none;appearance:none;width:clamp(110px,26vw,170px);height:24px;background:none;flex:0 0 auto}
-input[type=range]::-webkit-slider-runnable-track{height:8px;background:var(--surface);border-radius:8px;box-shadow:inset 0 0 0 var(--edge-w) var(--edge)}
-input[type=range]::-moz-range-track{height:8px;background:var(--surface);border-radius:8px;box-shadow:inset 0 0 0 var(--edge-w) var(--edge)}
-input[type=range]::-moz-range-progress{height:8px;background:var(--fg);border-radius:8px}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--fg);margin-top:-4px}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--edge);border-radius:2px}
+input[type=range]::-moz-range-track{height:2px;background:var(--edge);border-radius:2px}
+input[type=range]::-moz-range-progress{height:2px;background:var(--fg);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--fg);margin-top:-7px}
 input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:var(--fg)}
 .sw{width:46px;height:26px;border-radius:100px;background:var(--track);position:relative;flex:0 0 auto;transition:background .18s;
   border:var(--edge-w) solid var(--edge)}
