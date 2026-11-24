@@ -492,14 +492,14 @@ const MUSIC = (function () {
   /* Chrome, Firefox and Safari delay a DynamicsCompressor's output by a 6 ms look-ahead; the master has two, so every
      event is sent that much early and beat b still reaches the speakers at t0 + b * spb (plus output latency, which
      the game's clock already allows for) */
-  const PROC = 0.012, MIX = .42;
+  const PROC = 0.012, MIX = .42, GEN = .42;
   /* group levels (the lead sits inside the mix, a light accent on the actions, not a line over the music), role -> group, role pans */
   const GRP = { k: .68, d: .48, b: .72, h: .42, l: .5, a: .55, x: .5 };
   const ROLE = { l: "l", l2: "l", c: "l", a: "a", m: "a", p: "h", h: "h", r: "h", z: "h", b: "b", x: "x" };
   const RPAN = { l: 0, l2: .06, c: .12, a: -.32, m: .3, p: 0, h: -.28, r: .34, z: 0, b: 0, x: 0 };
 
   function build(c) {
-    ctx = c; cache = { drum: {}, ks: {}, ir: {}, nz: {}, wave: {} };
+    ctx = c; cache = { drum: {}, ks: {}, ir: {}, nz: {}, wave: {}, bank: new SYNTH.SampleBank(c) };
     /* master: mix -> broad shelves -> glue compressor -> limiter -> safety curve -> volume -> pause fade -> out */
     mix = c.createGain(); mix.gain.value = MIX;
     const ls = c.createBiquadFilter(), hs = c.createBiquadFilter(), glue = c.createDynamicsCompressor(), lim = c.createDynamicsCompressor();
@@ -534,7 +534,8 @@ const MUSIC = (function () {
      fades it out, so a retry or a rewind never carries a tail from the run before. */
   function newBus(S, at) {
     const c = ctx, sp = S.spec, b = { out: c.createGain(), lv: c.createGain(), grp: {}, part: {}, lfo: {}, src: [], act: [], choke: {}, at: at };
-    b.lv.gain.value = Math.pow(10, (sp.trim || 0) / 20);
+    /* (GEN: the generated tracks sit at the composed themes' level, about 5 dB under where they were) */
+    b.lv.gain.value = GEN * Math.pow(10, (sp.trim || 0) / 20);
     let tail = b.lv;
     if (hasFx(S, "tape")) { const w = c.createWaveShaper(); w.curve = curve(1.25); w.oversample = "none"; tail.connect(w); tail = w; }
     if (hasFx(S, "muff")) {
@@ -751,6 +752,7 @@ const MUSIC = (function () {
       case "d": hit(e, t); break;
       case "r": riser(e, t); break;
       case "a": if (bus.amb) bus.amb.gain.setTargetAtTime(e.v, t, song.spb * 1.2); break;
+      case "t": themeNote(e, t); break;
       case "k": bus.duck.gain.setTargetAtTime(.5, t, .004); bus.duck.gain.setTargetAtTime(1, t + .035, song.spb * .13); break;
     }
   }
@@ -1139,13 +1141,89 @@ const MUSIC = (function () {
     locs.forEach(function (x) { if (x - last > 8) { last = x; out[Math.floor(x / 16)] = 1; } });
     return out;
   }
+  /* a level with a composed theme (js/themes.js) plays it; the others are still arranged from their spec */
+  function themeOf(def) { return typeof THEMES !== "undefined" && THEMES[def.n] || null; }
   function makeSong(def, L, loop) {
+    const T = themeOf(def);
+    if (T) return themeSong(def, L, loop, T);
     const m = def.mu;
     const dens = []; for (let b = 0; b < L.bars; b++) { let c = 0; for (let i = 0; i < 8; i++) if (L.chart[b * 8 + i]) c++; dens.push(c); }
     const S = { bpm: m[0], spb: 60 / m[0], root: m[1], sc: SC[m[2]], mode: m[2], pA: m[3], pB: m[4], spec: spec(def), chart: L.chart, energy: L.energy, bars: L.bars,
       seed: hash(def.name), loop: !!loop, endBeat: L.endX / 4, T: L.T, combo: loop ? {} : comboBars(L), dens: dens };
     S.ev = arrange(S);
     return S;
+  }
+
+  /* A composed theme, written out as events like any other song: its form's sections bar by bar (a bar's notes from
+     SYNTH.renderBar, so on the same integer grid), the closing sting after the last bar, and for the home loop its
+     passes one after another (the scheduler then loops them). The form must fill the level exactly. */
+  const ROLEG = { lead: "l", answer: "a", harmony: "h", bass: "b", drums: "d", fx: "x" };
+  function themeSong(def, L, loop, T) {
+    const m = def.mu, th = SYNTH.compileTheme(T), spb = 60 / m[0], st = spb / 4;
+    if (T.bpm !== m[0]) throw new Error("[music] the theme of " + def.name + " is at " + T.bpm + " bpm, the level at " + m[0]);
+    const ver = { scale: SYNTH.SCALES[T.scale], transpose: 0, swing: T.swing || 0, overtime: null };
+    const S = { bpm: m[0], spb: spb, root: m[1], sc: SC[m[2]], mode: m[2], pA: m[3], pB: m[4], spec: spec(def), theme: T, chart: L.chart, energy: L.energy, bars: L.bars,
+      seed: hash(def.name), loop: !!loop, endBeat: L.endX / 4, T: L.T, combo: loop ? {} : comboBars(L), dens: [], timp: 98 };
+    const R = rng(S.seed ^ 0x51ED), ev = [];
+    let bar = 0;
+    const write = function (name, pass) {
+      const sec = th.sections[name];
+      for (let b = 0; b < sec.bars; b++, bar++) for (const e of SYNTH.renderBar(th, ver, sec, b, pass, 0)) {
+        /* a little life: never two notes exactly alike */
+        ev.push({ y: "t", c: e.channel, b: (bar * 16 + e.step) / 4, o: e.step % 2 ? ver.swing * st : 0, m: e.midi, ms: e.midis, n: e.len, v: Math.min(1, e.vel * (0.95 + R() * 0.1)), cents: e.cents });
+      }
+    };
+    for (let p = 0; p < (loop ? T.passes || 1 : 1); p++) for (const name of loop ? T.loop : T.form) write(name, p);
+    if (!loop && bar !== L.bars) throw new Error("[music] the theme of " + def.name + " is " + bar + " bars long, the level " + L.bars);
+    S.cycle = bar * 4;
+    if (!loop && T.end) write(T.end, 0);
+    /* the combo cue: a soft riser across the second half of the bar before a combo */
+    const rc = T.channels.riser;
+    if (rc) for (const k in S.combo) { const b = +k - 1; if (b >= 0 && b < L.bars) ev.push({ y: "t", c: "riser", b: b * 4 + 2, o: 0, m: T.tonic + 12 * (rc.octave || 0), n: 8, v: 0.5 }); }
+    ev.forEach(function (e) { e.t = e.b + e.o / spb; });
+    ev.sort(function (a, b) { return a.t - b.t; });
+    S.ev = ev;
+    return S;
+  }
+  /* a theme's bus: its channels (made on first use), the kick's pump, its own reverb and ping-pong delay */
+  function newThemeBus(S, at) {
+    const c = ctx, T = S.theme, b = { out: c.createGain(), lv: c.createGain(), mix: c.createGain(), pump: c.createGain(), grp: {}, part: {}, lfo: {}, src: [], act: [], choke: {}, at: at, strips: {}, last: {} };
+    b.lv.gain.value = (T.level || 1) * Math.pow(10, (T.trim || 0) / 20);
+    const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 30; hp.Q.value = .6;
+    b.pump.connect(b.mix); b.mix.connect(b.lv); b.lv.connect(hp); hp.connect(b.out); b.out.connect(mix);
+    const rv = c.createConvolver(), rvOut = c.createGain(), RV = T.reverb || {};
+    rv.buffer = cache.bank.reverb(RV.seconds || 2.4, RV.damp === undefined ? .5 : RV.damp); rvOut.gain.value = RV.level === undefined ? 1 : RV.level;
+    b.rv = c.createGain(); b.rv.connect(rv); rv.connect(rvOut); rvOut.connect(b.lv);
+    const DL = T.delay || {}, dIn = c.createGain(), L = c.createDelay(2), Rt = c.createDelay(2), fb = c.createGain(), damp = c.createBiquadFilter(), mg = c.createChannelMerger(2), dOut = c.createGain();
+    L.delayTime.value = Rt.delayTime.value = Math.min(1.9, (DL.beats || .75) * S.spb); fb.gain.value = DL.feedback === undefined ? .3 : DL.feedback;
+    damp.type = "lowpass"; damp.frequency.value = 3200; dOut.gain.value = DL.level === undefined ? .8 : DL.level;
+    dIn.connect(L); L.connect(mg, 0, 0); L.connect(Rt); Rt.connect(mg, 0, 1); Rt.connect(fb); fb.connect(damp); damp.connect(L); mg.connect(dOut); dOut.connect(b.lv);
+    b.dl = dIn; b.duck = c.createGain();
+    return b;
+  }
+  function themeStrip(name, spec) {
+    let s = bus.strips[name];
+    if (s) return s;
+    const c = ctx, pn = c.createStereoPanner(); s = c.createGain();
+    s.gain.value = spec.gain === undefined ? 1 : spec.gain; pn.pan.value = spec.pan || 0;
+    s.connect(pn); pn.connect(spec.pump ? bus.pump : bus.mix);
+    if (spec.reverb) { const g = c.createGain(); g.gain.value = spec.reverb; pn.connect(g); g.connect(bus.rv); }
+    if (spec.delay) { const g = c.createGain(); g.gain.value = spec.delay; pn.connect(g); g.connect(bus.dl); }
+    return (bus.strips[name] = s);
+  }
+  /* one note of a theme, on its channel's instrument (SYNTH.playNote); the kick's channel pumps the pads */
+  function themeNote(e, t) {
+    const T = song.theme, spec = T.channels[e.c];
+    if (!spec) return;
+    const note = { midi: e.m, midis: e.ms, freq: e.m === undefined ? undefined : SYNTH.midiToFreq(e.m), dur: e.n * song.spb / 4 * (spec.legato || 0.92), vel: e.v };
+    if (e.ms) note.freqs = e.ms.map(SYNTH.midiToFreq);
+    if (spec.glide && e.m !== undefined) { const prev = bus.last[e.c]; if (prev !== undefined && prev !== e.m) note.from = SYNTH.midiToFreq(prev); bus.last[e.c] = e.m; }
+    const sp = e.cents === undefined ? spec : Object.assign({}, spec, { params: Object.assign({}, spec.params, { cents: e.cents }) });
+    const end = SYNTH.playNote(ctx, themeStrip(e.c, spec), cache.bank, sp, t, note);
+    if (spec.duck) { const g = bus.pump.gain; g.setTargetAtTime(1 - spec.duck, t, .004); g.setTargetAtTime(1, t + .03, song.spb * .16); }
+    const A = bus.act;
+    for (let i = A.length - 1; i >= 0; i--) if (A[i].e <= t) A.splice(i, 1);
+    A.push({ e: end }); if (A.length > stats.maxV) stats.maxV = A.length;
   }
 
   /* ---------------- scheduler ----------------
@@ -1169,7 +1247,21 @@ const MUSIC = (function () {
     if (!offline) stats.worst = Math.max(stats.worst, performance.now() - w0);
   }
   /* the strings, drums and spaces a song needs, made before it starts so the first bars never stall on them */
-  function prepare(S) {
+  function prepare(S, from) {
+    if (S.theme) {
+      /* a theme's drums, its reverb, the noise and the tones of its first bars (the rest render as the scheduler
+         reaches them, a third of a second ahead); other songs' tones let go */
+      const T = S.theme, bank = cache.bank, keep = {}, RV = T.reverb || {};
+      const use = function (key) { keep[key] = 1; };
+      bank.reverb(RV.seconds || 2.4, RV.damp === undefined ? .5 : RV.damp); use("reverb:" + (RV.seconds || 2.4) + ":" + (RV.damp === undefined ? .5 : RV.damp)); bank.noise(); use("noise");
+      for (const e of S.ev) {
+        const sp = T.channels[e.c]; if (!sp) continue;
+        if (sp.drum) { bank.drum(sp.drum, sp.opts || {}); use("drum:" + sp.drum + ":" + JSON.stringify(sp.opts || {})); }
+        else if (sp.tone) for (const n of e.ms || [e.m]) { const lb = (S.loop ? e.b % S.cycle : e.b) - (S.loop ? (from || 0) % S.cycle : from || 0); if (lb >= 0 && lb < 12) bank.tone(sp.tone, n); use("tone:" + sp.tone + ":" + Math.round(n)); }
+      }
+      for (const k of Array.from(bank.cache.keys())) if (!keep[k] && k.indexOf("drum:") !== 0) bank.cache.delete(k);
+      return;
+    }
     for (const k in cache.ir) if (k !== S.spec.space) delete cache.ir[k];
     spaceBuf(ctx, S.spec.space);
     const keep = {};
@@ -1182,9 +1274,9 @@ const MUSIC = (function () {
   function start(S, fromBeat) {
     if (!ctx) return 0;
     stop(0.05);
-    prepare(S);
+    prepare(S, fromBeat || 0);
     /* the bus first (its reverb takes a moment to set up), then the clock, so the first notes are never late */
-    song = S; bus = newBus(S, ctx.currentTime);
+    song = S; bus = S.theme ? newThemeBus(S, ctx.currentTime) : newBus(S, ctx.currentTime);
     const fb = fromBeat || 0, now = ctx.currentTime;
     t0 = now + 0.1 - fb * S.spb;
     bus.out.gain.setValueAtTime(0, now); bus.out.gain.linearRampToValueAtTime(1, now + 0.05);
@@ -1307,10 +1399,10 @@ const MUSIC = (function () {
     offline = true; vol = 1; build(oc);
     const S = makeSong(def, L, !!(opt && opt.loop)); song = S;
     prepare(S); t0 = 0.05; ei = 0; cyc = 0; stats.maxV = 0; stats.skipped = 0; stats.played = 0;
-    bus = newBus(S, 0); bus.out.gain.value = 1;
+    bus = S.theme ? newThemeBus(S, 0) : newBus(S, 0); bus.out.gain.value = 1;
     const span = seconds - .3; let n = 0;
     /* opt.only: render a stem, just these groups (l lead, a answers, h harmony, b bass, d drums, x effects) */
-    const only = opt && opt.only, grp = function (e) { return e.y === "n" ? ROLE[e.g] : e.y === "d" ? "d" : e.y === "k" ? "b" : "x"; };
+    const only = opt && opt.only, grp = function (e) { return e.y === "t" ? ROLEG[(S.theme.channels[e.c] || {}).role] || "x" : e.y === "n" ? ROLE[e.g] : e.y === "d" ? "d" : e.y === "k" ? "b" : "x"; };
     for (;;) { if (ei >= S.ev.length) { if (!S.loop) break; ei = 0; cyc++; } const e = S.ev[ei], t = t0 + (cyc * S.cycle + e.t) * S.spb - PROC; if (t >= span) break; ei++; if (only && only.indexOf(grp(e)) < 0) continue; play(e, Math.max(0, t)); n++; }
     const st = { voices: stats.maxV, events: n };
     const p = oc.startRendering();
@@ -1346,6 +1438,6 @@ const MUSIC = (function () {
     setVol: function (v) { vol = v; if (volG) volG.gain.setTargetAtTime(v, ctx.currentTime, .03); },
     resume: resume, suspend: suspend,
     /* for tools/music-check.js and the browser checks only */
-    _t: { PATCH: PATCH, KITS: KITS, SPACE: SPACE, GROOVE: GROOVE, spec: spec, TPQ: TPQ, PROC: PROC, note: renderNote }
+    _t: { PATCH: PATCH, KITS: KITS, SPACE: SPACE, GROOVE: GROOVE, spec: spec, themeOf: themeOf, TPQ: TPQ, PROC: PROC, note: renderNote }
   };
 })();
