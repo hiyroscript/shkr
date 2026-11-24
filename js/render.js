@@ -194,11 +194,28 @@ const RENDER = (function make(fit) {
         for (let i = 1; i <= 2; i++) { const y = hh * (.3 + i * .22), ww = hw * (1.1 - i * .3); poly([-ww, y - .04, ww, y - .04, ww, y + .04, -ww, y + .04]); ink(1); }
         g.beginPath(); g.arc(0, hh + .04, .11, 0, TAU); ink(1);
         break;
-      case "cactus":
-        g.beginPath(); g.roundRect(-.2, 0, .4, hh, .2); ink(1); g.beginPath(); g.roundRect(-hw, hh * .3, .22, hh * .45, .1); ink(1); g.beginPath(); g.roundRect(hw - .22, hh * .42, .22, hh * .4, .1); ink(1);
-        poly([-hw + .1, hh * .3, -hw + .1, hh * .44, -.1, hh * .44, -.1, hh * .3]); g.fillStyle = "#000"; g.fill(); poly([hw - .1, hh * .42, hw - .1, hh * .56, .1, hh * .56, .1, hh * .42]); g.fill();
-        wline([0, .15, 0, hh - .15], .03);
+      case "cactus": {
+        /* saguaro, one outline so the rim has no seam where an arm joins: a trunk with a domed top, two arms that leave it
+           as a rounded elbow and turn up, at different heights. The arms reach the hitbox width plus the usual margin
+           (hw), up to 0.5 past the trunk; trunk and arms slim down on narrow hitboxes so a gap still shows between them */
+        const t = Math.min(.2, hw * .36), R = Math.min(hw, t + .5), aw = Math.min(.17, t * .9, hh * .16), hi = hsh(id * 7 + 1) < .5 ? -1 : 1;
+        const arm = function (d, yb, yt) {
+          const ro = Math.min(aw, (R - t) * .7), ri = Math.max(0, Math.min(aw * .55, R - aw - t - .01, yt - aw * 1.5 - yb)), xo = d * R, xi = d * (R - aw);
+          if (d < 0) {   /* left arm, drawn going up the trunk */
+            g.lineTo(-t, yb); g.lineTo(xo + ro, yb); g.quadraticCurveTo(xo, yb, xo, yb + ro); g.lineTo(xo, yt - aw / 2);
+            g.arc(xo + aw / 2, yt - aw / 2, aw / 2, Math.PI, 0, true); g.lineTo(xi, yb + aw + ri); g.quadraticCurveTo(xi, yb + aw, xi + ri, yb + aw); g.lineTo(-t, yb + aw);
+          } else {       /* right arm, drawn coming down */
+            g.lineTo(t, yb + aw); g.lineTo(xi - ri, yb + aw); g.quadraticCurveTo(xi, yb + aw, xi, yb + aw + ri); g.lineTo(xi, yt - aw / 2);
+            g.arc(xo - aw / 2, yt - aw / 2, aw / 2, Math.PI, 0, true); g.lineTo(xo, yb + ro); g.quadraticCurveTo(xo, yb, xo - ro, yb); g.lineTo(t, yb);
+          }
+        };
+        const lo = [hh * .36, hh * .72], up = [hh * .48, hh * .85], la = hi < 0 ? up : lo, ra = hi < 0 ? lo : up;
+        g.beginPath(); g.moveTo(-t, 0); arm(-1, la[0], la[1]); g.lineTo(-t, hh - t); g.arc(0, hh - t, t, Math.PI, 0, true); arm(1, ra[0], ra[1]); g.lineTo(t, 0); g.closePath(); ink(1);
+        /* faint ribs down the trunk and up each arm */
+        for (const x of t > .15 ? [-t * .5, 0, t * .5] : [-t * .4, t * .4]) wline([x, .1, x, hh - t * (x ? .75 : .45)], .025);
+        if (aw > .12) { wline([-R + aw / 2, la[0] + aw, -R + aw / 2, la[1] - aw * .6], .025); wline([R - aw / 2, ra[0] + aw, R - aw / 2, ra[1] - aw * .6], .025); }
         break;
+      }
       case "bone":
         for (const d of [-1, 1]) { g.beginPath(); g.moveTo(d * hw, 0); g.quadraticCurveTo(d * hw * 1.1, hh * .8, d * .05, hh); g.quadraticCurveTo(d * hw * .5, hh * .6, d * hw * .45, 0); g.closePath(); ink(1); }
         break;
@@ -676,13 +693,16 @@ const RENDER = (function make(fit) {
   /* rail hang: a damped pendulum about the hands (swings back on the grab, then settles), legs trailing on their own
      spring, tuck eased in and out */
   function poseHang(p) {
+    /* hands grip the top of the rail (py, just above its centre line at 1.75); the arms hang the body an arm's length
+       below, so the head sits forward of them and clear under the rail. Knees a little bent, so the feet stay inside
+       the 1.75-tall hang hitbox */
     const A = ANIM.hang, py = 1.78, c = Math.cos(hg.a), sn = Math.sin(hg.a), t = hg.tuck;
-    rpt(p, NECK, 0, py, .05, -.42, c, sn); rpt(p, HEAD, 0, py, .17, -.29, c, sn); rpt(p, HIP, 0, py, -.02 * t, -.95 + .17 * t, c, sn);
+    rpt(p, NECK, 0, py, .05, -.56, c, sn); rpt(p, HEAD, 0, py, .28, -.46, c, sn); rpt(p, HIP, 0, py, -.02 * t, -1.06 + .17 * t, c, sn);
     const c2 = Math.cos(hg.l), s2 = Math.sin(hg.l);
-    rpt(p, F1, p[HIP], p[HIP + 1], -.1 + .4 * t, -.82 + .8 * t, c2, s2);
-    rpt(p, F2, p[HIP], p[HIP + 1], .16 + .06 * t, -.72 + .78 * t, c2, s2);
+    rpt(p, F1, p[HIP], p[HIP + 1], -.12 + .4 * t, -.72 + .8 * t, c2, s2);
+    rpt(p, F2, p[HIP], p[HIP + 1], .14 + .06 * t, -.66 + .78 * t, c2, s2);
     p[H1] = -.06; p[H1 + 1] = py; p[H2] = .08; p[H2 + 1] = py;
-    p[ROT] = 0; p[KD] = 1; p[ED] = 1; p[BALL] = 0; p[STR] = 0;   /* elbows bent back, clear of the head */
+    p[ROT] = 0; p[KD] = 1; p[ED] = 1; p[BALL] = 0; p[STR] = 0;   /* arms near straight; any bend goes back, away from the head */
   }
   function poseGlide(p) {
     copyPose(p, POSE.glide);
@@ -950,6 +970,9 @@ const RENDER = (function make(fit) {
       else { g.beginPath(); g.moveTo(x - z * 4, y - z * 1.5 * Math.sin(p.p)); g.lineTo(x, y); g.lineTo(x + z * 4, y - z * 1.5 * Math.sin(p.p)); g.lineWidth = 1.4; g.stroke(); }
     }
     g.translate(shx, shy);
+    /* x snapped to a device pixel (shake included): neighbouring ground segments are separate paths, and an edge they share
+       off the pixel grid would let the sky show through its anti-aliasing as a hairline down the cliff */
+    const devX = function (x) { return Math.round((x + shx) * dpr) / dpr - shx; };
     const left = camX - px0 / sc - 3, right = camX + (W - px0) / sc + 3;
     /* zone fields */
     for (const z of L.zones) {
@@ -975,7 +998,7 @@ const RENDER = (function make(fit) {
     zLines.length = 0;
     for (let i = si; i < L.segs.length; i++) {
       const q = L.segs[i]; if (q.x0 > right) break; if (q.x1 < left || q.kind) continue;
-      const xa = X(q.x0), xb = X(q.x1);
+      const xa = devX(X(q.x0)), xb = devX(X(q.x1));
       g.fillStyle = FOG.ground;
       if (q.flip) {
         const ew = 2 * q.fb + CH - q.top, yy = Y(ew), yf = Y(q.fb);
