@@ -23,6 +23,8 @@
      ambience   wind, rain, city, sea, water, steam, crackle, hum (a quiet noise bed)
      col        chord colour: 7, 9 or 5; rise / drop: riser colour, extras on the drop
      trim       loudness trim in dB (tools/music-check.js prints the levels)
+   A level with a composed theme in js/themes.js plays that instead: its sound
+   spec is then only a fallback (and the bpm here is still the tempo).
    ========================================================================== */
 const HAZ = [
   { k: "bl", ch: "B", name: "Bloom", col: "#FF2952", lv: 1 },
