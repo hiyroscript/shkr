@@ -15,9 +15,10 @@
      playNote;
    - compileTheme / renderBar: a theme's parts and sections checked once,
      and one bar of a section turned into notes.
-   Shadow Skirr adds a few instruments of its own at the end (felt piano,
-   Rhodes, nylon guitar, upright bass, vibraphone, kalimba, flute, accordion,
-   brushes, rim, snap, woodblock). js/music.js plays the result; js/themes.js
+   Shadow Skirr adds instruments of its own at the end (felt piano, Rhodes,
+   nylon guitar, upright bass, vibraphone, kalimba, harpsichord, pizzicato,
+   music box, koto, santur, timpani, bells, flute, accordion, organ, calliope,
+   harmonica, brushes, rim, snap, woodblock, anvil, cowbell, chain, gong). js/music.js plays the result; js/themes.js
    holds the themes. Nothing here touches the game or the simulation.
    ========================================================================== */
 const SYNTH = (function () {
@@ -1541,6 +1542,128 @@ const SYNTH = (function () {
       const tone = (opts && opts.tone) || 1, out = partials(sr, 0.16, 900 * tone, [{ ratio: 1, amp: 0.8, decay: 0.045 }, { ratio: 2.64, amp: 0.25, decay: 0.018 }]);
       const click = noise(sr, 0.003, rng); biquad(click, sr, "bandpass", 2500, 1); mixInto(out, click, 0.3);
       return declick(normalize(out, 0.85), sr, 0.05, 4);
+    }
+  });
+  Object.assign(TONES, {
+    /* a harpsichord: a bright quill pluck and its four-foot octave */
+    harpsi: function (sr, f, rng) {
+      const out = pluck(sr, 1.2, f, rng, { bright: 0.95, decay: 0.9, position: 0.08 });
+      mixInto(out, pluck(sr, 1.2, f * 2, rng, { bright: 0.9, decay: 0.7, position: 0.1 }), 0.35);
+      return declick(normalize(out, 0.85), sr, 0.2, 30);
+    },
+    /* pizzicato strings: a short, round pluck with a fiddle's body */
+    pizz: function (sr, f, rng) {
+      return pluck(sr, 0.7, f, rng, { bright: 0.45, decay: 0.35, position: 0.25, body: [{ freq: 290, q: 1.6, gain: 4 }, { freq: 2900, q: 1.4, gain: 3 }] });
+    },
+    /* a music box: a steel comb's tooth, its inharmonic ring and a tiny click */
+    musicbox: function (sr, f, rng) {
+      const out = partials(sr, 1.6, f, [{ ratio: 1, amp: 1, decay: 0.9 }, { ratio: 2, amp: 0.18, decay: 0.3 }, { ratio: 5.4, amp: 0.22, decay: 0.12 }, { ratio: 8.9, amp: 0.08, decay: 0.05 }], { attack: 0.001 });
+      const click = noise(sr, 0.003, rng); biquad(click, sr, "highpass", 5000); mixInto(out, click, 0.2);
+      return declick(normalize(out, 0.85), sr, 0.05, 30);
+    },
+    koto: function (sr, f, rng) {
+      return pluck(sr, 1.8, f, rng, { bright: 0.82, decay: 1.6, position: 0.1, body: [{ freq: 600, q: 1.2, gain: 3 }, { freq: 2400, q: 1.5, gain: 3 }] });
+    },
+    /* a santur or zither: a bright hammered string in a pair a hair apart, shimmering */
+    santur: function (sr, f, rng) {
+      const out = pluck(sr, 2.2, f, rng, { bright: 0.9, decay: 2, position: 0.12 });
+      mixInto(out, pluck(sr, 2.2, f * 1.0023, rng, { bright: 0.9, decay: 2, position: 0.12 }), 0.8);
+      return declick(normalize(out, 0.85), sr, 0.2, 40);
+    },
+    /* timpani, tuned: a kettle's partials sagging a little into pitch, and the mallet */
+    timp: function (sr, f, rng) {
+      const out = partials(sr, 2, f, [{ ratio: 1, amp: 1, decay: 0.9 }, { ratio: 1.504, amp: 0.5, decay: 0.65 }, { ratio: 1.742, amp: 0.25, decay: 0.5 }, { ratio: 2, amp: 0.3, decay: 0.45 }, { ratio: 2.44, amp: 0.12, decay: 0.3 }],
+        { glide: 0.4, glideTime: 0.05, attack: 0.002 });
+      const mallet = noise(sr, 0.05, rng); biquad(mallet, sr, "lowpass", 500); expEnv(mallet, sr, 0.02); mixInto(out, mallet, 0.4);
+      return declick(normalize(saturate(out, 1.3), 0.9), sr, 0.2, 40);
+    },
+    /* a tubular or church bell: its hum, strike note and inharmonic overtones, a long ring */
+    bell: function (sr, f) {
+      return declick(normalize(partials(sr, 4, f, [{ ratio: 0.5, amp: 0.3, decay: 3 }, { ratio: 1, amp: 1, decay: 2.5 }, { ratio: 2, amp: 0.4, decay: 1.6 }, { ratio: 2.76, amp: 0.35, decay: 1.2 },
+        { ratio: 5.4, amp: 0.15, decay: 0.6 }, { ratio: 8.9, amp: 0.06, decay: 0.3 }], { attack: 0.002 }), 0.85), sr, 0.1, 80);
+    }
+  });
+  Object.assign(SYNTHS, {
+    /* an organ: drawbars (sines on the harmonics), a key click, a little Leslie wobble; `pipe` for a church organ's
+       ranks, slower speech and chiff. `level`, `bars` ([8', 4', 2 2/3', 2', 1 1/3'] gains) */
+    organ: function (ctx, out, t, note, bank) {
+      const notes = note.freqs ?? [note.freq], dur = note.dur, vel = note.vel, params = note.params || {}, pipe = !!params.pipe;
+      const peak = (params.level ?? 0.12) * Math.pow(vel, 0.8) / Math.sqrt(notes.length);
+      const amp = gain(ctx, 0), lp = filter(ctx, "lowpass", params.cutoff ?? (pipe ? 3200 : 4500), 0.6, t);
+      const end = adsr(amp.gain, t, dur, { a: pipe ? 0.06 : 0.008, d: 0.1, s: 1, r: pipe ? 0.3 : 0.06, peak: peak });
+      const bars = params.bars ?? (pipe ? [1, 0.55, 0.25, 0.35, 0.15] : [1, 0.7, 0.5, 0.45, 0.25]), ratios = [1, 2, 3, 4, 6], nodes = [];
+      const vib = osc(ctx, "sine", params.rate ?? (pipe ? 4.8 : 6.4), t), depth = gain(ctx, params.wobble ?? (pipe ? 2 : 6));
+      vib.connect(depth); nodes.push(vib);
+      for (const f of notes) bars.forEach(function (g, i) { if (!g) return; const o = osc(ctx, "sine", f * ratios[i], t); const og = gain(ctx, g / 2); depth.connect(o.detune); o.connect(og).connect(lp); nodes.push(o); });
+      const src = ctx.createBufferSource(); src.buffer = bank.noise(); src.loop = true;
+      const cl = filter(ctx, "bandpass", pipe ? 2400 : 3200, 0.8, t), cg = gain(ctx, 0);
+      cg.gain.setValueAtTime(0, t); cg.gain.linearRampToValueAtTime(peak * (pipe ? 0.25 : 0.35), t + 0.002); cg.gain.setTargetAtTime(0, t + 0.003, pipe ? 0.03 : 0.006);
+      src.connect(cl).connect(cg).connect(amp);
+      lp.connect(amp).connect(out);
+      for (const o of nodes) o.start(t);
+      src.start(t, rnd01(t)); src.stop(t + 0.2);
+      stopAll(nodes, end);
+      return end;
+    },
+    /* a calliope: steam pipes, a breathy, wobbly whistle, a little out of tune on purpose */
+    calliope: function (ctx, out, t, note, bank) {
+      const freq = note.freq, dur = note.dur, vel = note.vel, params = note.params || {};
+      const peak = (params.level ?? 0.16) * Math.pow(vel, 1.1);
+      const amp = gain(ctx, 0), lp = filter(ctx, "lowpass", params.cutoff ?? 3400, 0.7, t);
+      const end = adsr(amp.gain, t, dur, { a: 0.02, d: 0.1, s: 0.9, r: 0.08, peak: peak });
+      const a = osc(ctx, "sine", freq, t, params.detune ?? 12), b = osc(ctx, "triangle", freq * 2, t, -8), bg = gain(ctx, 0.3);
+      const vib = osc(ctx, "sine", params.rate ?? 6.8, t), depth = gain(ctx, params.vibrato ?? 22);
+      const wob = osc(ctx, "sine", 0.5, t), wd = gain(ctx, 14);
+      vib.connect(depth); wob.connect(wd); for (const o of [a, b]) { depth.connect(o.detune); wd.connect(o.detune); }
+      const src = ctx.createBufferSource(); src.buffer = bank.noise(); src.loop = true;
+      const bp = filter(ctx, "bandpass", Math.min(freq * 3, 6000), 0.9, t), ng = gain(ctx, peak * 0.12);
+      src.connect(bp).connect(ng).connect(amp);
+      a.connect(lp); b.connect(bg).connect(lp); lp.connect(amp).connect(out);
+      for (const o of [a, b, vib, wob]) o.start(t);
+      src.start(t, rnd01(t) * 1.5);
+      stopAll([a, b, vib, wob, src], end);
+      return end;
+    },
+    /* a harmonica: a buzzy reed through its cupped hands, bent up into each note, vibrato on the long ones */
+    harmonica: function (ctx, out, t, note) {
+      const freq = note.freq, dur = note.dur, vel = note.vel, params = note.params || {};
+      const peak = (params.level ?? 0.13) * Math.pow(vel, 1.1);
+      const amp = gain(ctx, 0), bp = filter(ctx, "bandpass", params.formant ?? 1500, 1.6, t), lp = filter(ctx, "lowpass", params.cutoff ?? 2800, 0.8, t);
+      const end = adsr(amp.gain, t, dur, { a: 0.03, d: 0.15, s: 0.85, r: 0.1, peak: peak * 2.2 });
+      const a = osc(ctx, "square", freq, t), b = osc(ctx, "sawtooth", freq, t, 9), bg = gain(ctx, 0.6);
+      const bend = params.bend ?? 1.4;
+      for (const o of [a, b]) { o.detune.setValueAtTime(-bend * 100, t); o.detune.linearRampToValueAtTime(o === b ? 9 : 0, t + 0.1); }
+      const vib = osc(ctx, "sine", 5.6, t), depth = gain(ctx, 0);
+      depth.gain.setValueAtTime(0, t + 0.25); depth.gain.linearRampToValueAtTime(params.vibrato ?? 22, t + 0.6);
+      vib.connect(depth); depth.connect(a.detune); depth.connect(b.detune);
+      a.connect(bp); b.connect(bg).connect(bp); bp.connect(lp).connect(amp).connect(out);
+      for (const o of [a, b, vib]) o.start(t);
+      stopAll([a, b, vib], end);
+      return end;
+    }
+  });
+  Object.assign(DRUMS, {
+    /* an anvil or a struck girder: hard, bright, ringing metal */
+    anvil: function (sr, rng) {
+      const out = partials(sr, 0.9, 1, [{ ratio: 1180, amp: 0.5, decay: 0.5 }, { ratio: 2650, amp: 0.45, decay: 0.4 }, { ratio: 3870, amp: 0.4, decay: 0.32 }, { ratio: 5120, amp: 0.3, decay: 0.25 }]);
+      const click = noise(sr, 0.01, rng); biquad(click, sr, "highpass", 2000); expEnv(click, sr, 0.004); mixInto(out, click, 0.6);
+      return declick(normalize(out, 0.85), sr, 0.05, 30);
+    },
+    cowbell: function (sr) {
+      const out = partials(sr, 0.5, 1, [{ ratio: 540, amp: 0.5, decay: 0.12 }, { ratio: 800, amp: 0.5, decay: 0.1 }, { ratio: 1620, amp: 0.2, decay: 0.05 }, { ratio: 2400, amp: 0.12, decay: 0.04 }]);
+      biquad(out, sr, "bandpass", 820, 1.2);
+      return declick(normalize(out, 0.85), sr, 0.05, 20);
+    },
+    /* a chain's rattle: a dozen small metal clicks */
+    chain: function (sr, rng) {
+      const out = samples(sr, 0.35);
+      for (let k = 0; k < 11; k++) mixInto(out, partials(sr, 0.05, 1, [{ ratio: 3000 + rng() * 4000, amp: 0.25, decay: 0.012 }, { ratio: 5500 + rng() * 3000, amp: 0.15, decay: 0.008 }]), 1, Math.floor(rng() * 0.18 * sr));
+      return declick(normalize(out, 0.8), sr, 0.05, 20);
+    },
+    gong: function (sr) {
+      const f = 92, out = partials(sr, 4.6, 1, [{ ratio: f, amp: 0.5, decay: 3.8 }, { ratio: f * 1.47, amp: 0.4, decay: 3.2 }, { ratio: f * 2.09, amp: 0.45, decay: 2.8 },
+        { ratio: f * 2.56, amp: 0.3, decay: 2.4 }, { ratio: f * 3.3, amp: 0.25, decay: 1.9 }, { ratio: f * 4.11, amp: 0.2, decay: 1.4 }, { ratio: f * 5.3, amp: 0.15, decay: 1.1 }], { attack: 0.04 });
+      return declick(normalize(out, 0.85), sr, 1, 80);
     }
   });
   Object.freeze(DRUMS); Object.freeze(TONES); Object.freeze(SYNTHS);
