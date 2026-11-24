@@ -38,11 +38,9 @@
     ".shkr-dev-snd-pos{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--faint)}" +
     ".shkr-dev-snd-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}" +
     ".shkr-dev-snd-ctl .tag{margin-right:4px}" +
-    ".shkr-dev-snd-ctl .chip[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--edge);text-decoration:line-through}" +
-    /* each track is a button: outlined like the level tiles (one step lighter, there are 31 of them) */
-    ".shkr-dev-snd-list{display:flex;flex-direction:column;gap:6px;margin-top:14px}" +
-    ".shkr-dev-snd-row{display:grid;grid-template-columns:52px 1fr auto;align-items:baseline;gap:10px;text-align:left;padding:10px 12px;" +
-      "border:var(--edge-w-box) solid var(--edge);border-radius:12px;color:var(--fg);transition:background .16s}" +
+    ".shkr-dev-snd-ctl .chip[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg);text-decoration:line-through}" +
+    ".shkr-dev-snd-list{display:flex;flex-direction:column;margin-top:6px}" +
+    ".shkr-dev-snd-row{display:grid;grid-template-columns:52px 1fr auto;align-items:baseline;gap:10px;text-align:left;padding:11px 4px;border-bottom:1px solid var(--line-2);color:var(--fg)}" +
     ".shkr-dev-snd-row:hover{background:var(--hover)}" +
     ".shkr-dev-snd-row b{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}" +
     ".shkr-dev-snd-row span{font-size:15px}" +

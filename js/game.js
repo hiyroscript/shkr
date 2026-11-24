@@ -109,7 +109,7 @@
   /* ---------------- cards ---------------- */
   const overlay = $("#overlay"), cardEl = $("#card");
   let cardActs = [], cardStop = null, cardFade = 0;
-  /* o: cls (extra card class), eyebrow, title, accent (a colour under the title), body, stars, stats, acts [{ t, solid, danger, fn }],
+  /* o: cls (extra card class), eyebrow, title, accent (a colour under the title), body, stars, stats, acts [{ t, solid, danger, rebirth, fn }],
      pv (adds a preview canvas above the eyebrow; the text is its label), open (called with the card element once
      it is in the page; it may return a function, which runs when the card goes away) */
   function showCard(o) {
@@ -123,7 +123,7 @@
     if (o.body) html += "<p>" + o.body + "</p>";
     if (o.stats) { html += '<div class="stat-row">'; o.stats.forEach(function (s) { html += "<div><b>" + s[0] + "</b><span>" + s[1] + "</span></div>"; }); html += "</div>"; }
     html += '<div class="acts">';
-    (o.acts || []).forEach(function (a, i) { html += '<button class="chip' + (a.solid ? " solid" : "") + (a.danger ? " danger" : "") + '" data-act="' + i + '">' + a.t + "</button>"; });
+    (o.acts || []).forEach(function (a, i) { html += '<button class="chip' + (a.solid ? " solid" : "") + (a.danger ? " danger" : "") + (a.rebirth ? " rebirth" : "") + '" data-act="' + i + '">' + a.t + "</button>"; });
     html += "</div>";
     cardEl.innerHTML = html; cardEl.className = "card" + (o.cls ? " " + o.cls : ""); cardActs = o.acts || []; overlay.classList.add("on"); G.cardUp = true;
     cardEl.style.animation = "none"; void cardEl.offsetWidth; cardEl.style.animation = "";
@@ -210,7 +210,7 @@
   $("#rebirthBtn").addEventListener("click", function () {
     const n = S.sel;
     showCard({ eyebrow: "level " + pad2(n), title: "Rebirth?", body: "This clears the stars and tries of " + LEVELS[n - 1].name + ", as if it had never been played. Every level you have unlocked stays unlocked.",
-      acts: [{ t: "rebirth", danger: true, fn: function () { S.rec[n] = { t: 0, s: 0, d: false }; saveState(); hideCard(); paintHome(false); } }, { t: "cancel", fn: hideCard }] });
+      acts: [{ t: "rebirth", rebirth: true, fn: function () { S.rec[n] = { t: 0, s: 0, d: false }; saveState(); hideCard(); paintHome(false); } }, { t: "cancel", fn: hideCard }] });
   });
 
   /* ---------------- levels panel + settings ---------------- */

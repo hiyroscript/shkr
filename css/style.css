@@ -13,16 +13,17 @@
   --line:rgba(10,10,16,.15); --line-2:rgba(10,10,16,.08); --hover:rgba(10,10,16,.06);
   --thumb:rgba(10,10,16,.22); --track:rgba(10,10,16,.10);
   --done:#0A0A10; --danger:#BE0036; --danger-line:rgba(190,0,54,.40);
-  /* outlines: every control (chips, arrows, pause, level tiles, switches, sliders, the checkbox) has a solid ink edge
-     --edge-w wide; the boxes that frame controls (cards, objective box, tip note, previews) are one step lighter */
-  --edge:var(--ink); --edge-w:2px; --edge-w-box:1.5px; --edge-off:rgba(10,10,16,.3);
+  /* a solid ink edge for the controls that were hard to see: the level arrows, pause, switches and the slider */
+  --edge:var(--ink); --edge-w:2px;
+  /* rebirth level (purple) and clearing progress (red): a solid coloured line, wider than a chip's hairline */
+  --rebirth:#7B2FE0; --tone-w:1.5px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 body{background:#fff;color:var(--ink);font-family:var(--disp);font-weight:500;
   touch-action:none;-webkit-user-select:none;user-select:none;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;touch-action:manipulation}
-:focus-visible{outline:3px solid var(--ink);outline-offset:4px;border-radius:3px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:3px}
 .hide{display:none !important}
 
 #cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
@@ -40,13 +41,16 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:0 0 auto;width:100%}
 .bar nav{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .chip{font-family:var(--mono);font-size:clamp(9px,2.4vw,11px);letter-spacing:.14em;text-transform:uppercase;
-  padding:9px 13px;border-radius:100px;border:var(--edge-w) solid var(--edge);color:var(--fg);
+  padding:10px 14px;border-radius:100px;border:1px solid var(--line);color:var(--fg);
   white-space:nowrap;transition:background .16s,border-color .16s,transform .1s,opacity .16s}
 .chip:hover{background:var(--hover)}
 .chip:active{transform:scale(.96)}
-.chip.solid{background:var(--fg);color:var(--bg);border-color:var(--edge)}
+.chip.solid{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .chip.solid:hover{opacity:.88;background:var(--fg)}
-.chip.danger{color:var(--fg);border:var(--edge-w) dashed var(--edge)}
+/* the coloured lines are --tone-w wide; the extra width comes out of the padding so the pill keeps its size */
+.chip.danger,.chip.rebirth{border-width:var(--tone-w);padding:9.5px 13.5px}
+.chip.danger{color:var(--fg);border-color:var(--danger)}
+.chip.rebirth{color:var(--rebirth);border-color:var(--rebirth)}
 #home .chip,#home .arrow{background:#fff}
 /* white pills for the tags over the backdrop; the header's "hiyroscript" stays plain .tag text, as in vl */
 #home main .tag,#home footer .tag{background:#fff;padding:6px 11px;border-radius:100px;color:var(--dim)}
@@ -61,7 +65,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
   /* plain black on a white box: the backdrop behind it goes dark in every theme. The side padding is added to
      max-width and cancelled by the margins, so the words wrap exactly as they would with no box */
   background:#fff;padding:.1em .22em .06em;border-radius:.2em;max-width:calc(13ch + .44em);margin-left:-.22em;margin-right:-.22em}
-.title.locked{color:var(--edge-off)}
+.title.locked{color:rgba(10,10,16,.3)}
 .title span{display:inline-block;animation:letterIn .55s cubic-bezier(.2,.9,.2,1) both}
 @keyframes letterIn{from{opacity:0;transform:translateY(16px) scaleY(.92)}to{opacity:1;transform:none}}
 .play-row{margin-top:clamp(14px,3.2vh,40px);display:flex;align-items:center;gap:clamp(18px,5vw,40px)}
@@ -151,7 +155,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
 /* landscape (11/7) like the game's preview renderer; max-width also follows max-height, so a short screen
    narrows the canvas instead of stretching it */
 #demoCv{width:100%;max-width:min(520px,calc(min(46vh,420px) * 11 / 7));aspect-ratio:11/7;max-height:min(46vh,420px);border-radius:16px;
-  background:#0E0E16;display:block;border:var(--edge-w-box) solid var(--edge);margin:0 auto}
+  background:#0E0E16;display:block;border:1px solid var(--line);margin:0 auto}
 #demoKind{display:block;margin-bottom:6px}
 .demo-name{font-size:clamp(19px,4.4vw,28px);font-weight:700;letter-spacing:-.02em;color:var(--fg)}
 .demo-meta{display:flex;align-items:center;gap:7px;min-height:13px;margin-top:6px}
@@ -176,12 +180,12 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
 .col.more .scroll-cue{opacity:1;animation:cueBob 1.8s ease-in-out infinite}
 @keyframes cueBob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,3px)}}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:8px}
-.cell{aspect-ratio:1;border-radius:12px;border:var(--edge-w) solid var(--edge);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+.cell{aspect-ratio:1;border-radius:12px;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
   font-family:var(--mono);font-size:14px;color:var(--fg);transition:transform .12s,background .16s,border-color .16s}
 .cell:active{transform:scale(.94)}
-.cell.locked{color:var(--edge-off);border:var(--edge-w-box) dashed var(--edge-off);cursor:not-allowed}
-.cell.done{background:rgba(10,10,16,.05)}
-.cell.next{background:var(--fg);color:var(--bg)}
+.cell.locked{color:var(--line);border-color:var(--line-2);cursor:not-allowed}
+.cell.done{background:rgba(10,10,16,.05);border-color:rgba(10,10,16,.34)}
+.cell.next{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .cell .stars{font-size:8px;margin:0;gap:2px;min-height:8px}
 .cell.next .star{background:rgba(237,239,242,.3)}
 
@@ -207,7 +211,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
   display:flex;flex-direction:column;align-items:center;gap:8px;
   font-family:var(--mono);font-size:clamp(10px,2.6vw,13px);letter-spacing:.2em;text-transform:uppercase;line-height:1.6;
   color:var(--ink);opacity:0;visibility:hidden;text-align:center;width:min(92vw,640px);
-  background:rgba(255,255,255,.92);border:var(--edge-w-box) solid var(--edge);border-radius:18px;padding:14px 18px 10px;
+  background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:18px;padding:14px 18px 10px;
   transition:opacity .45s ease,transform .45s ease,visibility 0s .45s}
 #msBanner.show{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0);
   transition:opacity .3s cubic-bezier(.2,.8,.2,1),transform .3s cubic-bezier(.2,.8,.2,1)}
@@ -220,7 +224,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
   font-size:.8em;letter-spacing:.16em;color:var(--dim);position:relative;transition:background .16s}
 .ob-hide:hover{background:var(--hover)}
 .ob-hide input{position:absolute;left:8px;top:50%;width:15px;height:15px;margin:-7.5px 0 0;opacity:0;pointer-events:none}
-.ob-box{width:15px;height:15px;flex:0 0 auto;border:var(--edge-w) solid var(--edge);border-radius:4px;background:#fff;
+.ob-box{width:15px;height:15px;flex:0 0 auto;border:1.5px solid var(--ink);border-radius:4px;background:#fff;
   display:grid;place-items:center;transition:background .14s}
 .ob-box::after{content:"";width:7px;height:3.5px;border-left:2px solid #fff;border-bottom:2px solid #fff;
   transform:translateY(-1px) rotate(-45deg) scale(.4);opacity:0;transition:opacity .14s,transform .14s}
@@ -237,7 +241,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
    left / top are set from the ring's place on screen. */
 #tipNote{position:fixed;left:0;top:0;z-index:12;pointer-events:none;display:flex;align-items:center;gap:14px;
   max-width:min(92vw,440px);padding:12px 12px 12px 16px;background:rgba(255,255,255,.94);
-  border:var(--edge-w-box) solid var(--edge);color:var(--ink);
+  border:1px solid var(--line);color:var(--ink);
   opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .2s ease,transform .2s ease,visibility 0s .2s}
 #tipNote.show{opacity:1;visibility:visible;transform:none;transition:opacity .25s cubic-bezier(.2,.8,.2,1),transform .25s cubic-bezier(.2,.8,.2,1)}
 .tip-text{min-width:0;font-family:var(--mono);text-transform:uppercase;line-height:1.5}
@@ -281,7 +285,7 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
 #overlay.stack{flex-direction:column;justify-content:flex-start}
 #overlay.stack .card{margin:0 auto auto}
 .card{max-width:430px;width:100%;margin:auto;animation:cardIn .28s cubic-bezier(.2,.8,.2,1) both;
-  background:var(--surface);border:var(--edge-w-box) solid var(--edge);border-radius:22px;
+  background:var(--surface);border:1px solid var(--line);border-radius:22px;
   padding:clamp(24px,4vw,34px) clamp(20px,4vw,32px);box-shadow:0 24px 70px rgba(0,0,0,.45)}
 @keyframes cardIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:none}}
 .card .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--faint)}
@@ -291,7 +295,7 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
 /* new hazard card (as wide as the objective box docked above it): the live preview, and the hazard's colour under its name */
 .card.wide{max-width:520px}
 .card .pv{width:220px;max-width:100%;aspect-ratio:11/7;margin:0 auto clamp(14px,2.4vh,20px);border-radius:14px;overflow:hidden;
-  border:var(--edge-w-box) solid var(--edge);background:#fff}
+  border:1px solid var(--line);background:#fff}
 .card .pv canvas{display:block;width:100%;height:100%}
 .card h2.accent::after{content:"";display:block;width:44px;height:4px;border-radius:4px;background:var(--hz);margin:12px auto 0}
 .stat-row{display:flex;justify-content:center;gap:clamp(18px,6vw,30px);margin-top:16px;flex-wrap:wrap}
@@ -303,7 +307,7 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
   .play-row{margin-top:8px}
   .pulse{width:56px;height:56px}
   #startLbl{margin-top:6px}
-  #rebirthBtn{margin-top:6px;padding:6px 11px}
+  #rebirthBtn{margin-top:6px;padding:6.5px 11.5px}
   .stars{margin-top:4px}
   .card .pv{width:176px;margin-bottom:10px}
 }
