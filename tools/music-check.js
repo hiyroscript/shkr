@@ -197,7 +197,8 @@ async function browser() {
       process.stderr.write("  rendered " + n + " " + r.name + ": peak " + r.peak + ", rms " + (20 * Math.log10(r.rms)).toFixed(1) + " dB, voices " + r.voices + "\n");
     }
     const db = function (x) { return 20 * Math.log10(Math.max(1e-9, x)); };
-    const levels = all.map(function (r) { return db(r.rms); }).sort(function (a, b) { return a - b; }), med = levels[Math.floor(levels.length / 2)];
+    /* the median of what was rendered; with nothing else rendered (--render inf), the level every track is set to (README) */
+    const levels = all.map(function (r) { return db(r.rms); }).sort(function (a, b) { return a - b; }), med = levels.length ? levels[Math.floor(levels.length / 2)] : -20.8;
     all.forEach(function (r) {
       const notes = [];
       /* silent seconds: below -50 dBFS, where the bars of that second all have energy above 0 */
@@ -232,7 +233,8 @@ async function browser() {
       R.push(["inf", "Infinite Shadow (90 s)", r.peak.toFixed(3), lv.toFixed(1), (trim >= 0 ? "+" : "") + trim.toFixed(1), String(silent), String(r.voices), String(r.events), notes.join(" ") || "ok"]);
     }
     table(R);
-    console.log("  median " + med.toFixed(1) + " dBFS RMS, spread " + (levels[levels.length - 1] - levels[0]).toFixed(1) + " dB");
+    if (levels.length) console.log("  median " + med.toFixed(1) + " dBFS RMS, spread " + (levels[levels.length - 1] - levels[0]).toFixed(1) + " dB");
+    else console.log("  against " + med.toFixed(1) + " dBFS RMS, the level every track is set to");
   }
   if (PERF) {
     const cdp = await page.context().newCDPSession(page);

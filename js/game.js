@@ -297,20 +297,26 @@
   }
   /* The attract demo behind the menu: the home chart for the levels card, an Infinite Shadow run for the other. That run
      is generated from a seed while the home screen idles (a couple of milliseconds a frame, so switching cards never
-     waits on it), 96 bars of it, and played by the solver's own validated paths, through its world fractures; it loops
-     like the levels' demo. Both run on the home theme's clock: everything is in beats, so the run is the same at the
+     waits on it) and played by the solver's own validated paths, through its world fractures. It can start once 20 bars
+     and its first world are ready (a few seconds), and goes on being made while it plays, far faster than the home tempo
+     uses it up, to 96 bars; then it loops like the levels' demo. Both run on the home theme's clock: everything is in beats, so the run is the same at the
      home tempo, and the home music keeps playing across a card switch (two tempos crossfading on every flick between
      cards would jar). */
   const DEMO_INF_BARS = 96;
   let infDemo = null;
+  const DEMO_INF_START = 20;
   function infDemoTick(ms) {
-    if (!infDemo) infDemo = { g: INF.create(newSeed()), world: false };
+    if (!infDemo) infDemo = { g: INF.create(newSeed()), world: false, bars: 0 };
     const d = infDemo;
-    if (d.g.bars < DEMO_INF_BARS + 4) d.g.work(ms, DEMO_INF_BARS + 4);
+    if (d.g.bars < DEMO_INF_START) d.g.work(ms, DEMO_INF_START);
     else if (!d.world) { const b = d.g.biomeAt(0); d.world = RENDER.prepare(b.w); }
-    else if (!d.dressed) { d.dressed = true; RENDER.extend(); }
+    else if (d.g.bars < DEMO_INF_BARS + 4) d.g.work(ms, DEMO_INF_BARS + 4);
+    /* new bars reach the renderer (only while the demo is on screen; setLevel dresses the rest when it comes on) */
+    if (d.g.bars !== d.bars) { d.bars = d.g.bars; if (demoKind === "inf") RENDER.extend(); }
+    /* ready while its card is already up: on it comes */
+    if (homeCard === "inf" && demoKind !== "inf" && G.mode === "home" && infDemoReady()) demoTo("inf");
   }
-  function infDemoReady() { return !!(infDemo && infDemo.g.bars >= DEMO_INF_BARS + 4 && infDemo.world); }
+  function infDemoReady() { return !!(infDemo && infDemo.g.bars >= DEMO_INF_START && infDemo.world); }
   let demoKind = "levels";
   function demoTo(kind, force) {
     if (kind === demoKind && !force) return;
@@ -1132,7 +1138,8 @@
         if (G.mode === "launch" && G.pending) G.pending.work(8, 16);
         else if (G.mode === "home") infDemoTick(dt > 0.024 ? 1 : 2);
         if (demoKind === "inf") {
-          const DB = DEMO_INF_BARS * 4;
+          /* one loop is DEMO_INF_BARS bars, or what is made so far less 4 bars if that is ever shorter */
+          const DB = Math.min(DEMO_INF_BARS, infDemo.g.bars - 4) * 4;
           if (G.beat >= DB) { G.beat0 += DB; G.beat -= DB; G.st = SIM.newState(); G.st.ev = []; RENDER.setLevel(infDemo.g.L, null, infDemo.g.seed, infDemo.g.biomeAt); G.snap = true; return; }
           const target = Math.floor(G.beat * TPB), path = infDemo.g.path; let n = 0;
           while (st.tick < target && !st.dead && n++ < 4000) { const v = path[Math.floor(st.tick / INF.DEC)] || 0; SIM.step(L, st, v & 1, v & 2, 0); onEvents(st, st.tick * DX); }
