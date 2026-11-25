@@ -265,21 +265,6 @@
     if (!cards.parentElement.clientHeight) return;
     cards.style.scrollBehavior = "auto"; cards.scrollTop = cardTop(homeCard); cards.style.scrollBehavior = "";
   }
-  /* The scroll hint: on a home screen left alone for a few seconds, the cards give a little tug towards the other one
-     (its edge shows for a moment) and spring back, then again every 9 seconds while nothing else happens. Any touch,
-     click, key or scroll puts it off. Not with reduced motion, nor under a card or a panel, nor in a hidden tab. */
-  let homeIdle = now(), hintAt = 0;
-  ["pointerdown", "keydown", "wheel"].forEach(function (ev) { window.addEventListener(ev, function () { homeIdle = now(); }, { capture: true, passive: true }); });
-  cards.addEventListener("scroll", function () { homeIdle = now(); }, { passive: true });
-  setInterval(function () {
-    const t = now(), mid = cards.parentElement;
-    if (RM || G.mode !== "home" || G.cardUp || document.hidden || !$("#home").classList.contains("on") || cards.classList.contains("drag")) { homeIdle = t; return; }
-    if (t - homeIdle < 3.5 || t - hintAt < 9) return;
-    hintAt = t;
-    const cls = homeCard === "inf" ? "hint-up" : "hint-dn";
-    mid.classList.remove("hint-up", "hint-dn"); void mid.offsetWidth; mid.classList.add(cls);
-    setTimeout(function () { mid.classList.remove(cls); }, 1400);
-  }, 500);
   cards.addEventListener("scroll", function () {
     if (cards.classList.contains("drag")) return;
     const w = cards.scrollTop < (cards.scrollHeight - cards.clientHeight) / 2 ? "inf" : "levels";
