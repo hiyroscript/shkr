@@ -1191,8 +1191,11 @@
     G.snap = false;
     if (G.mode === "play" && G.inf && !G.paused) {
       feedInf(Math.max(0, st.tick * DX), performance.now() - ts, ts);
-      /* the music's next instruments, in what is left of the frame (a 60 Hz frame is 16.7 ms) */
-      if (G.song) MUSIC.warm(13 - (performance.now() - ts));
+      /* the next world's backdrop and the music's next instruments, only in a frame with time to spare: a piece of
+         either takes a few milliseconds and is never split, so a busy frame leaves it to the next one (both still get
+         made in time: the renderer builds a world anyway once its fracture is near, the scheduler a tone due within 2 s) */
+      if (performance.now() - ts < 6) RENDER.idle(1.5);
+      if (G.song && performance.now() - ts < 6) MUSIC.warm(2);
     }
     if (G.tip === "note") { if (winFocus) tipLeft -= dt; if (tipLeft > 0) paintTip(); else leaveTip(); }
     if (!G.inf && (G.mode === "play" || dead || G.mode === "won")) hudFill.style.transform = "scaleX(" + Math.max(0, Math.min(1, x / L.endX)).toFixed(4) + ")";
