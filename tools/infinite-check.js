@@ -29,6 +29,9 @@
                1 (warm-up and ramp) within D(3)..D(12), minute 2 within
                D(8)..D(14), from minute 3 inside the cruise band D(10)..D(14)
                and never above the ceiling D(16)
+     obstacles every plain obstacle (spikes, pits, steps, bars, walls, blocks,
+               spiked steps, tunnels, hurdles, crushers, blades, the spike tower
+               under a Rail) within every 4 minutes from when it unlocks
      hazards   all 15 in every 3-minute window; none in more than 2 pieces
                in a row
      repeat    no template within 8 bars of itself, no signature twice within
@@ -198,6 +201,14 @@ function runSeed(seed, bars, opt) {
     if (miss.length) { err(seed, "hazards", "bars " + b + "-" + (b + W3) + " miss " + miss.join(" ")); break; }
   }
   for (let i = 2; i < pieces.length; i++) for (const h of pieces[i].haz) if (pieces[i - 1].haz.indexOf(h) >= 0 && pieces[i - 2].haz.indexOf(h) >= 0) err(seed, "hazards", h + " in 3 pieces in a row at bar " + pieces[i].bar);
+  /* obstacles: every plain obstacle (INF.OBS: the motif table's and the spike tower) comes back within 4 minutes, from
+     the bar it unlocks (aimed at about every two: README, Infinite Shadow) */
+  const W4 = BARS_MIN * 4, obsAt = {};
+  C.forEach(function (c) { for (let i = 0; i < c.T.length; i++) if (INF.OBS[c.T[i]] !== undefined) (obsAt[c.T[i]] || (obsAt[c.T[i]] = [])).push(Math.floor((c.x0 / 2 + i) / 8)); });
+  Object.keys(INF.OBS).forEach(function (k) {
+    const at = [INF.OBS_AT[INF.OBS[k]]].concat(obsAt[k] || [], [g.bars]);
+    for (let i = 1; i < at.length; i++) if (at[i] - at[i - 1] > W4) { err(seed, "obstacles", "no " + k + " in bars " + at[i - 1] + "-" + at[i]); break; }
+  });
   const lastT = {}, lastS = {};
   C.forEach(function (c) {
     if (c.tpl !== "rest" && c.tpl !== "intro" && c.tpl !== "safe" && c.tpl !== "last") {
