@@ -1189,7 +1189,11 @@
     RENDER.frame({ s: st, x: x, y: y, beat: G.beat, time: t, pulse: pulse, dead: dead || G.mode === "over", squash: G.squash, restY: G.restY, snap: G.snap, thermal: thermal,
       demo: G.mode === "home" || G.mode === "launch", noShake: !S.shake, mark: G.mark, best: best }, (G.paused && G.tip !== "rewind") || G.mode === "intro" ? 0 : dt);
     G.snap = false;
-    if (G.mode === "play" && G.inf && !G.paused) feedInf(Math.max(0, st.tick * DX), performance.now() - ts, ts);
+    if (G.mode === "play" && G.inf && !G.paused) {
+      feedInf(Math.max(0, st.tick * DX), performance.now() - ts, ts);
+      /* the music's next instruments, in what is left of the frame (a 60 Hz frame is 16.7 ms) */
+      if (G.song) MUSIC.warm(13 - (performance.now() - ts));
+    }
     if (G.tip === "note") { if (winFocus) tipLeft -= dt; if (tipLeft > 0) paintTip(); else leaveTip(); }
     if (!G.inf && (G.mode === "play" || dead || G.mode === "won")) hudFill.style.transform = "scaleX(" + Math.max(0, Math.min(1, x / L.endX)).toFixed(4) + ")";
     /* drop resolution once if the device cannot hold 60 fps */

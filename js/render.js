@@ -81,7 +81,8 @@ const RENDER = (function make(fit) {
     const portrait = H > W;
     if (fit) { px0 = W * fit.px; gy = H * fit.gy; }
     else { px0 = W * (home ? .2 : portrait ? .24 : .28); gy = H * (home ? (portrait ? .8 : .84) : portrait ? .66 : .72); }
-    worlds.forEach(function (w) { w.key = ""; w.done = 0; w.job = null; });
+    /* a world is rebuilt only when what its strips depend on changed (its key: size, ground line, scale); a new pixel
+       ratio alone (the low-quality fallback) keeps them, so it never stalls a run */
     if (cw) buildWorld(cw, Infinity);
   }
 
@@ -91,18 +92,34 @@ const RENDER = (function make(fit) {
      around a fracture; built worlds are kept (at most three: the one on screen, the next and the last), the oldest dropped
      first, and the next one is built a layer a frame while it is still far off, so a fracture never waits on it. */
   function makeWorld(n, theme, sd, fast) {
-    const w = { n: n, th: theme, seed: sd, fast: !!fast, pal: palette(n), strips: [], key: "", done: 0, job: null, sky: null, mist: null, wisp: null, amb: [], wisps: [], used: 0, motif: null };
+    const w = { n: n, th: theme, seed: sd, fast: !!fast, pal: palette(n), strips: [], key: "", done: 0, job: null, sky: null, mist: null, wisp: null, amb: [], wisps: [], used: 0, frame: -9, motif: null };
     const A = AMB[theme[5]] || AMB.dust;
     for (let i = 0; i < 44; i++) w.amb.push({ x: hsh(i * 3 + 1) * 1.2, y: hsh(i * 5 + 2), z: .4 + hsh(i * 7) * .9, p: hsh(i * 11) * TAU, a: A });
     for (let i = 0; i < 4; i++) w.wisps.push({ x: hsh(i * 13 + sd) * 1.4 - .2, y: .4 + hsh(i * 17 + 2) * .38, w: 6 + hsh(i * 19) * 5, h: .8 + hsh(i * 23) * .8, a: .08 + hsh(i * 29) * .07, v: .006 + hsh(i * 31) * .01 });
     return w;
   }
+  /* the world for (n, theme, seed), built or not. At most three are kept: past that, the least recently used goes, never
+     the one just asked for and never one drawn or asked for this frame or the last (then the cache stays one bigger for a
+     moment). A world let go gives back its canvases at once: iOS keeps a canvas's memory until it is collected */
+  let frameNo = 0;
   function worldFor(n, theme, sd, fast) {
     let w = null;
     for (const x of worlds) if (x.n === n && x.th === theme && x.seed === sd && x.fast === !!fast) w = x;
-    if (!w) { w = makeWorld(n, theme, sd, fast); worlds.push(w); if (worlds.length > 3) { worlds.sort(function (a, b) { return a.used - b.used; }); worlds.shift(); } }
-    w.used = tNow;
+    if (!w) {
+      w = makeWorld(n, theme, sd, fast); worlds.push(w);
+      if (worlds.length > 3) {
+        let old = null;
+        for (const x of worlds) if (x !== w && x.frame < frameNo - 1 && (!old || x.used < old.used)) old = x;
+        if (old) { worlds.splice(worlds.indexOf(old), 1); dropWorld(old); }
+      }
+    }
+    w.used = msNow(); w.frame = frameNo;
     return w;
+  }
+  function dropWorld(w) {
+    const free = function (c) { if (c) c.width = c.height = 0; };
+    w.strips.forEach(free); free(w.sky); free(w.mist); free(w.wisp); free(w.motifCv);
+    w.strips = []; w.sky = w.mist = w.wisp = w.motifCv = null; w.key = ""; w.done = 0; w.job = null;
   }
   /* which generators feed each of the five layers */
   function layerGens(w, i) {
@@ -119,7 +136,7 @@ const RENDER = (function make(fit) {
      when it is complete. A strip is a BACKDROPS.job of small steps, so a world can be built across many frames */
   const msNow = function () { return performance.now(); };
   function buildWorld(w, ms) {
-    const key = "fog5|" + w.th[0] + w.th[1] + w.seed + "|" + w.n + "|" + W + "x" + H;
+    const key = "fog5|" + w.th[0] + w.th[1] + w.seed + "|" + w.n + "|" + W + "x" + H + "|" + gy.toFixed(2) + "|" + sc.toFixed(3);
     if (key !== w.key) { w.key = key; w.done = 0; w.job = null; }
     const bs = sc > 50 ? 1 : 1.5, hpx = (gy + sc * 2.6) * bs, pal = w.pal, end = msNow() + ms;
     while (w.done < 6) {
@@ -969,13 +986,14 @@ const RENDER = (function make(fit) {
   /* ---------------- backdrops ---------------- */
   /* a world's sky, five fog layers far -> near with soft mist bands washing their bases, and its collision motif */
   function drawBack(w, dxp, dt, alpha) {
+    w.used = msNow(); w.frame = frameNo;
     if (alpha <= 0) return;
     g.globalAlpha = alpha;
     const pal = w.pal, strips = w.strips;
-    if (w.sky) g.drawImage(w.sky, 0, 0, W, H); else { g.fillStyle = pal.sky[2]; g.fillRect(0, 0, W, H); }
+    if (w.sky && w.sky.width) g.drawImage(w.sky, 0, 0, W, H); else { g.fillStyle = pal.sky[2]; g.fillRect(0, 0, W, H); }
     const bs = strips.bs || 1;
     for (let i = 0; i < 5; i++) {
-      const c = strips[i]; if (!c) continue;
+      const c = strips[i]; if (!c || !c.width) continue;
       const l = LAY[i], k = bs * (c.res || 1), f = l.f, ww = c.width / k, t0 = c.top || 0, sh = c.height - t0, h = sh / k, off = ((camX * sc * f) % ww + ww) % ww;
       const yy = camY * sc * f * .6 + (i === 3 ? pulse * 1.5 : 0), yt = yy + t0 / k;
       if (sh > 0) {
@@ -984,7 +1002,7 @@ const RENDER = (function make(fit) {
       }
       if (i === 0 && w.motif) drawMotif(w, w.motif);
       /* the far pair and the mid pair share one band each; every strip also has mist baked into its base */
-      if ((i === 1 || i === 3) && w.mist) { const bh = sc * 3; g.drawImage(w.mist, 0, yy + gy - l.up * sc - bh * .62, W, bh); }
+      if ((i === 1 || i === 3) && w.mist && w.mist.width) { const bh = sc * 3; g.drawImage(w.mist, 0, yy + gy - l.up * sc - bh * .62, W, bh); }
     }
     g.globalAlpha = 1;
   }
@@ -997,7 +1015,7 @@ const RENDER = (function make(fit) {
       w.motifCv = BACKDROPS.single({ gen: m.kind, seed: m.seed, u: sc * .55, tone: mixHex(tone, w.pal.sky[1], .25), dark: tone, light: mixHex(tone, w.pal.sky[2], .5) });
       w.motifKey = m.seed + "|" + sc;
     }
-    const c = w.motifCv; if (!c) return;
+    const c = w.motifCv; if (!c || !c.width) return;
     const xm = (b.b0 + b.n / 2) * 16, x = W * .55 + (xm - camX) * sc * .05 - c.ox, top = c.oy === 0;
     if (x > W || x + c.width < 0) return;
     const ga = g.globalAlpha; g.globalAlpha = ga * .55;
@@ -1054,7 +1072,7 @@ const RENDER = (function make(fit) {
   /* ---------------- frame ---------------- */
   function frame(V, dt) {
     if (!g || !L) return;
-    tNow = V.time; pulse = V.pulse;
+    tNow = V.time; pulse = V.pulse; frameNo++;
     /* animation clock: real time that stops while paused; events cued since the last frame are stamped with it */
     vw.ac += dt;
     for (let i = 0; i < pend.length; i++) { EV[pend[i]] = vw.ac; FRESH[pend[i]] = true; }
@@ -1097,7 +1115,7 @@ const RENDER = (function make(fit) {
       }
     }
     /* drifting fog wisps (skipped on the low-quality fallback) */
-    if (quality >= 1 && wA.wisp) for (const p of wA.wisps) {
+    if (quality >= 1 && wA.wisp && wA.wisp.width) for (const p of wA.wisps) {
       p.x -= (RM ? 0 : p.v * dt) + dxp * .3 / W; if (p.x < -.6) p.x += 1.9; if (p.x > 1.3) p.x -= 1.9;
       const ww = p.w * sc, hh = p.h * sc; g.globalAlpha = p.a; g.drawImage(wA.wisp, p.x * W - ww / 2, p.y * H - hh / 2, ww, hh);
     }
