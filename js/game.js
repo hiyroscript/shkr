@@ -236,6 +236,7 @@
      them. The inactive card is aria-hidden and out of the tab order, and the focus moves with the active one.
      S.homeCard remembers the last one (the levels, for a first-time player). */
   const cards = $("#homeCards"), cardInf = $("#cardInf"), cardLv = $("#cardLv"), peekUp = $("#peekUp"), peekDown = $("#peekDown");
+  const navUp = $("#navUp"), navDown = $("#navDown");
   let homeCard = S.homeCard, demoT = 0;
   function cardTop(which) { return which === "inf" ? 0 : cards.scrollHeight - cards.clientHeight; }
   function setCard(which) {
@@ -248,6 +249,7 @@
       $$("button", p[0]).forEach(function (b) { if (p[1]) b.removeAttribute("tabindex"); else b.setAttribute("tabindex", "-1"); });
     });
     peekUp.classList.toggle("on", !inf); peekDown.classList.toggle("on", inf);
+    navUp.disabled = inf; navDown.disabled = !inf; navUp.classList.toggle("hint", !inf); navDown.classList.toggle("hint", inf);
     const off = inf ? cardLv : cardInf;
     if (off.contains(document.activeElement)) (inf ? $("#infOrb") : $("#startOrb")).focus({ preventScroll: true });
     if (was !== which) { S.homeCard = which; saveState(); }
@@ -260,8 +262,19 @@
     try { cards.scrollTo({ top: cardTop(which), behavior: instant || RM ? "auto" : "smooth" }); } catch (e) { cards.scrollTop = cardTop(which); }
     setCard(which);
   }
+  /* the up / down arrows stand under the language flag (centred on it), in the middle of the scroller; on a narrow
+     screen, where that would touch the level's "next" arrow, just far enough right to leave 10 px between them */
+  function placeNav() {
+    const f = $("#homeFlag").getBoundingClientRect(), m = cards.parentElement.getBoundingClientRect(), nav = $("#cardNav");
+    if (!f.width || !m.width) return;
+    const n = $("#nextBtn").getBoundingClientRect(), half = navUp.offsetWidth / 2 || 17;
+    let x = f.left + f.width / 2 - m.left;
+    if (n.width) x = Math.max(x, n.right - m.left + 10 + half);
+    nav.style.left = Math.min(x, m.width - half - 4) + "px";
+  }
   /* after a resize, back to the active card's place at once */
   function sizeCards() {
+    placeNav();
     if (!cards.parentElement.clientHeight) return;
     cards.style.scrollBehavior = "auto"; cards.scrollTop = cardTop(homeCard); cards.style.scrollBehavior = "";
   }
@@ -275,6 +288,8 @@
   });
   peekUp.addEventListener("click", function () { goCard("inf"); });
   peekDown.addEventListener("click", function () { goCard("levels"); });
+  navUp.addEventListener("click", function () { goCard("inf"); });
+  navDown.addEventListener("click", function () { goCard("levels"); });
   /* a mouse drag scrolls it too (touch and the wheel do natively); a flick or half the way picks the next card */
   let drag = null;
   cards.addEventListener("pointerdown", function (e) {
@@ -470,7 +485,7 @@
     paintHome(true);
     if ((G.def || G.inf) && $("#hud").classList.contains("on")) paintHud();
     if (G.tip === "note") { $("#tipTitle").textContent = t(TIPS[G.tipN].title); $("#tipBody").textContent = t(TIPS[G.tipN].body); }
-    refreshScrollCue();
+    refreshScrollCue(); placeNav();
   }
 
   /* ---------------- the run's opening ----------------
@@ -510,16 +525,12 @@
      opacity and the sweep across it (0 to 1 while it runs, -1 otherwise) */
   function openView(o) {
     const t0 = o.t;
-    if (RM) return { text: o.text, z: 1, zmax: 1, ph: "still", e: 0, a: smooth(0, .35, t0) * (1 - smooth(2.5, 2.95, t0)), sweep: -1 };
-    /* in fast from the left (easing to a stop), the slow pan at an even speed (easing in and out over its first and
-       last eighth, so nothing jerks and its middle doesn't rush), out to the right */
-    const ph = t0 < .35 ? "in" : t0 < 2.3 ? "hold" : "out";
-    const u = Math.max(0, Math.min(1, (t0 - .35) / 1.95)), q = .12, v = 1 / (1 - q);
-    const pan = u < q ? v * u * u / (2 * q) : u > 1 - q ? 1 - v * (1 - u) * (1 - u) / (2 * q) : v * (u - q / 2);
-    const e = ph === "in" ? 1 - Math.pow(1 - smooth(0, .35, t0), 2) : ph === "hold" ? pan : Math.pow(smooth(2.3, 2.9, t0), 2);
+    if (RM) return { text: o.text, z: 1, zmax: 1, x: 0, a: smooth(0, .35, t0) * (1 - smooth(2.5, 2.95, t0)), sweep: -1 };
+    const ein = 1 - Math.pow(1 - smooth(0, .35, t0), 2), eout = Math.pow(smooth(2.3, 2.9, t0), 2);
+    const x = t0 < .35 ? -1.15 + 1.1 * ein : t0 < 2.3 ? -.05 + .1 * (t0 - .35) / 1.95 : .05 + 1.15 * eout;
     const z = 1 + (OPEN.Z - 1) * (smooth(.35, .95, t0) - smooth(2.3, 3, t0));
     const sweep = t0 >= .35 && t0 < 1.1 ? (t0 - .35) / .75 : t0 >= 1.45 && t0 < 2.25 ? (t0 - 1.45) / .8 : -1;
-    return { text: o.text, z: z, zmax: OPEN.Z, ph: ph, e: e, a: 1, sweep: sweep };
+    return { text: o.text, z: z, zmax: OPEN.Z, x: x, a: 1, sweep: sweep };
   }
 
   /* ---------------- new hazard cards ----------------
@@ -1229,7 +1240,7 @@
   RENDER.resize(cv);
   let rz = 0;
   const onResize = function () { clearTimeout(rz); rz = setTimeout(function () { RENDER.resize(); G.snap = true; refreshScrollCue(); fitTitle(); sizeCards(); }, 120); };
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { refreshScrollCue(); fitTitle(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { refreshScrollCue(); fitTitle(); placeNav(); });
   window.addEventListener("resize", onResize);
   window.addEventListener("orientationchange", function () { setTimeout(onResize, 160); });
   applyLang();
