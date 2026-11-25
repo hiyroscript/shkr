@@ -44,8 +44,8 @@ The home screen holds two cards, Infinite Shadow above the levels: `↑` / `↓`
   | 7 | <img src="docs/hazards/fade.svg" width="12" height="12" alt=""> Fade | 17 | <img src="docs/hazards/comet.svg" width="12" height="12" alt=""> Comet | 27 | <img src="docs/hazards/flicker.svg" width="12" height="12" alt=""> Flicker |
   | 9 | <img src="docs/hazards/prism.svg" width="12" height="12" alt=""> Prism | 19 | <img src="docs/hazards/thermal.svg" width="12" height="12" alt=""> Thermal | 29 | <img src="docs/hazards/zenith.svg" width="12" height="12" alt=""> Zenith |
 
-- Star rating per level, based on how many tries the first clear took: 1 try earns three rainbow stars, up to 3 tries three stars, up to 7 tries two stars, more than that one star. Try counts are recorded per level, and clearing a level unlocks the next one.
-- Rebirth: on a cleared level, "rebirth level" clears that level's stars and tries. Unlocked levels stay unlocked.
+- Star rating per level, based on how many attempts the first clear took: 1 attempt earns three rainbow stars, up to 3 attempts three stars, up to 7 attempts two stars, more than that one star. Attempt counts are recorded per level, and clearing a level unlocks the next one.
+- Rebirth: on a cleared level, "rebirth level" clears that level's stars and attempts. Unlocked levels stay unlocked.
 - Settings: language (the first row; see [Languages](#languages)), sound effects on/off (the crash sound and the level 1 tips' rewind), music volume, screen shake on/off, objective tips on/off (the run's opening and the level 1 tips), and reset all progress. Resetting progress also resets Infinite Shadow (best score and distance, runs, time played) and keeps the settings, the language included.
 - Language flag: on the home screen, a small round flag of the current language sits right under the "settings" chip. It opens Settings with the language list open.
 - Reduced motion: with `prefers-reduced-motion: reduce`, the play button's pulse animation, the foliage sway and the drifting fog wisps are turned off. The home cards snap without sliding or scaling; the run's opening has no zoom and no flight (its text fades in and out in the middle, over the same slow run-up); in Infinite Shadow a world fracture is a cross-fade with no flying shards, and no score numbers pop up. The runner keeps all its poses but drops the purely decorative extras: dust kicks and sparks, the ball's motion trail, the Coil shake, head and hand follow-through, the glide bob and the drifting limbs in a Thermal. Its Rail swing settles without wobbling. A new hazard card, and each How to play page, shows one still frame of its demo instead of the loop.
@@ -53,7 +53,7 @@ The home screen holds two cards, Infinite Shadow above the levels: `↑` / `↓`
 
 ## Infinite Shadow
 
-An endless run at a fixed 144 bpm through **The Convergence**, where all 30 worlds have collided into one. One crash ends the run; the goal is to beat your own best score. There are no stars, tries, rebirth or next level.
+An endless run at a fixed 144 bpm through **The Convergence**, where all 30 worlds have collided into one. One crash ends the run; the goal is to beat your own best score. There are no stars, attempts, rebirth or next level.
 
 **Starting.** The home screen stacks two cards in a vertical scroller: Infinite Shadow on top, the levels below, each filling it, so only the active one shows; a small label with a chevron at the top or bottom edge ("▴ infinite shadow", "▾ levels") names the other and takes you there. The header stays where it is; the footer (the "levels" chip, the progress rail and the "01 / 30" count) belongs to the levels, so it fades out on the Infinite Shadow card, which shows its own best instead. Every now and then, after a few seconds left alone and then every 9 seconds, the cards give two quick tugs towards the other one, about a ninth of the way each, and settle back while the label nods with them: a hint that the home screen scrolls. Any touch, click, key or scroll puts it off; it never plays with reduced motion. Behind the Infinite Shadow card the attract demo becomes an Infinite Shadow run from a fresh seed, generated a couple of milliseconds a frame while the home screen idles and played by the generator's own validated input, fractures and all: it comes on once 20 bars and its first world are ready (a few seconds after the page opens), goes on being made while it plays, and loops after 96 bars. It runs on the home theme's clock and the home music keeps playing across a card switch, because two tempos crossfading on every flick between cards would jar; everything is in beats, so the run looks the same at either tempo. The card you were on is remembered (`homeCard`, the levels by default). The scroller is a labelled region, the card out of view is `aria-hidden` with its buttons out of the tab order, focus follows the card, and the labels never cover the card's own buttons at any screen size.
 
@@ -124,7 +124,7 @@ The whole game can be played in ten languages. English is the main one: it is th
 
 ## Hazards
 
-Everything in the game is timed in beats, so the timings below hold at every tempo. Touching anything deadly, or falling into a pit, sends you back to the start of the level for a new try.
+Everything in the game is timed in beats, so the timings below hold at every tempo. Touching anything deadly, or falling into a pit, sends you back to the start of the level for a new attempt.
 
 ### The basics
 
@@ -181,7 +181,7 @@ A bar overhead that you can hang from.
 
 ### <img src="docs/hazards/rift.svg" width="16" height="16" alt=""> Rift (level 15, magenta `#EE3DFF`)
 
-A portal at head height with a dashed line up to its exit. Run or jump into it and it lifts you straight up to about twice the height of a jump, where you hang still for an instant and then fall. Rifts get you onto ledges too tall to jump. Rolling under one misses it, and each Rift works once per try. A Rift sits right in front of the tall step it lifts you onto, so run straight in and you fall against the step's face before you are over it: tap roll just before the Rift, so that you stand up inside it, a little later and closer to the step, and you land on top.
+A portal at head height with a dashed line up to its exit. Run or jump into it and it lifts you straight up to about twice the height of a jump, where you hang still for an instant and then fall. Rifts get you onto ledges too tall to jump. Rolling under one misses it, and each Rift works once per attempt. A Rift sits right in front of the tall step it lifts you onto, so run straight in and you fall against the step's face before you are over it: tap roll just before the Rift, so that you stand up inside it, a little later and closer to the step, and you land on top.
 
 ### <img src="docs/hazards/comet.svg" width="16" height="16" alt=""> Comet (level 17, yellow `#FFEE1A`)
 
@@ -334,8 +334,8 @@ The developer build needs no build step: Pages keeps deploying the `main` branch
 **Developer section** (Settings, below the normal rows). Each progress action asks for confirmation first, keeps the settings (sound effects, music, shake, objective tips, language, the home card), and returns to the home screen.
 
 - *Unlock all (rainbow)*: every level unlocked with three rainbow stars. Infinite Shadow is left as it is.
-- *Reset progress*: a fresh game (level 1, no stars, no tries, and Infinite Shadow with no best, runs or time), to test the real first-time flow.
-- *Put progress back*: restores unlocks, stars, tries, the selected level and Infinite Shadow's record exactly as they were right before the last reset, unlock all or set best to 0. Each of those saves a snapshot first. One level of undo, and the button is disabled when there is no snapshot.
+- *Reset progress*: a fresh game (level 1, no stars, no attempts, and Infinite Shadow with no best, runs or time), to test the real first-time flow.
+- *Put progress back*: restores unlocks, stars, attempts, the selected level and Infinite Shadow's record exactly as they were right before the last reset, unlock all or set best to 0. Each of those saves a snapshot first. One level of undo, and the button is disabled when there is no snapshot.
 - *Infinite Shadow seed*: shows the seed of the last run this session (hex and decimal) and plays the exact run of a typed seed (`0x1f2e3d4c` or `123456`); a seed that isn't one is marked and nothing starts.
 - *Set best to 0*: Infinite Shadow's best score and distance back to 0, to see a first new best again (runs and time played stay).
 - *Soundtracks*: a screen to listen to every track outside a run, the home track, the 30 levels and Infinite Shadow's endless stream, to judge and adjust the music. Infinite Shadow's track is generated from one fixed seed as it plays; its bar map shows a window of bars around the one playing, with each bar's wave phase and world. It shows the level's theme (tempo, key and scale, the instruments of each part, reverb, swing and level) and a map of its bars (height = energy, a dot on the bar before each combo); click a bar to play from it (on the home track, the pass shows too). Play / stop, previous / next, what happens at the end of a track (stop, repeat, next), and mutes for each part (lead, answer, harmony, bass, drums, fx, as the theme's channels name them): a mute plays on from the same beat without that part. Keys: `Space` play / stop, `←` / `→` previous / next track, `Esc` back to Settings, which restarts the home track. It needs no confirmation and doesn't touch progress or settings (the music volume applies).

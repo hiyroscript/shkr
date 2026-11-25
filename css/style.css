@@ -250,7 +250,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
 .meta{font-family:var(--mono);font-size:clamp(9px,2.3vw,11px);letter-spacing:.15em;text-transform:uppercase;
   color:rgba(10,10,16,.62);min-width:0;background:#fff;padding:6px 11px;border-radius:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meta b{color:var(--ink);font-weight:700}
-.hud-right{display:flex;gap:12px;align-items:center;min-width:0}
+.hud-right{display:flex;gap:12px;align-items:center;flex:0 0 auto}
 #hudTry{flex:0 0 auto}
 /* Infinite Shadow: the score big at the top left (tabular figures, so it never jitters), the best at the top right, and
    the rail as a chase bar towards the best; past it, a solid bright line with a "new best" tag */

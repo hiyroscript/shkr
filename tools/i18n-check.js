@@ -105,7 +105,7 @@ codes.forEach(function (c) {
 
 /* ---- plurals pick the right forms */
 const pick = function (c, n) { I.setLang(c); const s = I.tn("game.tries", n); I.setLang("en"); return s; };
-[["ru", 1, "1 попытка"], ["ru", 3, "3 попытки"], ["ru", 5, "5 попыток"], ["pl", 2, "2 próby"], ["pl", 12, "12 prób"], ["en", 1, "1 try"], ["en", 4, "4 tries"]]
+[["ru", 1, "1 попытка"], ["ru", 3, "3 попытки"], ["ru", 5, "5 попыток"], ["pl", 2, "2 próby"], ["pl", 12, "12 prób"], ["en", 1, "1 attempt"], ["en", 4, "4 attempts"]]
   .forEach(function (x) { const got = pick(x[0], x[1]); if (got !== x[2]) fail(x[0] + ": tn(game.tries, " + x[1] + ") is " + JSON.stringify(got) + ", expected " + JSON.stringify(x[2])); });
 
 if (errors.length) {
