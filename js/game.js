@@ -1151,6 +1151,9 @@
       } else if (G.mode === "play" && G.inf) {
         /* Infinite Shadow: the score counts up (the world is made ahead at the end of the frame) */
         const target = Math.floor(G.beat * TPB);
+        /* the one-bar count-in: the run starts on its first beat, so a tap or hold during it is dropped, never kept for
+           that beat (a tap a second early would otherwise make the runner jump a second late, as the run starts) */
+        if (target <= 0) dropInput();
         if (target - st.tick > TPB * 1.5) { pauseGame(); }
         else {
           while (st.tick < target && !st.dead) {
