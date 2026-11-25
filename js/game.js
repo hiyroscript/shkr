@@ -92,7 +92,7 @@
   };
 
   const G = { mode: "home", paused: false, n: 1, def: null, L: null, song: null, st: null, tryN: 1, session: 0, beat: 0, beat0: 0, spb: 0.5,
-    deadAt: 0, wonAt: 0, squash: 0, restY: 0, snap: true, cardUp: false, pauseT: 0, tip: false, tipDone: false, mark: null, hist: null, rw: null };
+    deadAt: 0, wonAt: 0, squash: 0, restY: 0, snap: true, cardUp: false, pauseT: 0, tip: false, tipN: 0, mark: null, hist: null, rw: null };
   const keys = { j: false, s: false, qj: false, qs: false };
 
   /* ---------------- screens ---------------- */
@@ -458,7 +458,7 @@
     Demo.relabel();
     paintHome(true);
     if ((G.def || G.inf) && $("#hud").classList.contains("on")) paintHud();
-    if (G.tip === "note") { $("#tipTitle").textContent = t(TIP.title); $("#tipBody").textContent = t(TIP.body); }
+    if (G.tip === "note") { $("#tipTitle").textContent = t(TIPS[G.tipN].title); $("#tipBody").textContent = t(TIPS[G.tipN].body); }
     refreshScrollCue();
   }
 
@@ -741,7 +741,7 @@
     RENDER.setHome(false); RENDER.setLevel(g.L, null, g.seed, g.biomeAt);
     $("#hud").classList.add("on", "inf"); $("#hud").classList.remove("beat");
     G.st = SIM.newState(); G.st.ev = []; G.paused = false; stopTip(); G.squash = 0; G.restY = 0; G.snap = true; G.beat0 = 0; G.open = null;
-    G.hist = null; G.tipDone = true; keys.qj = keys.qs = false;
+    G.hist = null; G.tipN = TIPS.length; keys.qj = keys.qs = false;
     paintHud(); hudFill.style.transform = "scaleX(0)";
     /* the opening, then a one-bar count-in: the clock starts four beats before the first */
     G.mode = "play";
@@ -857,7 +857,7 @@
     if (!r.d) { r.t++; saveState(); G.tryN = r.t; } else { G.session++; G.tryN = G.session; }
     G.st = SIM.newState(); G.st.ev = []; G.paused = false; stopTip(); G.squash = 0; G.restY = 0; G.snap = true; G.beat0 = 0; G.open = null;
     keys.qj = keys.qs = false;
-    G.tipDone = false; G.hist = tipPending() ? [SIM.clone(G.st)] : null;   /* every tick's state up to the tip, for its rewind */
+    G.tipN = 0; G.hist = tipPending() ? [SIM.clone(G.st)] : null;   /* every tick's state up to the tip, for its rewind */
     RENDER.setLevel(G.L, G.def.th, G.n * 101);
     paintHud(); hudFill.style.transform = "scaleX(0)";
     const h = first ? newHazard(G.n) : null;
@@ -936,48 +936,56 @@
     }, 1150);
   }
 
-  /* ---------------- level 1 spike tip ----------------
-     Once, on level 1 only, for its first spike only: just before the runner reaches that spike the game freezes like
-     a pause. There is no card: the spike gets a red ring on the canvas (RENDER.frame's V.mark) and a note next to it
-     says what to do, with an "understood" button and a countdown (TIP.secs). Either one ends it. Then the run plays
-     backwards, like a tape rewinding, to the start of a bar at least TIP.back beats before the spike, and goes on from
-     there with the music started again at that beat, so the player gets a run-up to the spike they were just shown.
-     It shows on every run of level 1 (a start, a replay, a restart, a retry after a crash), once per run: after its
-     rewind the run goes past the spike without it (G.tipDone). Nothing is saved. The countdown and the rewind only
-     run while the window has focus (and the loop doesn't run at all in a
-     hidden tab). The Objective tips setting turns it off. Only real play: the home demo, previews and bot runs never
-     stop for it, and the sim doesn't know about it: the rewind puts back states recorded during the run (G.hist).
-     G.tip: false, "note" (frozen, note up) or "rewind". */
-  const TIP = { lv: 1, find: "sp", lead: 1, back: 4, secs: 5, rewind: 1.1, title: "tip.title", body: TOUCH ? "tip.bodyTouch" : "tip.body" };   /* i18n ids */
-  /* the spike (the first "sp" object by x0; objs are sorted), the tick where the game freezes (lead beats before its
-     left edge) and the tick the rewind goes back to; found in the compiled level, so a chart change can't break it */
-  let tipAt;
-  function tipSpot() {
-    if (tipAt !== undefined) return tipAt;
-    tipAt = null;
-    for (const o of getL(TIP.lv).objs) if (o.v === TIP.find) {
+  /* ---------------- level 1 tips ----------------
+     Level 1 teaches its two moves where each is first needed: its first spike (jump), and later its first bar (roll:
+     the first place a run that never rolls dies). Just before the runner reaches one, the game freezes like a pause.
+     There is no card: the obstacle gets a red ring on the canvas (RENDER.frame's V.mark), a note next to it says what to
+     do, with an "understood" button and a countdown (TIP.secs), and on a touch screen the hint box for that move (the
+     pads) grows and shrinks to catch the eye. Either one ends it. Then the run plays backwards, like a tape rewinding, to
+     the start of a bar at least `back` beats before the obstacle, and goes on from there with the music started again
+     at that beat, so the player gets a run-up to what they were just shown. They show on every run of level 1 (a start,
+     a replay, a restart, a retry after a crash), each once per run and in order (G.tipN: the next one). Nothing is
+     saved. The countdown and the rewind only run while the window has focus (and the loop doesn't run at all in a
+     hidden tab). The Objective tips setting turns them off. Only real play: the home demo, previews and bot runs never
+     stop for them, and the sim doesn't know about them: a rewind puts back states recorded during the run (G.hist,
+     recorded again after a rewind while a tip is still to come). G.tip: false, "note" (frozen, note up) or "rewind". */
+  const TIP = { lv: 1, secs: 5, rewind: 1.1 };
+  const TIPS = [   /* find: the object kind (the first one by x0, in the compiled level, so a chart change can't break it); i18n ids */
+    { find: "sp", lead: 1, back: 4, pad: "j", title: "tip.title", body: TOUCH ? "tip.bodyTouch" : "tip.body",
+      ring: function (o) { return { x: o.x, y: (o.y0 + o.y1) / 2, r: Math.max(o.x1 - o.x0, o.y1 - o.y0) / 2 + .55 }; } },
+    /* a bar hangs from high up: the ring goes round its lower end, the part to roll under */
+    { find: "bar", lead: 1, back: 4, pad: "s", title: "tip.roll.title", body: TOUCH ? "tip.roll.bodyTouch" : "tip.roll.body",
+      ring: function (o) { return { x: (o.x0 + o.x1) / 2, y: o.y0 + .4, r: (o.x1 - o.x0) / 2 + .85 }; } }
+  ];
+  /* tip i's obstacle, the tick where the game freezes (lead beats before its left edge) and the tick the rewind goes
+     back to */
+  const tipAts = [];
+  function tipSpot(i) {
+    if (tipAts[i] !== undefined) return tipAts[i];
+    let at = null;
+    for (const o of getL(TIP.lv).objs) if (o.v === TIPS[i].find) {
       const beat = o.x0 / SIM.UPB;
-      tipAt = { o: o, tick: Math.max(0, Math.floor((beat - TIP.lead) * TPB)), back: Math.max(0, Math.floor((beat - TIP.back) / 4) * 4) * TPB };
+      at = { o: o, tick: Math.max(0, Math.floor((beat - TIPS[i].lead) * TPB)), back: Math.max(0, Math.floor((beat - TIPS[i].back) / 4) * 4) * TPB };
       break;
     }
-    return tipAt;
+    return (tipAts[i] = at);
   }
-  /* would this run stop for the tip? (beginRun records the run's states only then) */
-  function tipPending() { return G.n === TIP.lv && !G.tipDone && S.objective && !G.bot && !!tipSpot(); }
-  function tipDue(st) { return !G.tip && G.mode === "play" && !st.dead && tipPending() && !!G.hist && st.tick >= tipAt.tick; }
+  /* would this run stop for a tip? (beginRun records the run's states only then) */
+  function tipPending() { return G.n === TIP.lv && G.tipN < TIPS.length && S.objective && !G.bot && !!tipSpot(G.tipN); }
+  function tipDue(st) { return !G.tip && G.mode === "play" && !st.dead && tipPending() && !!G.hist && st.tick >= tipSpot(G.tipN).tick; }
+  function tipPad(on) { for (const p of [padJ, padS]) p.el.classList.toggle("call", on && G.tip === "note" && TIPS[G.tipN] && TIPS[G.tipN].pad === (p === padJ ? "j" : "s")); }
   const tipEl = $("#tipNote"), tipNum = $("#tipNum"), tipArc = $("#tipArc"), rwEl = $("#rewindFx");
   let tipLeft = 0, rwT = 0, winFocus = true;
   window.addEventListener("focus", function () { winFocus = true; });
   window.addEventListener("blur", function () { winFocus = false; });
   function dropInput() { keys.j = keys.s = keys.qj = keys.qs = false; for (const id in ptr) delete ptr[id]; }
   function showTip() {
-    const o = tipAt.o;
+    const T = TIPS[G.tipN], o = tipSpot(G.tipN).o, rg = T.ring(o);
     G.tip = "note"; G.paused = true; G.pauseT = now(); MUSIC.suspend(); dropInput();
-    /* the ring: round the spike's box, with some air */
-    G.mark = { x: o.x, y: (o.y0 + o.y1) / 2, r: Math.max(o.x1 - o.x0, o.y1 - o.y0) / 2 + .55, flip: o.flip, fb: o.fb || 0 };
-    $("#tipTitle").textContent = t(TIP.title); $("#tipBody").textContent = t(TIP.body);
+    G.mark = { x: rg.x, y: rg.y, r: rg.r, flip: o.flip, fb: o.fb || 0 };
+    $("#tipTitle").textContent = t(T.title); $("#tipBody").textContent = t(T.body);
     tipLeft = TIP.secs; paintTip();
-    tipEl.classList.add("show");
+    tipEl.classList.add("show"); tipPad(true);
   }
   /* the note sits above the ring (below it if there is no room), kept on screen; the countdown number and its draining ring */
   function paintTip() {
@@ -995,9 +1003,9 @@
   function leaveTip() {
     if (G.tip !== "note") return;
     if (document.activeElement && tipEl.contains(document.activeElement)) document.activeElement.blur();
-    tipEl.classList.remove("show"); G.mark = null; dropInput();
-    G.tipDone = true;   /* this run only: the next run shows it again */
-    G.tip = "rewind"; rwT = 0; G.rw = { from: G.st.tick, to: tipAt.back };
+    tipPad(false); tipEl.classList.remove("show"); G.mark = null; dropInput();
+    const at = tipSpot(G.tipN); G.tipN++;   /* this run only: the next run shows it again */
+    G.tip = "rewind"; rwT = 0; G.rw = { from: G.st.tick, to: at.back };
     document.body.classList.add("rewinding"); rwEl.classList.add("on");
     /* the song stops; a tape whirr plays over the rewind (the audio has to run for it) */
     const p = MUSIC.resume(), whirr = function () { MUSIC.stop(0.08); if (S.sfx && G.tip === "rewind") MUSIC.sfx.rewind(RM ? .35 : TIP.rewind); };
@@ -1016,7 +1024,9 @@
   /* back in the run at the bar it rewound to: that tick's state, the song from that beat, both clocks on it */
   function endRewind() {
     const b = G.rw.to / TPB;
-    G.st = SIM.clone(G.hist[G.rw.to]); G.st.ev = []; G.hist = null; G.rw = null;
+    G.st = SIM.clone(G.hist[G.rw.to]); G.st.ev = []; G.rw = null;
+    /* a tip still to come on this run records the states again from here, for its own rewind */
+    G.hist = tipPending() ? [] : null; if (G.hist) { const c = SIM.clone(G.st); c.ev = []; G.hist[G.st.tick] = c; }
     document.body.classList.remove("rewinding"); rwEl.classList.remove("on");
     dropInput(); G.tip = false; G.beat = b;
     if (G.song) MUSIC.start(G.song, b);
@@ -1024,7 +1034,7 @@
     if (!winFocus || document.hidden) pauseGame();
   }
   function stopTip() {
-    G.tip = false; G.mark = null; G.rw = null; tipEl.classList.remove("show");
+    G.tip = false; G.mark = null; G.rw = null; tipEl.classList.remove("show"); tipPad(false);
     document.body.classList.remove("rewinding"); rwEl.classList.remove("on");
   }
 
