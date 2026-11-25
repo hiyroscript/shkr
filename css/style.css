@@ -330,6 +330,16 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
 @media (prefers-reduced-motion: reduce){#tipNote,#tipNote.show{transition:none;transform:none}
   .rw-band{display:none}.rw-tag{animation:none}body.rewinding #cv{animation:none}}
 
+/* resume countdown (game.js startCount): 3, 2, 1 over the frozen run before it carries on; each number pops in and
+   fades as its second runs out */
+#resumeCount{position:fixed;inset:0;z-index:11;pointer-events:none;display:none;align-items:center;justify-content:center;
+  background:rgba(6,6,10,.28)}
+#resumeCount.on{display:flex}
+#resumeNum{font-family:var(--mono);font-weight:700;font-size:clamp(96px,30vw,220px);line-height:1;letter-spacing:-.04em;color:#fff;
+  text-shadow:0 4px 30px rgba(0,0,0,.45),0 0 2px rgba(0,0,0,.6);animation:cdTick 1s cubic-bezier(.2,.8,.2,1) both}
+@keyframes cdTick{0%{opacity:0;transform:scale(1.6)}18%{opacity:1;transform:scale(1)}75%{opacity:1;transform:scale(.94)}100%{opacity:0;transform:scale(.86)}}
+@media (prefers-reduced-motion: reduce){#resumeNum{animation:none}}
+
 /* overlay cards */
 #overlay{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;
   padding:calc(var(--top) + 8px) var(--pad) calc(var(--bot) + 8px);background:rgba(6,6,10,.72);

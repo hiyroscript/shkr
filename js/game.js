@@ -97,7 +97,7 @@
   };
 
   const G = { mode: "home", paused: false, n: 1, def: null, L: null, song: null, st: null, tryN: 1, session: 0, beat: 0, beat0: 0, spb: 0.5,
-    deadAt: 0, wonAt: 0, squash: 0, restY: 0, snap: true, cardUp: false, pauseT: 0, tip: false, tipN: 0, mark: null, hist: null, rw: null };
+    deadAt: 0, wonAt: 0, squash: 0, restY: 0, snap: true, cardUp: false, pauseT: 0, cd: null, tip: false, tipN: 0, mark: null, hist: null, rw: null };
   const keys = { j: false, s: false, qj: false, qs: false };
 
   /* ---------------- screens ---------------- */
@@ -1047,8 +1047,10 @@
 
   /* ---------------- pause ---------------- */
   function pauseGame() {
-    if (G.mode !== "play" || G.paused) return;
-    G.paused = true; G.pauseT = now(); MUSIC.suspend(); keys.j = keys.s = false;
+    if (G.mode !== "play") return;
+    /* during the resume countdown the run is still frozen (since G.pauseT): the card just comes back */
+    if (G.cd) stopCount(); else if (G.paused) return; else { G.paused = true; G.pauseT = now(); MUSIC.suspend(); }
+    keys.j = keys.s = false;
     if (G.inf) {
       /* restart is a new run: a new seed, under the wipe */
       showCard({ eyebrow: esc(t("inf.title")) + "  ·  " + esc(t("inf.place")), title: t("card.pause.title"),
@@ -1062,7 +1064,21 @@
         { t: t("card.pause.restart"), fn: function () { hideCard(); MUSIC.resume(); beginRun(false); } },
         { t: t("card.pause.quit"), fn: function () { hideCard(); MUSIC.resume(); G.paused = false; show("home"); startHome(); } }] });
   }
-  function resumeGame() { hideCard(); unfreeze(); }
+  function resumeGame() { hideCard(); startCount(); }
+  /* resume counts down 3, 2, 1 over the frozen run before it carries on, so the player has their hands back on the keys
+     before the next obstacle. It stays paused meanwhile (no music, no input); Esc, the pause button, a hidden tab or a
+     lost window focus bring the pause card back. */
+  const CD = 3, cdEl = $("#resumeCount"), cdNum = $("#resumeNum");
+  function startCount() { if (thawing || G.cd) return; dropInput(); G.cd = { at: now(), n: 0 }; cdEl.classList.add("on"); countStep(); }
+  function stopCount() { G.cd = null; cdEl.classList.remove("on"); }
+  function countStep() {
+    const c = G.cd; if (!c) return;
+    if (G.mode !== "play" || !G.paused) { stopCount(); return; }   /* the run was left some other way */
+    const left = CD - (now() - c.at);
+    if (left <= 0) { stopCount(); dropInput(); unfreeze(); return; }
+    const n = Math.ceil(left);
+    if (n !== c.n) { c.n = n; cdNum.textContent = n; cdNum.style.animation = "none"; void cdNum.offsetWidth; cdNum.style.animation = ""; }
+  }
   /* back into the run after a freeze (pause or level tip): the music picks up where it stopped, and the frame clock is
      moved on by the time spent frozen, so the loop's catch-up guard doesn't see the gap as a stall and pause again */
   let thawing = false;
@@ -1102,6 +1118,7 @@
     /* Esc: pause / resume in a run (nothing while a level tip counts down); on a panel (How to play, Settings, Levels) with no card open, back home */
     /* the spike tip: Enter is "understood"; no other key does anything, so nothing is queued for the run */
     if (G.tip) { if (c === "Enter" && G.tip === "note") { e.preventDefault(); leaveTip(); } else if (c === "Space" || c.indexOf("Arrow") === 0) e.preventDefault(); return; }
+    if (G.cd) { if (c === "Escape") pauseGame(); else if (c === "Space" || c === "Enter" || c.indexOf("Arrow") === 0) e.preventDefault(); return; }
     if (c === "Escape") { if (langOpen() && !G.cardUp) { closeLang(true); return; } if (G.mode === "play" && !G.paused) pauseGame(); else if (G.paused && !thawing) resumeGame(); else if (!G.cardUp && panelOn()) show("home"); return; }
     if (G.cardUp) { if (c === "Enter" && cardActs[0] && !e.repeat && now() - cardAt >= CARD_ARM) { e.preventDefault(); cardActs[0].fn(); } return; }
     if (G.mode === "play") {
@@ -1145,6 +1162,7 @@
     if (!G.st || !G.L) return;
     if (G.mode === "intro" && !G.snap) return;   /* frozen behind a new hazard card: drawn once, and again after a resize */
     if (G.tip === "rewind") rewindStep(dt);
+    if (G.cd) countStep();
     const st = G.st, L = G.L;
     if (!G.paused) {
       MUSIC.schedule();
