@@ -263,20 +263,29 @@ const MUSIC = (function () {
       play(e, Math.max(t, now));
     }
     if (!offline) {
-      if (wcyc < cyc || (wcyc === cyc && wi < ei)) { wcyc = cyc; wi = ei; }
-      /* a stream (Infinite Shadow) changes instruments at every biome, so it looks further ahead and spends less a
-         call: the new pair's tones spread over many frames instead of landing in a few */
-      const cap = song.stream ? 1.2 : 3, warm = song.stream ? 8 : WARM;
-      while (performance.now() - w0 < cap) {
-        if (wi >= E.length) { if (!song.loop) break; wi = 0; wcyc++; }
-        const e = E[wi], sp = song.theme.channels[e.c];
-        if (t0 + (wcyc * song.cycle + e.t) * spb > now + warm) break;
-        wi++;
-        if (sp && sp.tone) for (const n of e.ms || [e.m]) cache.bank.tone(sp.tone, n);
-      }
+      /* a stream (Infinite Shadow) does its warming at the end of the game's frames (warm below); here only what is
+         due within 2 seconds, in case those frames had no time to spare */
+      if (song.stream) warmUntil(w0, 1.2, 2); else warmUntil(w0, 3, WARM);
       stats.worst = Math.max(stats.worst, performance.now() - w0);
     }
   }
+  /* render the tones of the notes in the next `ahead` seconds, one at a time, while less than `cap` ms have passed
+     since w0 (a tone can take several milliseconds, and one is never split) */
+  function warmUntil(w0, cap, ahead) {
+    if (!song || !ctx) return;
+    const E = song.ev, spb = song.spb, now = ctx.currentTime;
+    if (wcyc < cyc || (wcyc === cyc && wi < ei)) { wcyc = cyc; wi = ei; }
+    while (performance.now() - w0 < cap) {
+      if (wi >= E.length) { if (!song.loop) break; wi = 0; wcyc++; }
+      const e = E[wi], sp = song.theme.channels[e.c];
+      if (t0 + (wcyc * song.cycle + e.t) * spb > now + ahead) break;
+      wi++;
+      if (sp && sp.tone) for (const n of e.ms || [e.m]) cache.bank.tone(sp.tone, n);
+    }
+  }
+  /* a stream's warming, for the game to call once a frame is drawn with what is left of it: the tones of the next 8
+     seconds (each world brings a new pair of instruments), as many as fit in `ms` */
+  function warm(ms) { if (song && song.stream && ms > 0) warmUntil(performance.now(), ms, 8); }
   function play(e, t) { stats.played++; themeNote(e, t); }
   /* a theme's drums, its reverb, the noise and the tones of its first bars, made before it starts so the first bars
      never stall on them (the rest render as the scheduler reaches them, a third of a second ahead); other songs'
@@ -440,7 +449,7 @@ const MUSIC = (function () {
     init: init, makeSong: makeSong, makeStream: makeStream, extend: extend, start: start, stop: stop, beat: beat, schedule: schedule, renderStats: renderStats, sfx: sfx,
     get ctx() { return ctx; }, get song() { return song; }, get t0() { return t0; }, get stats() { return stats; },
     setVol: function (v) { vol = v; if (volG) volG.gain.setTargetAtTime(v, ctx.currentTime, .03); },
-    resume: resume, suspend: suspend,
+    resume: resume, suspend: suspend, warm: warm,
     /* for tools/music-check.js and the developer screen only */
     _t: { themeOf: themeOf, TPQ: TPQ, PROC: PROC }
   };
