@@ -720,7 +720,7 @@
      renderer (RENDER.extend), and what is two screens behind is trimmed (SIM.trim), so memory stays flat. The score is
      a pure function of the seed and the inputs: a point a half-beat cell passed, 25 for every hazard used (an event of
      the simulation: USE), 50 more for a combo piece cleared from start to end. One crash ends the run: a results card,
-     the best saved. No hazard cards, no spike tip, no stars, no tries. */
+     the best saved. No hazard cards, no spike tip, no stars, no attempts. */
   const INF_DEF = { n: "inf", name: "Infinite Shadow", mu: [INF.BPM], th: null };
   /* simulation events that use a hazard, and the hazard (HAZ[].k) each belongs to */
   const USE = { bounce: "bl", air: "ha", fade: "F", gate: "ke", grab: "L", rift: "ri", comet: "co", dodge: "ey", "break": "X", coil: "S", flick: "1",
