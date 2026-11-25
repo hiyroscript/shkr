@@ -200,6 +200,9 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
   .set-row{flex-direction:column;align-items:stretch;gap:12px}
   .set-ctl{justify-content:flex-end}
   input[type=range]{width:min(210px,58vw)}
+  /* a row with no description (class one) keeps its control beside the name */
+  .set-row.one{flex-direction:row;align-items:center}
+  .set-row.one input[type=range]{width:min(210px,44vw)}
 }
 /* how to play (ported from vl): a live demo carousel, the hazard colour legend and the basics in one paragraph */
 .demo-shell{display:flex;flex-direction:column;gap:clamp(10px,1.8vh,16px)}

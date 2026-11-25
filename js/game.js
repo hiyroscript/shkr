@@ -597,44 +597,21 @@
   /* ---------------- how to play ----------------
      hiyroscript/vl's How to play screen: a carousel of pages, each with a live loop on #demoCv, a name and a line or
      two of text. Every loop is a preview() like a new hazard card's: a tiny chart (same format as INTRO) played by the
-     real simulation with a scripted input, drawn by its own renderer in a level's theme. The basics and the plain
-     obstacles have their charts here; each hazard page reuses its INTRO entry (text and chart), so the screen and the
-     hazard cards always say the same thing. While a scripted input is held, JUMP or ROLL shows at the bottom of the
+     real simulation with a scripted input, drawn by its own renderer in a level's theme. The basics (jump, roll, dive)
+     have their charts here; each hazard page reuses its INTRO entry (text and chart), so the screen and the hazard
+     cards always say the same thing. While a scripted input is held, JUMP or ROLL shows at the bottom of the
      canvas. If you change how something works, check its page still plays out like INTRO (README: Development notes). */
-  const BASICS = "basics", OBSTACLE = "obstacle";   /* howto.kind.<kind>; a page's name and text are howto.<id>.name / .body */
+  const BASICS = "basics";   /* howto.kind.<kind>; a page's name and text are howto.<id>.name / .body */
   const HOWTO = [
     { kind: BASICS, id: "jump",
       c: "....^.........../................", in: [[[2, 2.15, 1]]], to: 4, still: 2.5 },
     { kind: BASICS, id: "roll",
       c: "....-.........../................", in: [[[1.85, 2.95, 2]]], to: 4, still: 2.4 },
     { kind: BASICS, id: "dive",
-      c: "....^.-........./................", in: [[[2, 2.15, 1], [2.6, 3.7, 2]]], to: 4.6, still: 2.75 },
-    { kind: OBSTACLE, id: "spikes",
-      c: "..^...M...I...../................", in: [[[1, 1.15, 1], [3, 3.15, 1], [5, 5.15, 1]]], to: 6.6, still: 3.5 },
-    { kind: OBSTACLE, id: "pits",
-      c: "...._...U......./................", in: [[[2, 2.15, 1], [4.3, 4.45, 1]]], to: 6.4, still: 4.9 },
-    { kind: OBSTACLE, id: "bars",
-      c: "...-....-......./................", in: [[[1.4, 2.35, 2], [3.9, 4.85, 2]]], to: 6, still: 2 },
-    { kind: OBSTACLE, id: "walls",
-      c: "...'..'..'....../................", in: [[]], to: 6, still: 2 },
-    { kind: OBSTACLE, id: "steps",
-      c: "...+...#..v.V.../................", in: [[[1.5, 1.65, 1], [3.4, 3.55, 1]]], to: 7, still: 3.8 },
-    { kind: OBSTACLE, id: "floating", ob: "*",
-      c: "...*.....*....../................", in: [[[1.6, 2.3, 2], [4.5, 4.65, 1]]], to: 6.6, still: 5 },
-    { kind: OBSTACLE, id: "spiked", ob: "%",
-      c: "...%...v.%..v.../................", in: [[[1.55, 1.7, 1], [4.55, 4.7, 1]]], to: 7, still: 2.1 },
-    { kind: OBSTACLE, id: "tunnels", ob: "=",
-      c: "...=====......../................", in: [[[1.5, 4.4, 2]]], to: 5.8, still: 3 },
-    { kind: OBSTACLE, id: "hurdles", ob: "&",
-      c: "....&.........../................", in: [[[1.95, 2.1, 1], [2.92, 3.7, 2]]], to: 4.8, still: 3.2 },
-    { kind: OBSTACLE, id: "crushers", ob: "|",
-      c: "....|..|......../................", in: [[[2, 2.15, 1]]], to: 5.6, still: 2.5 },
-    { kind: OBSTACLE, id: "blades", ob: "@",
-      c: "....@....@....../................", in: [[[2, 2.15, 1], [4.5, 4.65, 1]]], to: 6.4, still: 2.4 }
+      c: "....^.-........./................", in: [[[2, 2.15, 1], [2.6, 3.7, 2]]], to: 4.6, still: 2.75 }
   ];
-  /* the newer obstacles say which level brings them in (OBST); every page plays in a level's colours: the basics and
-     the first obstacles in level 1's, a newer obstacle or a hazard in its own level's */
-  HOWTO.forEach(function (p) { if (p.ob) for (const o of OBST) if (o.ch === p.ob) p.lv = o.lv; p.def = LEVELS[(p.lv || 1) - 1]; });
+  /* every page plays in a level's colours: the basics in level 1's, a hazard in its own level's */
+  HOWTO.forEach(function (p) { p.def = LEVELS[(p.lv || 1) - 1]; });
   HAZ.forEach(function (h) { HOWTO.push({ kind: "hazard", D: INTRO[h.k], h: h, lv: h.lv, def: LEVELS[h.lv - 1] }); });
   function pageName(p) { return p.h ? hzName(p.h) : t("howto." + p.id + ".name"); }
   function pageBody(p) { return p.h ? t("hazard." + p.h.k + ".body") : t("howto." + p.id + ".body"); }
@@ -672,10 +649,9 @@
     const fit = { w: 220, h: 140, dpr: 2, sc: 14, px: .3, gy: .84, top: 4 };
     let R = null, i = 0, halt = null, on = false;
     dots.innerHTML = HOWTO.map(function () { return "<i></i>"; }).join("");
-    /* the legend and the summary under the carousel, in the current language (applyLang calls this again) */
+    /* the legend under the carousel, in the current language (applyLang calls this again) */
     function paintStatic() {
       $("#legend").innerHTML = HAZ.map(function (h) { return '<div><s style="background:' + h.col + '"></s><span>' + esc(hzName(h)) + "</span></div>"; }).join("");
-      $("#howtoFoot").textContent = t("howto.foot");
     }
     function paint() {
       const p = HOWTO[i];

@@ -83,7 +83,6 @@
         </div>
       </div>
       <div class="legend" id="legend"></div>
-      <p class="demo-desc" id="howtoFoot"></p>
     </div>
     <div class="scroll-cue" aria-hidden="true">▾</div>
   </div>
@@ -96,17 +95,17 @@
       <button class="chip" data-go="home" data-i18n="common.close">close</button>
     </div>
     <div class="panel-body">
-      <div class="set-row" id="langRow">
-        <div class="lbl"><b data-i18n="settings.lang">Language</b><span data-i18n="settings.lang.body">The language of the menus, cards and tips.</span></div>
+      <div class="set-row one" id="langRow">
+        <div class="lbl"><b data-i18n="settings.lang">Language</b></div>
         <div class="set-ctl"><button class="chip lang-cur" id="langBtn" aria-expanded="false" aria-controls="langList" aria-label="Language: English"><span class="flag-i" id="langBtnFlag"></span><span id="langBtnName">English</span></button></div>
         <div class="lang-list hide" id="langList" role="group" aria-label="Languages" data-i18n-aria="settings.lang.list"></div>
       </div>
-      <div class="set-row">
-        <div class="lbl"><b data-i18n="settings.sfx">Sound effects</b><span data-i18n="settings.sfx.body">A short sound when you crash, and the tape whirr of the level 1 tip's rewind.</span></div>
+      <div class="set-row one">
+        <div class="lbl"><b data-i18n="settings.sfx">Sound effects</b></div>
         <div class="set-ctl"><button class="sw" id="sfxSw" aria-pressed="true" aria-label="Sound effects" data-i18n-aria="settings.sfx"></button></div>
       </div>
-      <div class="set-row">
-        <div class="lbl"><b data-i18n="settings.music">Music</b><span data-i18n="settings.music.body">The soundtrack of each level.</span></div>
+      <div class="set-row one">
+        <div class="lbl"><b data-i18n="settings.music">Music</b></div>
         <div class="set-ctl"><input type="range" id="volRange" min="0" max="100" step="1" aria-label="Music volume" data-i18n-aria="settings.music.aria"><output id="volOut">80</output></div>
       </div>
       <div class="set-row">
@@ -117,8 +116,8 @@
         <div class="lbl"><b data-i18n="settings.obj">Objective tips</b><span data-i18n="settings.obj.body">Show each run's opening, its goal in slow motion, and the jump and roll tips on level 1.</span></div>
         <div class="set-ctl"><button class="sw" id="objSw" aria-pressed="true" aria-label="Objective tips" data-i18n-aria="settings.obj"></button></div>
       </div>
-      <div class="set-row">
-        <div class="lbl"><b data-i18n="settings.reset">Reset progress</b><span data-i18n="settings.reset.body">Clears every unlock, star and attempt count, and your Infinite Shadow best.</span></div>
+      <div class="set-row one">
+        <div class="lbl"><b data-i18n="settings.reset">Reset progress</b></div>
         <div class="set-ctl"><button class="chip danger" id="resetBtn" data-i18n="settings.reset.btn">reset</button></div>
       </div>
     </div>
