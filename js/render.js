@@ -1385,28 +1385,39 @@ const RENDER = (function make(fit) {
      0 to 1, a band of shade sweeps across the letters from left to right. x: -1 just off the left edge, 0 centred, 1
      just off the right edge */
   let TITLEFONT = "sans-serif", titleKey = "", titleLay = null;
+  /* the line at its size: big (16 % of the screen's short side, 30 to 110 px), so on a phone it runs wider than the
+     screen and pans across it; fsFit / wFit: the size that fits the whole line in 84 % of the width (reduced motion,
+     which doesn't pan) */
   function titleLayout(text) {
-    const key = text + "|" + W + "|" + TITLEFONT;
+    const key = text + "|" + W + "|" + H + "|" + TITLEFONT;
     if (key === titleKey) return titleLay;
     const line = text.toUpperCase().trim().replace(/\s+/g, " ");
     g.font = "700 100px " + TITLEFONT;
-    const fs = Math.max(10, Math.min(72, Math.floor(W * .84 / Math.max(1, g.measureText(line).width) * 100)));
-    g.font = "700 " + fs + "px " + TITLEFONT;
-    titleKey = key; titleLay = { fs: fs, line: line, w: g.measureText(line).width };
+    const w100 = Math.max(1, g.measureText(line).width);
+    const fs = Math.round(Math.max(30, Math.min(110, Math.min(W, H) * .16))), fsFit = Math.max(10, Math.min(72, Math.floor(W * .84 / w100 * 100)));
+    titleKey = key; titleLay = { line: line, fs: fs, w: w100 * fs / 100, fsFit: fsFit, wFit: w100 * fsFit / 100 };
     return titleLay;
   }
+  /* T: openView's { text, z, zmax, a, sweep, ph, e }: ph "in" flies in from the left (e 0 to 1), "hold" is the slow part,
+     "out" flies off to the right, "still" stands in the middle (reduced motion). A line wider than the screen comes to
+     rest with its start near the left edge and pans left during the hold, so it reads from its first word to its last;
+     a line that fits drifts a little to the right */
   function drawTitle(T, ty) {
     if (T.a <= 0) return;
-    const lay = titleLayout(T.text), zmax = T.zmax || 1, k = zmax > 1 ? .8 + .2 * Math.max(0, Math.min(1, (T.z - 1) / (zmax - 1))) : 1;
-    /* its own scale k about the screen's centre line; at x = +-1 the line is just off screen at that scale */
+    const lay = titleLayout(T.text), still = T.ph === "still", fs = still ? lay.fsFit : lay.fs, zmax = T.zmax || 1;
+    const k = zmax > 1 ? .8 + .2 * Math.max(0, Math.min(1, (T.z - 1) / (zmax - 1))) : 1;
+    const w = (still ? lay.wFit : lay.w) * k, m = W * .05, over = w > W - 2 * m, off = W * .1;
+    const A = over ? m + w / 2 : W / 2 - .05 * (W / 2 + w / 2), B = over ? W - m - w / 2 : W / 2 + .05 * (W / 2 + w / 2);
+    const sx = still ? W / 2 : T.ph === "in" ? -w / 2 - off + (A + w / 2 + off) * T.e : T.ph === "hold" ? A + (B - A) * T.e : B + (W + w / 2 + off - B) * T.e;
+    /* its own scale k about the screen's centre line; sx is the line's centre on screen */
     g.setTransform(dpr * k, 0, 0, dpr * k, dpr * (1 - k) * W / 2, dpr * (1 - k) * ty);
-    const cx = W / 2 + T.x * (W / 2 + lay.w * k / 2) / k;
+    const cx = W / 2 + (sx - W / 2) / k, lw = still ? lay.wFit : lay.w;
     g.save();
-    g.font = "700 " + lay.fs + "px " + TITLEFONT; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = "700 " + fs + "px " + TITLEFONT; g.textAlign = "center"; g.textBaseline = "middle";
     const base = "rgba(64,66,76," + (.42 * T.a).toFixed(3) + ")";
     if (T.sweep >= 0) {
       /* the band's centre runs over a span a little wider than the line, so it starts and ends off the letters */
-      const x0 = cx - lay.w * .8, x1 = cx + lay.w * .8, p = T.sweep, gr = g.createLinearGradient(x0, 0, x1, 0);
+      const x0 = cx - lw * .8, x1 = cx + lw * .8, p = T.sweep, gr = g.createLinearGradient(x0, 0, x1, 0);
       gr.addColorStop(0, base); gr.addColorStop(Math.max(0, p - .1), base);
       gr.addColorStop(Math.min(1, Math.max(0, p)), "rgba(16,16,22," + (.85 * T.a).toFixed(3) + ")");
       gr.addColorStop(Math.min(1, p + .1), base); gr.addColorStop(1, base);
