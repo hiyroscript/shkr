@@ -68,17 +68,19 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 #home .rail{box-shadow:0 0 0 3px #fff;background:var(--paper-3)}
 #home .pulse i{box-shadow:0 0 0 4px #fff}
 
-/* home: two cards in a vertical snap scroller, Infinite Shadow above the levels. Whichever is active, a slice of the
-   other (--peek, set from the scroller's height by game.js) shows at the top or bottom edge, dimmed and a little
-   smaller, under a chevron label; the header and footer stay put */
-#home .mid{flex:1;width:100%;min-height:0;position:relative;--peek:72px}
+/* home: two cards in a vertical snap scroller, Infinite Shadow above the levels, each filling it: only the active one
+   shows, and a small chevron label at the top or bottom edge names the other. The header stays put; the footer (the
+   levels' chip, rail and count) belongs to the levels card and hides on the other */
+#home .mid{flex:1;width:100%;min-height:0;position:relative}
 .cards{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;overscroll-behavior:contain;
-  touch-action:pan-y;scrollbar-width:none;padding:var(--peek) 0;scroll-behavior:smooth}
+  touch-action:pan-y;scrollbar-width:none;scroll-behavior:smooth}
 .cards::-webkit-scrollbar{display:none}
 .cards.drag{scroll-snap-type:none;scroll-behavior:auto;cursor:grabbing}
 .hcard{height:100%;min-height:0;scroll-snap-align:center;scroll-snap-stop:always;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:0;padding:6px 0;transition:opacity .3s ease,transform .3s cubic-bezier(.2,.8,.2,1)}
-.hcard:not(.on){opacity:.34;transform:scale(.93);cursor:pointer}
+  align-items:center;justify-content:center;gap:0;padding:6px 0}
+.hcard:not(.on){cursor:pointer}
+/* room for the other card's label: above the levels, below Infinite Shadow */
+#cardLv{padding-top:36px}#cardInf{padding-bottom:36px}
 .hcard:not(.on) .pulse i,.hcard:not(.on) .pulse b,.hcard:not(.on) .pulse u{animation-play-state:paused}
 .peek{position:absolute;left:50%;z-index:2;transform:translateX(-50%);font-family:var(--mono);font-size:clamp(9px,2.3vw,10.5px);
   letter-spacing:.18em;text-transform:uppercase;color:var(--dim);background:#fff;border:1px solid var(--line);border-radius:100px;
@@ -86,13 +88,23 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 .peek em{font-style:normal}
 .peek.up{top:4px}.peek.down{bottom:4px}
 .peek.on{opacity:1;pointer-events:auto}
-#homeFoot .rail,#homeFoot #progTag{transition:opacity .3s ease}
-#home.inf #homeFoot .rail,#home.inf #homeFoot #progTag{opacity:0}
+#homeFoot{transition:opacity .3s ease,visibility .3s}
+#home.inf #homeFoot{opacity:0;visibility:hidden}
+/* the scroll hint (game.js): now and then on an idle home screen the cards tug a little towards the other one, so its
+   edge shows for a moment, and spring back; its label nods the same way */
+.mid.hint-dn .hcard{animation:cardHintDn 1.3s cubic-bezier(.3,.6,.3,1)}
+.mid.hint-up .hcard{animation:cardHintUp 1.3s cubic-bezier(.3,.6,.3,1)}
+.mid.hint-dn .peek.up{animation:peekHintDn 1.3s ease}
+.mid.hint-up .peek.down{animation:peekHintUp 1.3s ease}
+@keyframes cardHintDn{0%{transform:none}28%,40%{transform:translateY(16%)}78%{transform:translateY(-1.6%)}100%{transform:none}}
+@keyframes cardHintUp{0%{transform:none}28%,40%{transform:translateY(-16%)}78%{transform:translateY(1.6%)}100%{transform:none}}
+@keyframes peekHintDn{0%,100%{transform:translateX(-50%)}30%,42%{transform:translate(-50%,6px)}}
+@keyframes peekHintUp{0%,100%{transform:translateX(-50%)}30%,42%{transform:translate(-50%,-6px)}}
 .best-line{font-family:var(--mono);font-size:clamp(11px,2.8vw,13px);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
   margin-top:clamp(8px,1.4vh,14px);min-height:1.4em;background:#fff;padding:5px 12px;border-radius:100px;font-variant-numeric:tabular-nums}
 .best-line b{color:var(--ink);font-weight:700}
 #infLbl{margin-top:clamp(12px,2.2vh,22px);text-align:center}
-@media (prefers-reduced-motion:reduce){.cards{scroll-behavior:auto}.hcard{transition:opacity .15s ease}.hcard:not(.on){transform:none}}
+@media (prefers-reduced-motion:reduce){.cards{scroll-behavior:auto}#homeFoot{transition:none}}
 .title{font-size:clamp(30px,min(10vw,12.5vh),104px);font-weight:700;letter-spacing:-.045em;line-height:.88;
   text-transform:uppercase;text-align:center;color:var(--fg);margin-top:clamp(6px,1.2vh,12px);max-width:13ch;text-wrap:balance}
 .title span{display:inline-block;animation:letterIn .55s cubic-bezier(.2,.9,.2,1) both}
