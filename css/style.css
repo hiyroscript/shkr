@@ -381,7 +381,9 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
 }
 
 /* ---------------- languages (js/i18n.js) ---------------- */
-/* the round flag under the settings chip: hangs below it, centred on it, outside the header's flow so nothing moves */
+/* the round flag under the settings chip: hangs below it, centred on it, outside the header's flow so nothing moves; the
+   home header sits above the card scroller, so the part of the flag hanging over the scroller still takes taps */
+#home header.bar{position:relative;z-index:3}
 .set-wrap{position:relative;display:inline-flex}
 .flag-btn{position:absolute;top:calc(100% + clamp(6px,1.2vh,9px));left:50%;width:clamp(20px,6vw,24px);height:clamp(20px,6vw,24px);
   margin-left:calc(clamp(20px,6vw,24px) / -2);border-radius:50%;color:var(--ink);transition:transform .1s}
