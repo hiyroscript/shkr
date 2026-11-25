@@ -321,8 +321,10 @@ const INF = (function () {
       return { t: b.t, h: b.h, kn: [pre, post, wide] };
     } },
     { k: "haloChain", haz: ["ha"], gen: function (R, c) {
+      /* as in the levels, a pit of 2k + 1 cells with a Halo over every other one from the second: one cell of pit
+         after the last Halo, so the jump in and each air jump have about 300 ms of room (README › Infinite Shadow) */
       const k = ri(R, 1, 2), post = pick(R, [".'.v", "..v", ".v.", "..'."]);
-      const b = B().add(".").add(rep("~~", k + 1), rep(".O", k)).add(post);
+      const b = B().add(".").add(rep("~~", k) + "~", rep(".O", k)).add(post);
       return { t: b.t, h: b.h, kn: [k, post] };
     } },
     { k: "haloTower", haz: ["ha"], gen: function (R, c) {
@@ -549,14 +551,14 @@ const INF = (function () {
     } },
     { k: "zenithHalo", haz: ["Z", "ha"], how: "inside", gen: function (R, c) {
       const a1 = pick(R, ["^.", "M.", "-."]), a2 = pick(R, ["^.v.", "M.v.", "'.v."]);
-      const b = B().add("v.." + a1 + "~~~~.." + a2 + "v", "Z......O.......z").add(".");
+      const b = B().add("v.." + a1 + "~~~..." + a2 + "v", "Z.....O........z").add(".");
       return { t: b.t, h: b.h, kn: [a1, a2] };
     } },
     { k: "bloomHalo", haz: ["bl", "ha"], how: "chain", gen: function (R, c) {
       /* bounce onto a tower, then a Halo off its edge for an air jump over a pit at the top */
       if (c.y + 4 > BAND[1] - 1) return null;
       const top = ri(R, 2, 3), down = pick(R, ["Y", "VV"]);
-      const b = B().add(".H" + rep(".", top), "B").add("~~~~", rep(".", top - 1) + "O").add(".." + down + ".");
+      const b = B().add(".H" + rep(".", top), "B").add("~~~", ".O").add(".." + down + ".");
       return { t: b.t, h: b.h, kn: [top, down] };
     } },
     { k: "flickerHalo", haz: ["1", "ha"], how: "overlap", first: true, gen: function (R, c) {
@@ -590,7 +592,7 @@ const INF = (function () {
      from a calm seam. gen(R, y) returns { t, h } or null */
   const ACC = [
     { k: "bl", gen: function (R) { return pick(R, [{ t: "U..", h: "B.." }, { t: "U...", h: "B..." }, { t: "U..'", h: "B..." }]); } },
-    { k: "ha", gen: function (R) { return pick(R, [{ t: "~~~~.", h: ".O..." }, { t: ".~~~~.'", h: "..O...." }]); } },
+    { k: "ha", gen: function (R) { return pick(R, [{ t: "~~~.", h: ".O.." }, { t: ".~~~.'", h: "..O..." }]); } },
     { k: "co", gen: function (R) { return pick(R, [{ t: "~~~.", h: "C..." }, { t: "~~~.'", h: "C...." }]); } },
     { k: "F", gen: function (R) { return pick(R, [{ t: "~~~~.", h: "F.F.." }, { t: "~~~~.'", h: "F.F..." }]); } },
     { k: "ke", gen: function (R) { return pick(R, [{ t: "-....", h: "..K.G" }, { t: "^......", h: "..K..G." }, { t: "-.....", h: "..K..G" }]); } },
