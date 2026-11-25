@@ -1006,6 +1006,33 @@ const RENDER = (function make(fit) {
     }
     g.globalAlpha = 1;
   }
+  /* the new world beyond a fracture's crack. Drawing its sky and five layers each through the crack as a clip is slow
+     (a phone redoes the jagged mask for every image); instead the part of the screen right of the crack's leftmost
+     point is drawn once into a canvas kept for it, cut to the crack with one polygon, and copied over in one image */
+  let fxCv = null, aheadW = null;
+  /* build the next world for up to ms milliseconds (a piece at least); the game calls it when a frame had time left */
+  function idle(ms) { if (aheadW && aheadW.done < 6) buildWorld(aheadW, ms); }
+  function drawBeyond(w, crack, dxp, dt) {
+    let x0 = W; for (let i = 0; i < crack.length; i += 2) x0 = Math.min(x0, crack[i]);
+    x0 = Math.max(0, Math.floor(x0));
+    if (x0 >= W) return;
+    const pw = Math.max(1, Math.round(W * dpr)), ph = Math.max(1, Math.round(H * dpr));
+    if (!fxCv) fxCv = document.createElement("canvas");
+    if (fxCv.width !== pw || fxCv.height !== ph) { fxCv.width = pw; fxCv.height = ph; }
+    const main = g, fc = fxCv.getContext("2d");
+    g = fc;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+    g.save(); g.beginPath(); g.rect(x0, 0, W - x0, H); g.clip();   /* a plain rectangle: only the part that shows */
+    drawBack(w, dxp, dt, 1);
+    g.restore();
+    g.globalCompositeOperation = "destination-in";
+    g.beginPath(); g.moveTo(crack[0], crack[1]); for (let i = 2; i < crack.length; i += 2) g.lineTo(crack[i], crack[i + 1]);
+    g.lineTo(W + 40, H + 40); g.lineTo(W + 40, -40); g.closePath(); g.fillStyle = "#000"; g.fill();
+    g.globalCompositeOperation = "source-over";
+    g = main;
+    const sx = Math.floor(x0 * dpr);
+    g.drawImage(fxCv, sx, 0, pw - sx, ph, sx / dpr, 0, (pw - sx) / dpr, H);
+  }
   /* a third world bleeding into this one's sky (INF biomes' motif): one silhouette in the far layer's fog grey, at low
      contrast, sliding by very slowly; towers that hang from the top hang from the top of the screen */
   function drawMotif(w, b) {
@@ -1099,18 +1126,18 @@ const RENDER = (function make(fit) {
       fmix = xf === null ? 0 : Math.max(0, Math.min(1, (camX - xf + 16) / 32));
       if (cw !== wA) useWorld(wA);
       buildWorld(wA, Infinity); if (wB !== wA) buildWorld(wB, Infinity);
-      /* the next world, 1.5 ms a frame (a slower frame skips it), from 24 bars before its fracture */
+      /* the next world, from 24 bars before its fracture: built in frames with time to spare (idle, called by the game
+         once a frame is drawn), and in any frame but a slow one once the fracture is within 8 bars */
       const nb = conv(Math.floor((right + 24 * 16) / 16));
-      if (nb !== br && !V.still && dt < .03) buildWorld(worldFor(nb.w, LEVELS[nb.w - 1].th, nb.w * 101, true), 1.5);
-    } else { wA = wB = cw; xf = null; fmix = 0; }
+      aheadW = nb !== br && !V.still ? worldFor(nb.w, LEVELS[nb.w - 1].th, nb.w * 101, true) : null;
+      if (aheadW && aheadW.done < 6 && nb.b0 * 16 - right < 8 * 16 && dt < .03) buildWorld(aheadW, 1.5);
+    } else { wA = wB = cw; xf = null; fmix = 0; aheadW = null; }
     drawBack(wA, dxp, dt, 1);
     if (wB !== wA) {
       if (RM) drawBack(wB, dxp, dt, fmix);   /* reduced motion: a short cross-fade instead of a tear */
       else {
         const crack = crackLine(xf);
-        g.save(); g.beginPath(); g.moveTo(crack[0], crack[1]); for (let i = 2; i < crack.length; i += 2) g.lineTo(crack[i], crack[i + 1]);
-        g.lineTo(W + 40, H + 40); g.lineTo(W + 40, -40); g.closePath(); g.clip();
-        drawBack(wB, dxp, dt, 1); g.restore();
+        drawBeyond(wB, crack, dxp, dt);
         drawCrack(crack, xf, wA);
       }
     }
@@ -1341,7 +1368,7 @@ const RENDER = (function make(fit) {
   function extend() { if (L && L.stream) dress(L); }
   /* build level n's world a piece at a time ahead of use (the home screen's Infinite Shadow demo); true once built */
   function prepare(n) { const w = worldFor(n, LEVELS[n - 1].th, n * 101, true); return buildWorld(w, 1.5); }
-  return { resize: resize, setLevel: setLevel, frame: frame, emit: emit, ring: ring, burst: burst, shake: addShake, cue: cue, COL: COL, pop: pop, extend: extend, prepare: prepare,
+  return { resize: resize, setLevel: setLevel, frame: frame, emit: emit, ring: ring, burst: burst, shake: addShake, cue: cue, COL: COL, pop: pop, extend: extend, prepare: prepare, idle: idle,
     setFont: function (f) { POPFONT = f; },
     /* world point -> CSS pixels on the canvas, with the camera of the last frame (flip / fb as for at()) */
     point: function (x, y, flip, fb) { return { x: X(x), y: flip ? Y(2 * fb + CH - y) : Y(y) }; },
