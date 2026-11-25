@@ -270,7 +270,11 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
 #padRoll{left:25%}#padJump{left:75%}
 .pad svg{width:26px;height:26px;fill:none;stroke:rgba(172,174,184,.9);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .pad.on{background:rgba(255,255,255,.14);transform:scale(.94)}
-@media (prefers-reduced-motion:reduce){.pad{transition:none}.pad.on{transform:none}}
+/* a level 1 tip points at its move: that box grows and shrinks, brighter, until the tip goes */
+.pad.call{border-color:rgba(255,255,255,.95);animation:padCall .9s ease-in-out infinite}
+.pad.call svg{stroke:#fff}
+@keyframes padCall{0%,100%{transform:scale(1)}50%{transform:scale(1.32)}}
+@media (prefers-reduced-motion:reduce){.pad{transition:none}.pad.on{transform:none}.pad.call{animation:none;background:rgba(255,255,255,.18)}}
 
 
 /* level tip (game.js TIPS): a note by the red ring round the object, with a countdown; the game is frozen meanwhile.
