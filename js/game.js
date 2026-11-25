@@ -1145,7 +1145,7 @@
         if (G.mode === "home" && (RENDER.level !== G.L || !RENDER.home)) { RENDER.setHome(true); demoTo(demoKind === "inf" && infDemoReady() ? "inf" : "levels", true); return; }
         /* while home idles, the Infinite Shadow demo is made; while a launch wipes, the run's first bars */
         if (G.mode === "launch" && G.pending) G.pending.work(8, 16);
-        else if (G.mode === "home") infDemoTick(dt > 0.024 ? 1 : 2);
+        else if (G.mode === "home") { infDemoTick(dt > 0.024 ? 1 : 2); if (dt < 0.024) MUSIC.warmLayers(1); }
         if (demoKind === "inf") {
           /* one loop is DEMO_INF_BARS bars, or what is made so far less 4 bars if that is ever shorter */
           const DB = Math.min(DEMO_INF_BARS, infDemo.g.bars - 4) * 4;
