@@ -510,16 +510,12 @@
      opacity and the sweep across it (0 to 1 while it runs, -1 otherwise) */
   function openView(o) {
     const t0 = o.t;
-    if (RM) return { text: o.text, z: 1, zmax: 1, ph: "still", e: 0, a: smooth(0, .35, t0) * (1 - smooth(2.5, 2.95, t0)), sweep: -1 };
-    /* in fast from the left (easing to a stop), the slow pan at an even speed (easing in and out over its first and
-       last eighth, so nothing jerks and its middle doesn't rush), out to the right */
-    const ph = t0 < .35 ? "in" : t0 < 2.3 ? "hold" : "out";
-    const u = Math.max(0, Math.min(1, (t0 - .35) / 1.95)), q = .12, v = 1 / (1 - q);
-    const pan = u < q ? v * u * u / (2 * q) : u > 1 - q ? 1 - v * (1 - u) * (1 - u) / (2 * q) : v * (u - q / 2);
-    const e = ph === "in" ? 1 - Math.pow(1 - smooth(0, .35, t0), 2) : ph === "hold" ? pan : Math.pow(smooth(2.3, 2.9, t0), 2);
+    if (RM) return { text: o.text, z: 1, zmax: 1, x: 0, a: smooth(0, .35, t0) * (1 - smooth(2.5, 2.95, t0)), sweep: -1 };
+    const ein = 1 - Math.pow(1 - smooth(0, .35, t0), 2), eout = Math.pow(smooth(2.3, 2.9, t0), 2);
+    const x = t0 < .35 ? -1.15 + 1.1 * ein : t0 < 2.3 ? -.05 + .1 * (t0 - .35) / 1.95 : .05 + 1.15 * eout;
     const z = 1 + (OPEN.Z - 1) * (smooth(.35, .95, t0) - smooth(2.3, 3, t0));
     const sweep = t0 >= .35 && t0 < 1.1 ? (t0 - .35) / .75 : t0 >= 1.45 && t0 < 2.25 ? (t0 - 1.45) / .8 : -1;
-    return { text: o.text, z: z, zmax: OPEN.Z, ph: ph, e: e, a: 1, sweep: sweep };
+    return { text: o.text, z: z, zmax: OPEN.Z, x: x, a: 1, sweep: sweep };
   }
 
   /* ---------------- new hazard cards ----------------
