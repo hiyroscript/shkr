@@ -501,7 +501,7 @@
     const t0 = o.t;
     if (RM) return { text: o.text, z: 1, zmax: 1, x: 0, a: smooth(0, .35, t0) * (1 - smooth(2.5, 2.95, t0)), sweep: -1 };
     const ein = 1 - Math.pow(1 - smooth(0, .35, t0), 2), eout = Math.pow(smooth(2.3, 2.9, t0), 2);
-    const x = t0 < .35 ? -1.15 + 1.07 * ein : t0 < 2.3 ? -.08 + .16 * (t0 - .35) / 1.95 : .08 + 1.12 * eout;
+    const x = t0 < .35 ? -1.15 + 1.1 * ein : t0 < 2.3 ? -.05 + .1 * (t0 - .35) / 1.95 : .05 + 1.15 * eout;
     const z = 1 + (OPEN.Z - 1) * (smooth(.35, .95, t0) - smooth(2.3, 3, t0));
     const sweep = t0 >= .35 && t0 < 1.1 ? (t0 - .35) / .75 : t0 >= 1.45 && t0 < 2.25 ? (t0 - 1.45) / .8 : -1;
     return { text: o.text, z: z, zmax: OPEN.Z, x: x, a: 1, sweep: sweep };

@@ -1362,48 +1362,44 @@ const RENDER = (function make(fit) {
       g.lineWidth = 4 / sc; g.strokeStyle = "#E8112D"; g.stroke();
       g.restore();
     }
-    if (V.title) { g.setTransform(dpr * zt, 0, 0, dpr * zt, dpr * (1 - zt) * W / 2, dpr * (1 - zt) * ty); drawTitle(V.title, ty); }
+    if (V.title) drawTitle(V.title, ty);
     if (V.flash > 0) { g.fillStyle = "rgba(0,0,0," + (V.flash * .12) + ")"; g.fillRect(-20, -20, W + 40, H + 40); }
   }
   /* ---------------- the run's opening text ----------------
-     One line of text (game.js says what and where): bold, upper case, in faint grey, wrapped to at most three lines that
-     fit the view at the opening's full zoom. While V.title.sweep runs from 0 to 1, a band of shade sweeps across the
-     letters from left to right. x: -1 just off the left edge, 0 centred, 1 just off the right edge */
+     One straight line of text (game.js says what and where): bold, upper case, in faint grey, sized so that at the
+     opening's full zoom the whole line spans 84% of the screen (room for its slow drift). It grows with the zoom on a scale of its own, from 0.8
+     of that as it flies in to all of it as the view zooms in, and back as it flies off. While V.title.sweep runs from
+     0 to 1, a band of shade sweeps across the letters from left to right. x: -1 just off the left edge, 0 centred, 1
+     just off the right edge */
   let TITLEFONT = "sans-serif", titleKey = "", titleLay = null;
-  function titleLayout(text, zmax) {
-    const key = text + "|" + W + "|" + H + "|" + zmax + "|" + TITLEFONT;
+  function titleLayout(text) {
+    const key = text + "|" + W + "|" + TITLEFONT;
     if (key === titleKey) return titleLay;
-    const up = text.toUpperCase().trim(), spaced = /\s/.test(up), toks = spaced ? up.split(/\s+/) : Array.from(up), join = spaced ? " " : "";
-    const maxW = W / zmax * .84;
-    let fs = Math.round(Math.max(22, Math.min(64, Math.min(W, H) * .09))), lines = [];
-    for (; fs >= 14; fs -= 2) {
-      g.font = "700 " + fs + "px " + TITLEFONT;
-      lines = []; let cur = "";
-      for (const w of toks) { const next = cur ? cur + join + w : w; if (cur && g.measureText(next).width > maxW) { lines.push(cur); cur = w; } else cur = next; }
-      if (cur) lines.push(cur);
-      if (lines.length <= 3 && lines.every(function (l) { return g.measureText(l).width <= maxW; })) break;
-    }
-    let w = 0; for (const l of lines) w = Math.max(w, g.measureText(l).width);
-    titleKey = key; titleLay = { fs: fs, lines: lines, w: w, lh: Math.round(fs * 1.08) };
+    const line = text.toUpperCase().trim().replace(/\s+/g, " ");
+    g.font = "700 100px " + TITLEFONT;
+    const fs = Math.max(10, Math.min(72, Math.floor(W * .84 / Math.max(1, g.measureText(line).width) * 100)));
+    g.font = "700 " + fs + "px " + TITLEFONT;
+    titleKey = key; titleLay = { fs: fs, line: line, w: g.measureText(line).width };
     return titleLay;
   }
   function drawTitle(T, ty) {
     if (T.a <= 0) return;
-    const lay = titleLayout(T.text, T.zmax || 1.3), cx = W / 2 + T.x * (W + lay.w) / 2;
-    if (cx + lay.w / 2 < -W || cx - lay.w / 2 > 2 * W) return;
+    const lay = titleLayout(T.text), zmax = T.zmax || 1, k = zmax > 1 ? .8 + .2 * Math.max(0, Math.min(1, (T.z - 1) / (zmax - 1))) : 1;
+    /* its own scale k about the screen's centre line; at x = +-1 the line is just off screen at that scale */
+    g.setTransform(dpr * k, 0, 0, dpr * k, dpr * (1 - k) * W / 2, dpr * (1 - k) * ty);
+    const cx = W / 2 + T.x * (W / 2 + lay.w * k / 2) / k;
     g.save();
     g.font = "700 " + lay.fs + "px " + TITLEFONT; g.textAlign = "center"; g.textBaseline = "middle";
     const base = "rgba(64,66,76," + (.42 * T.a).toFixed(3) + ")";
     if (T.sweep >= 0) {
-      /* the band's centre runs over a span a little wider than the text, so it starts and ends off the letters */
+      /* the band's centre runs over a span a little wider than the line, so it starts and ends off the letters */
       const x0 = cx - lay.w * .8, x1 = cx + lay.w * .8, p = T.sweep, gr = g.createLinearGradient(x0, 0, x1, 0);
       gr.addColorStop(0, base); gr.addColorStop(Math.max(0, p - .1), base);
       gr.addColorStop(Math.min(1, Math.max(0, p)), "rgba(16,16,22," + (.85 * T.a).toFixed(3) + ")");
       gr.addColorStop(Math.min(1, p + .1), base); gr.addColorStop(1, base);
       g.fillStyle = gr;
     } else g.fillStyle = base;
-    const n = lay.lines.length;
-    for (let i = 0; i < n; i++) g.fillText(lay.lines[i], cx, ty + (i - (n - 1) / 2) * lay.lh);
+    g.fillText(lay.line, cx, ty);
     g.restore();
   }
   /* a number that pops near the runner (Infinite Shadow's score), in world units */
