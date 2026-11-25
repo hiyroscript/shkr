@@ -25,7 +25,7 @@
   const KEY = (window.SHKR_DEV && window.SHKR_DEV.saveKey) || REAL_KEY, LEGACY_KEY = "lumbra.v1";
   /* inf: Infinite Shadow's best score, the distance (units) its best run ended at, runs, seconds played, and its own
      "Don't show again" for the objective box; homeCard: the home card shown last ("levels" or "inf") */
-  const INF0 = { best: 0, bestDist: 0, runs: 0, totalTime: 0, objHide: false };
+  const INF0 = { best: 0, bestDist: 0, runs: 0, totalTime: 0 };
   const DEFAULTS = { music: 0.8, sfx: true, shake: true, objective: true, lang: null, sel: 1, unlocked: 1, rec: {}, homeCard: "levels", inf: INF0 };
   let S = loadState();
   function loadState() {
@@ -54,7 +54,7 @@
     if (!I.has(o.lang)) o.lang = null;     /* not chosen yet (or a code we don't have): the browser's language is used */
     if (o.homeCard !== "inf") o.homeCard = "levels";
     const fi = o.inf && typeof o.inf === "object" ? o.inf : {}, num = function (v) { v = Math.floor(+v); return isFinite(v) && v > 0 ? v : 0; };
-    o.inf = { best: num(fi.best), bestDist: num(fi.bestDist), runs: num(fi.runs), totalTime: num(fi.totalTime), objHide: fi.objHide === true };
+    o.inf = { best: num(fi.best), bestDist: num(fi.bestDist), runs: num(fi.runs), totalTime: num(fi.totalTime) };
     return o;
   }
   function setS(obj) { S = checkState(obj || {}); return S; }
@@ -152,7 +152,7 @@
     else clearCard();
   }
   function stopCard() { if (cardStop) { const f = cardStop; cardStop = null; f(); } }
-  function clearCard() { overlay.classList.remove("on", "out"); cardEl.innerHTML = ""; undockObjective(); }
+  function clearCard() { overlay.classList.remove("on", "out"); cardEl.innerHTML = ""; }
   overlay.addEventListener("click", function (e) {
     const b = e.target.closest("[data-act]"); if (!b) return;
     const a = cardActs[+b.dataset.act]; if (a && a.fn) a.fn();
@@ -287,7 +287,7 @@
   });
   function homeTheme() { const n = Math.min(S.sel, S.unlocked); return LEVELS[n - 1]; }
   function startHome() {
-    G.mode = "home"; G.paused = false; stopTip(); G.hist = null; $("#hud").classList.remove("on", "inf", "beat"); hideObjective();
+    G.mode = "home"; G.paused = false; stopTip(); G.hist = null; G.open = null; $("#hud").classList.remove("on", "inf", "beat");
     G.inf = null; G.n = S.sel; G.def = null;
     G.spb = 60 / HOME.mu[0]; G.beat0 = 0;
     RENDER.setHome(true);
@@ -381,12 +381,12 @@
   paintSettings();
   fsw.addEventListener("click", function () { S.sfx = !S.sfx; paintSettings(); saveState(); });
   sw.addEventListener("click", function () { S.shake = !S.shake; paintSettings(); saveState(); });
-  osw.addEventListener("click", function () { S.objective = !S.objective; if (S.objective) S.inf.objHide = false; paintSettings(); saveState(); });
+  osw.addEventListener("click", function () { S.objective = !S.objective; paintSettings(); saveState(); });
   $("#resetBtn").addEventListener("click", function () {
     /* only progress: the settings, the language among them, stay */
     showCard({ eyebrow: t("home.settings"), title: t("card.reset.title"), body: t("card.reset.body"),
       acts: [{ t: t("settings.reset.btn"), danger: true, fn: function () {
-        S.rec = {}; S.unlocked = 1; S.sel = 1; S.inf = { best: 0, bestDist: 0, runs: 0, totalTime: 0, objHide: S.inf.objHide };
+        S.rec = {}; S.unlocked = 1; S.sel = 1; S.inf = { best: 0, bestDist: 0, runs: 0, totalTime: 0 };
         saveState(); hideCard(); show("home"); startHome();
       } }, { t: t("common.cancel"), fn: hideCard }] });
   });
@@ -451,10 +451,8 @@
     document.documentElement.lang = L.html;
     $$("[data-i18n]").forEach(function (el) { el.textContent = t(el.dataset.i18n); });
     $$("[data-i18n-aria]").forEach(function (el) { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
-    $("#obJump").textContent = t(TOUCH ? "ob.jumpTouch" : "ob.jumpKeys");
-    $("#obRoll").textContent = t(TOUCH ? "ob.rollTouch" : "ob.rollKeys");
     KEY_FONT = getComputedStyle(document.documentElement).getPropertyValue("--mono").trim() || "monospace";
-    RENDER.setFont(KEY_FONT);
+    RENDER.setFont(KEY_FONT, getComputedStyle(document.documentElement).getPropertyValue("--disp").trim() || "sans-serif");
     KEY_CJK = /^(zh|ja|ko)/.test(L.html);
     paintLang();
     Demo.relabel();
@@ -464,44 +462,50 @@
     refreshScrollCue();
   }
 
-  /* ---------------- objective box ----------------
-     The goal and the controls, at the start of a level (S.objective). On its own it sits near the top and goes
-     away by itself, later while the mouse is over it or the keyboard is on its checkbox. On a level that brings
-     in a new hazard it docks in the overlay right above the hazard card and leaves with it. */
-  const ob = $("#msBanner"), obChk = $("#obHide");
-  let obT = 0, obMouse = false;
-  function kbFocus(el) { try { return el.matches(":focus-visible"); } catch (e) { return document.activeElement === el; } }
-  function showObjective(dock) {
-    hideObjective();
-    if (!S.objective || G.inf && S.inf.objHide) return;
-    $("#obTitle").textContent = t(G.inf ? "inf.obj" : "ob.title");
-    obChk.checked = false;
-    if (dock) { overlay.classList.add("stack"); overlay.insertBefore(ob, cardEl); ob.classList.add("dock"); }
-    void ob.offsetWidth; ob.classList.add("show");
-    if (!dock) obT = setTimeout(fadeObjective, 6000);
+  /* ---------------- the run's opening ----------------
+     Where the objective box used to be (a level's first run, every Infinite Shadow run; the Objective tips setting
+     turns it off), a run opens in slow motion: before its first beat the runner sprints in while a line of text in
+     faint grey flies in from the left, the view zooms in on it with a sweep of shade across the letters, the text
+     drifts on slowly, then the zoom and the speed come back and the text flies off to the right. Only then does the
+     music start (a level's first beat, or Infinite Shadow's count-in). The slowed clock is a table of game time
+     against real time, so the opening ends exactly on the beat the music then starts from. With reduced motion there is
+     no zoom and no flight: the text fades in and out over the same slow run-up. Seconds of real time: */
+  const OPEN = { T: 3, slow: .3, Z: 1.3 };
+  const smooth = function (a, b, t) { t = Math.max(0, Math.min(1, (t - a) / (b - a))); return t * t * (3 - 2 * t); };
+  /* the game's speed: down to 0.3 over the first half second, back to 1 over the last 0.7 */
+  function openRate(t) { return 1 - (1 - OPEN.slow) * (smooth(0, .5, t) - smooth(2.3, 3, t)); }
+  /* base: the beat the music then starts from (0, or -4 for Infinite Shadow's count-in) */
+  function startOpen(base) {
+    const n = 300, tab = new Float32Array(n + 1), d = OPEN.T / n;
+    let acc = 0; for (let i = 1; i <= n; i++) { acc += (openRate((i - 1) * d) + openRate(i * d)) / 2 * d; tab[i] = acc; }
+    /* the beat the clock reports right after the music starts: it schedules 0.1 s ahead and runs behind by the output
+       latency (clock.beat); a small difference left over is taken up by not letting the beat go backwards */
+    const c = MUSIC.ctx, lat = c && G.song ? Math.min(.3, c.outputLatency || c.baseLatency || 0) : 0;
+    G.open = { t: 0, tab: tab, total: acc, end: base - (.1 + lat) / G.spb, base: base, text: t(G.inf ? "intro.inf" : "intro.level") };
+    G.beat0 = 0; G.beat = openBeat(G.open);
   }
-  function fadeObjective() { if (obMouse || kbFocus(obChk)) obT = setTimeout(fadeObjective, 400); else hideObjective(); }
-  function hideObjective() {
-    clearTimeout(obT);
-    if (ob.contains(document.activeElement)) document.activeElement.blur();
-    ob.classList.remove("show"); undockObjective();
+  function openBeat(o) {
+    const n = o.tab.length - 1, f = Math.min(n, o.t / OPEN.T * n), i = Math.floor(f);
+    const done = i < n ? o.tab[i] + (o.tab[i + 1] - o.tab[i]) * (f - i) : o.tab[n];
+    return o.end - (o.total - done) / G.spb;
   }
-  /* back to its own place, at once (no fade from the docked spot to the top of the screen) */
-  function undockObjective() {
-    if (!ob.classList.contains("dock")) return;
-    ob.style.transition = "none"; ob.classList.remove("dock", "show"); overlay.classList.remove("stack");
-    document.body.insertBefore(ob, overlay); void ob.offsetWidth; ob.style.transition = "";
+  /* the opening is over: the music and the ordinary clock take over from where it left off */
+  function endOpen() {
+    const o = G.open; G.open = null; G.mono = .6;
+    if (o.base < 0) { if (G.song) MUSIC.start(G.song, o.base); clock.start(); clock.t0p -= o.base * G.spb; }
+    else go();
   }
-  /* taps and clicks on the box are never jump or roll input */
-  ob.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
-  ob.addEventListener("pointerenter", function (e) { if (e.pointerType === "mouse") obMouse = true; });
-  ob.addEventListener("pointerleave", function () { obMouse = false; });
-  obChk.addEventListener("change", function () {
-    /* Infinite Shadow's box has its own "Don't show again", so hiding one never hides the other */
-    if (G.inf) S.inf.objHide = obChk.checked; else S.objective = !obChk.checked;
-    saveState(); paintSettings();
-    if (!kbFocus(obChk)) obChk.blur();   /* after a click the keys go back to the game */
-  });
+  /* what the renderer draws: the zoom, the text's place (-1 off to the left, 0 centred, 1 off to the right), its
+     opacity and the sweep across it (0 to 1 while it runs, -1 otherwise) */
+  function openView(o) {
+    const t0 = o.t;
+    if (RM) return { text: o.text, z: 1, zmax: 1, x: 0, a: smooth(0, .35, t0) * (1 - smooth(2.5, 2.95, t0)), sweep: -1 };
+    const ein = 1 - Math.pow(1 - smooth(0, .35, t0), 2), eout = Math.pow(smooth(2.3, 2.9, t0), 2);
+    const x = t0 < .35 ? -1.15 + 1.1 * ein : t0 < 2.3 ? -.05 + .1 * (t0 - .35) / 1.95 : .05 + 1.15 * eout;
+    const z = 1 + (OPEN.Z - 1) * (smooth(.35, .95, t0) - smooth(2.3, 3, t0));
+    const sweep = t0 >= .35 && t0 < 1.1 ? (t0 - .35) / .75 : t0 >= 1.45 && t0 < 2.25 ? (t0 - 1.45) / .8 : -1;
+    return { text: o.text, z: z, zmax: OPEN.Z, x: x, a: 1, sweep: sweep };
+  }
 
   /* ---------------- new hazard cards ----------------
      Before the first run of the level that brings in a hazard (HAZ[].lv) the game waits, frozen, behind a card
@@ -535,7 +539,6 @@
     showCard({ cls: "wide", pv: esc(t("card.hazard.pv", { name: hzName(h) })), eyebrow: t("card.hazard.eyebrow"), title: hzName(h), accent: h.col, body: t("hazard." + h.k + ".body"),
       acts: [{ t: t("common.understood"), solid: true, fn: startRun }],
       open: function (el) { return preview($("canvas", el), INTRO[h.k], G.def); } });
-    showObjective(true);
   }
   /* the looping preview; returns the function that stops it. Its own sim state, clock and renderer: nothing here
      touches the frozen game. opt (How to play only; a hazard card passes none): R, a renderer of its own instead of
@@ -732,19 +735,18 @@
   function startInf(g) {
     g.fill(16);
     G.n = "inf"; G.def = INF_DEF; G.L = g.L; G.spb = 60 / INF.BPM; G.session = 0; G.tryN = 1;
-    G.inf = { g: g, seed: g.seed, score: 0, cells: 0, uses: 0, used: {}, combos: 0, cc: 0, bars: g.bars, cost: 20, acc: 0, ts: 0, best0: S.inf.best, beat: false, lastPop: null, ended: false };
+    G.inf = { g: g, seed: g.seed, score: 0, cells: 0, combos: 0, cc: 0, bars: g.bars, cost: 20, acc: 0, ts: 0, best0: S.inf.best, beat: false, lastPop: null, ended: false };
     G.lastSeed = g.seed;   /* the developer section shows it */
     G.song = MUSIC.ctx ? MUSIC.makeStream(INF_DEF, g) : null;
     RENDER.setHome(false); RENDER.setLevel(g.L, null, g.seed, g.biomeAt);
     $("#hud").classList.add("on", "inf"); $("#hud").classList.remove("beat");
-    G.st = SIM.newState(); G.st.ev = []; G.paused = false; stopTip(); G.squash = 0; G.restY = 0; G.snap = true; G.beat0 = 0;
+    G.st = SIM.newState(); G.st.ev = []; G.paused = false; stopTip(); G.squash = 0; G.restY = 0; G.snap = true; G.beat0 = 0; G.open = null;
     G.hist = null; G.tipDone = true; keys.qj = keys.qs = false;
     paintHud(); hudFill.style.transform = "scaleX(0)";
-    /* a one-bar count-in: the clock starts four beats before the first */
+    /* the opening, then a one-bar count-in: the clock starts four beats before the first */
     G.mode = "play";
-    if (G.song) MUSIC.start(G.song, -4);
-    clock.start(); clock.t0p += 4 * G.spb;
-    showObjective(false);
+    if (S.objective) startOpen(-4);
+    else { if (G.song) MUSIC.start(G.song, -4); clock.start(); clock.t0p += 4 * G.spb; }
   }
   /* every frame of a run, after it is drawn: generate (16 bars are made before the start, and it stays 12 to 20 ahead),
      stream the new bars to the music and the renderer, trim what is two screens behind */
@@ -776,7 +778,7 @@
   /* a hazard used: 25 points and a little number in its colour */
   function award(k) {
     const I0 = G.inf; if (!I0 || I0.ended) return;
-    I0.score += 25; I0.uses++; I0.used[k] = (I0.used[k] || 0) + 1;
+    I0.score += 25;
     const st = G.st;
     if (!RM) { RENDER.pop(st.tick * DX + 0.6, st.y + 2.6, "+25", RENDER.COL[k] || "#0A0A10", st.flip, st.flip && st.zz ? st.zz.base : 0); I0.lastPop = { t: now(), k: k }; }
   }
@@ -818,8 +820,6 @@
     S.inf.runs++; S.inf.totalTime += Math.round(sec);
     if (nb) { S.inf.best = sc; S.inf.bestDist = Math.round(x); }
     saveState();
-    let top = null; for (const k in I0.used) if (!top || I0.used[k] > I0.used[top]) top = k;
-    const hz = top ? HAZ.filter(function (h) { return h.k === top; })[0] : null;
     let html = '<div class="score-big">' + fmt(sc) + "</div>";
     if (nb && old > 0) html += '<div class="old-best">' + t("inf.results.oldBest", { n: "<s>" + fmt(old) + "</s>" }) + "</div>";
     else if (!nb) html += '<div class="old-best">' + t("hud.best", { n: fmt(old) }) + "</div>";
@@ -828,10 +828,8 @@
       for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2, r = 60 + (i % 3) * 22; html += '<i style="--dx:' + Math.round(Math.cos(a) * r) + "px;--dy:" + Math.round(Math.sin(a) * r) + "px;background:" + HAZ[i % HAZ.length].col + '"></i>'; }
       html += "</div>";
     }
-    const stats = [[clockText(sec), t("inf.results.time")], [t("inf.results.meters", { n: fmt(Math.round(x)) }), t("inf.results.distance")], [fmt(I0.uses), tn("inf.results.uses", I0.uses)]];
-    let chip = "";
-    if (hz) chip = '<div class="haz-chip"><s style="background:' + hz.col + '"></s><span>' + esc(t("inf.results.most", { name: hzName(hz) })) + "</span></div>";
-    showCard({ cls: nb ? "newbest" : "", eyebrow: esc(t("inf.title")) + "  ·  " + esc(t("inf.place")), title: nb ? esc(t("inf.newbest")) : esc(t("inf.results.title")), html: html, stats: stats, after: chip,
+    const stats = [[clockText(sec), t("inf.results.time")], [t("inf.results.meters", { n: fmt(Math.round(x)) }), t("inf.results.distance")]];
+    showCard({ cls: nb ? "newbest" : "", eyebrow: esc(t("inf.title")) + "  ·  " + esc(t("inf.place")), title: nb ? esc(t("inf.newbest")) : esc(t("inf.results.title")), html: html, stats: stats,
       acts: [{ t: t("card.inf.again"), solid: true, fn: function () { launchInf(null); } },
         { t: t("card.win.home"), fn: function () { hideCard(); show("home"); startHome(); } }] });
   }
@@ -857,7 +855,7 @@
   function beginRun(first) {
     const r = rec(G.n);
     if (!r.d) { r.t++; saveState(); G.tryN = r.t; } else { G.session++; G.tryN = G.session; }
-    G.st = SIM.newState(); G.st.ev = []; G.paused = false; stopTip(); G.squash = 0; G.restY = 0; G.snap = true; G.beat0 = 0;
+    G.st = SIM.newState(); G.st.ev = []; G.paused = false; stopTip(); G.squash = 0; G.restY = 0; G.snap = true; G.beat0 = 0; G.open = null;
     keys.qj = keys.qs = false;
     G.tipDone = false; G.hist = tipPending() ? [SIM.clone(G.st)] : null;   /* every tick's state up to the tip, for its rewind */
     RENDER.setLevel(G.L, G.def.th, G.n * 101);
@@ -868,8 +866,8 @@
       G.mode = "intro"; G.beat = -0.1 / G.spb; MUSIC.stop(0.1);
       hazardCard(h);
     } else {
-      G.mode = "play"; go();
-      if (first) showObjective(false);
+      G.mode = "play";
+      if (first && S.objective) startOpen(0); else go();
     }
   }
   function go() { if (G.song) MUSIC.start(G.song); clock.start(); }
@@ -877,7 +875,8 @@
   function startRun() {
     if (G.mode !== "intro") return;
     hideCard(true); keys.qj = keys.qs = false;
-    G.mode = "play"; G.paused = false; go();
+    G.mode = "play"; G.paused = false;
+    if (S.objective) startOpen(0); else go();
   }
   /* sim events -> effects. R: the renderer (the game's, or a hazard preview's), o: what holds the squash */
   function onEvents(st, x, R, o) {
@@ -974,7 +973,6 @@
   function showTip() {
     const o = tipAt.o;
     G.tip = "note"; G.paused = true; G.pauseT = now(); MUSIC.suspend(); dropInput();
-    hideObjective();
     /* the ring: round the spike's box, with some air */
     G.mark = { x: o.x, y: (o.y0 + o.y1) / 2, r: Math.max(o.x1 - o.x0, o.y1 - o.y0) / 2 + .55, flip: o.flip, fb: o.fb || 0 };
     $("#tipTitle").textContent = t(TIP.title); $("#tipBody").textContent = t(TIP.body);
@@ -1088,7 +1086,6 @@
     /* the spike tip: Enter is "understood"; no other key does anything, so nothing is queued for the run */
     if (G.tip) { if (c === "Enter" && G.tip === "note") { e.preventDefault(); leaveTip(); } else if (c === "Space" || c.indexOf("Arrow") === 0) e.preventDefault(); return; }
     if (c === "Escape") { if (langOpen() && !G.cardUp) { closeLang(true); return; } if (G.mode === "play" && !G.paused) pauseGame(); else if (G.paused && !thawing) resumeGame(); else if (!G.cardUp && panelOn()) show("home"); return; }
-    if (c === "Space" && e.target === obChk) return;   /* the keyboard is on "Don't show again": Space ticks it */
     if (G.cardUp) { if (c === "Enter" && cardActs[0]) { e.preventDefault(); cardActs[0].fn(); } return; }
     if (G.mode === "play") {
       if (c === "Space" || c === "ArrowUp" || c === "KeyW") { if (!e.repeat) { keys.j = true; keys.qj = true; } e.preventDefault(); }
@@ -1108,6 +1105,8 @@
     else if (c === "ArrowDown" || c === "KeyS") keys.s = false;
   });
   const cv = $("#cv"), ptr = {};
+  /* the touch hints at the bottom (css: shown on touch screens only); they take no taps, the halves do */
+  const padJ = { el: $("#padJump"), on: false }, padS = { el: $("#padRoll"), on: false };
   cv.addEventListener("pointerdown", function (e) {
     e.preventDefault();
     if (G.mode !== "play" || G.paused) return;
@@ -1132,7 +1131,12 @@
     const st = G.st, L = G.L;
     if (!G.paused) {
       MUSIC.schedule();
-      if (G.mode !== "dead" && G.mode !== "launch" && G.mode !== "intro") G.beat = clock.beat(G.spb) - G.beat0;
+      if (G.open) { G.open.t += dt; G.beat = openBeat(G.open); if (G.open.t >= OPEN.T) endOpen(); }
+      else if (G.mode !== "dead" && G.mode !== "launch" && G.mode !== "intro") {
+        const b = clock.beat(G.spb) - G.beat0;
+        /* just after the opening hands over to the music's clock, the beat never steps back */
+        if (G.mono > 0) { G.mono -= dt; G.beat = Math.max(G.beat, b); } else G.beat = b;
+      }
       if (G.mode === "home" || G.mode === "launch") {
         /* while home idles, the Infinite Shadow demo is made; while a launch wipes, the run's first bars */
         if (G.mode === "launch" && G.pending) G.pending.work(8, 16);
@@ -1176,6 +1180,7 @@
             onEvents(st, st.tick * DX);
           }
           if (st.won && G.mode === "play") win();
+          if (target <= 0) dropInput();   /* before the first beat (the opening) a tap is dropped, never kept for it */
         }
       } else if (G.mode === "dead" && G.inf) { if (now() - G.deadAt > 0.6) { G.mode = "over"; endInf(); } }
       else if (G.mode === "dead" && now() - G.deadAt > 0.65) { beginRun(false); return; }
@@ -1189,8 +1194,13 @@
     let thermal = false; for (const z of L.zones) if (z.k === "T" && x >= z.x0 && x < z.x1) thermal = true;
     const bf = G.beat - Math.floor(G.beat), pulse = G.beat < 0 || dead ? 0 : Math.pow(Math.max(0, 1 - bf * 2.3), 2);
     const best = G.inf && S.inf.bestDist > 0 ? { x: S.inf.bestDist, tag: I.t("inf.marker") } : null;   /* (t is the frame time here) */
+    const speed = G.open ? openRate(G.open.t) : 1;   /* the opening's slow motion reaches the dust, sparks and drifting fog too */
     RENDER.frame({ s: st, x: x, y: y, beat: G.beat, time: t, pulse: pulse, dead: dead || G.mode === "over", squash: G.squash, restY: G.restY, snap: G.snap, thermal: thermal,
-      demo: G.mode === "home" || G.mode === "launch", noShake: !S.shake, mark: G.mark, best: best }, (G.paused && G.tip !== "rewind") || G.mode === "intro" ? 0 : dt);
+      demo: G.mode === "home" || G.mode === "launch", noShake: !S.shake, mark: G.mark, best: best, title: G.open ? openView(G.open) : null },
+      (G.paused && G.tip !== "rewind") || G.mode === "intro" ? 0 : dt * speed);
+    /* the touch hints light up while their half is held */
+    if (padJ.on !== keys.j) { padJ.on = keys.j; padJ.el.classList.toggle("on", keys.j); }
+    if (padS.on !== keys.s) { padS.on = keys.s; padS.el.classList.toggle("on", keys.s); }
     G.snap = false;
     if (G.mode === "play" && G.inf && !G.paused) {
       feedInf(Math.max(0, st.tick * DX), performance.now() - ts, ts);
