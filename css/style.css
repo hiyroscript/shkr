@@ -88,6 +88,24 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;tou
 .peek em{font-style:normal}
 .peek.up{top:4px}.peek.down{bottom:4px}
 .peek.on{opacity:1;pointer-events:auto}
+/* the up and down arrows on the right, in the middle, under the language flag (game.js lines them up with it): each
+   takes you to the card that way; the one that leads somewhere now and then gives a press, as if tapped, as a hint
+   that the home screen scrolls; the other is dimmed */
+.card-nav{position:absolute;top:50%;left:calc(100% - 36px);z-index:2;display:flex;flex-direction:column;gap:10px;transform:translate(-50%,-50%)}
+.cnav{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#fff;border:var(--edge-w) solid var(--edge);
+  color:var(--ink);transition:opacity .2s ease,transform .1s}
+.cnav::before{content:"";width:8px;height:8px;border-left:2px solid currentColor;border-bottom:2px solid currentColor}
+.cnav.up::before{transform:translateY(2px) rotate(135deg)}
+.cnav.down::before{transform:translateY(-2px) rotate(-45deg)}
+.cnav:active{transform:scale(.88)}
+.cnav:disabled{opacity:.28;cursor:default}
+.cnav.hint{animation:navPress 2.8s ease-in-out infinite}
+@keyframes navPress{
+  0%,58%,100%{transform:none;background:#fff;box-shadow:0 0 0 0 rgba(10,10,16,0)}
+  64%{transform:scale(.8);background:var(--paper-3);box-shadow:0 0 0 0 rgba(10,10,16,.28)}
+  72%{transform:scale(1.07);background:#fff}
+  80%{transform:none;box-shadow:0 0 0 12px rgba(10,10,16,0)}}
+@media (prefers-reduced-motion:reduce){.cnav.hint{animation:none}}
 #homeFoot{transition:opacity .3s ease,visibility .3s}
 #home.inf #homeFoot{opacity:0;visibility:hidden}
 .best-line{font-family:var(--mono);font-size:clamp(11px,2.8vw,13px);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
