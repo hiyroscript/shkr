@@ -347,6 +347,9 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
 .card h2{font-size:clamp(28px,6.4vw,48px);font-weight:700;letter-spacing:-.035em;line-height:1;margin:12px 0;text-transform:uppercase;color:var(--fg);text-wrap:balance}
 .card p{color:var(--dim);font-size:clamp(14px,2.6vw,15px);line-height:1.6;max-width:36ch;margin:0 auto;text-wrap:pretty}
 .card .acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:clamp(20px,3.4vh,28px)}
+/* buttons wake up once the card can take a press (CARD_ARM in js/game.js) */
+.card .acts{transition:opacity .15s ease}
+.card.arming .acts{opacity:.45}
 /* new hazard card (a little wider): the live preview, and the hazard's colour under its name */
 .card.wide{max-width:520px}
 .card .pv{width:220px;max-width:100%;aspect-ratio:11/7;margin:0 auto clamp(14px,2.4vh,20px);border-radius:14px;overflow:hidden;
