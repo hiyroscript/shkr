@@ -52,8 +52,11 @@ const RENDER = (function make(fit) {
   }
 
   let cv, g, W = 0, H = 0, dpr = 1, sc = 32, px0 = 0, gy = 0, camX = 0, camY = 0, shake = 0, L = null, th = null, seed = 1, lvN = 1, pal = palette(1);
-  let home = false, strips = [], stripKey = "", glows = {}, fx = [], amb = [], lastCamX = 0, si = 0, oi = 0, tNow = 0, pulse = 0, quality = 1;
-  let skyCv = null, mistCv = null, wispCv = null, wisps = [], zLines = [];
+  let home = false, glows = {}, fx = [], lastCamX = 0, si = 0, oi = 0, tNow = 0, pulse = 0, quality = 1, zLines = [];
+  /* the world being drawn (a level's look), and for The Convergence the biome source and what is visible: A at the
+     left edge, B at the right, xf the fracture between them (null when there is none on screen) */
+  let cw = null, conv = null, wA = null, wB = null, xf = null, fmix = 0, POPFONT = "monospace";
+  const worlds = [];
 
   const hsh = function (n) { let x = Math.imul((n | 0) ^ 0x9E3779B9, 0x85EBCA6B); x ^= x >>> 13; x = Math.imul(x, 0xC2B2AE35); x ^= x >>> 16; return (x >>> 0) / 4294967296; };
   const X = function (wx) { return px0 + (wx - camX) * sc; };
@@ -78,53 +81,89 @@ const RENDER = (function make(fit) {
     const portrait = H > W;
     if (fit) { px0 = W * fit.px; gy = H * fit.gy; }
     else { px0 = W * (home ? .2 : portrait ? .24 : .28); gy = H * (home ? (portrait ? .8 : .84) : portrait ? .66 : .72); }
-    stripKey = ""; if (th) buildStrips();
+    worlds.forEach(function (w) { w.key = ""; w.done = 0; w.job = null; });
+    if (cw) buildWorld(cw, Infinity);
+  }
+
+  /* ---------------- worlds ----------------
+     A world is one level's look: its theme tuple, palette, the five backdrop strips, sky, mist and wisp sprites, its
+     ambient particles and wisps. A level shows one. The Convergence (Infinite Shadow) passes through all 30 and shows two
+     around a fracture; built worlds are kept (at most three: the one on screen, the next and the last), the oldest dropped
+     first, and the next one is built a layer a frame while it is still far off, so a fracture never waits on it. */
+  function makeWorld(n, theme, sd, fast) {
+    const w = { n: n, th: theme, seed: sd, fast: !!fast, pal: palette(n), strips: [], key: "", done: 0, job: null, sky: null, mist: null, wisp: null, amb: [], wisps: [], used: 0, motif: null };
+    const A = AMB[theme[5]] || AMB.dust;
+    for (let i = 0; i < 44; i++) w.amb.push({ x: hsh(i * 3 + 1) * 1.2, y: hsh(i * 5 + 2), z: .4 + hsh(i * 7) * .9, p: hsh(i * 11) * TAU, a: A });
+    for (let i = 0; i < 4; i++) w.wisps.push({ x: hsh(i * 13 + sd) * 1.4 - .2, y: .4 + hsh(i * 17 + 2) * .38, w: 6 + hsh(i * 19) * 5, h: .8 + hsh(i * 23) * .8, a: .08 + hsh(i * 29) * .07, v: .006 + hsh(i * 31) * .01 });
+    return w;
+  }
+  function worldFor(n, theme, sd, fast) {
+    let w = null;
+    for (const x of worlds) if (x.n === n && x.th === theme && x.seed === sd && x.fast === !!fast) w = x;
+    if (!w) { w = makeWorld(n, theme, sd, fast); worlds.push(w); if (worlds.length > 3) { worlds.sort(function (a, b) { return a.used - b.used; }); worlds.shift(); } }
+    w.used = tNow;
+    return w;
   }
   /* which generators feed each of the five layers */
-  function layerGens(i) {
-    const a = th[0], b = th[1], org = ORG[lvN], S = seed;
+  function layerGens(w, i) {
+    const a = w.th[0], b = w.th[1], org = ORG[w.n], S = w.seed;
     switch (i) {
-      case 0: return lvN === 30 ? [["ringsun", S * 7 + 1, 1, 1.5]] : [["hills", S * 3 + 2, 1, 1]].concat(org ? [["spire", S * 5 + 9, 1, 1]] : [], [[a, S * 7 + 1, 1.3, 1]]);
-      case 1: return lvN === 30 ? [["shards", S * 11 + 3, 1.4, 1]] : org === "canopy" ? [[a, S * 7 + 4, 2, .9], ["canopy", S * 19 + 7, .65, .6]] : [[a, S * 7 + 4, 1, 1]];
+      case 0: return w.n === 30 ? [["ringsun", S * 7 + 1, 1, 1.5]] : [["hills", S * 3 + 2, 1, 1]].concat(org ? [["spire", S * 5 + 9, 1, 1]] : [], [[a, S * 7 + 1, 1.3, 1]]);
+      case 1: return w.n === 30 ? [["shards", S * 11 + 3, 1.4, 1]] : org === "canopy" ? [[a, S * 7 + 4, 2, .9], ["canopy", S * 19 + 7, .65, .6]] : [[a, S * 7 + 4, 1, 1]];
       case 2: return [[b, S * 13 + 5, 1, 1]];
       case 3: return [[b, S * 17 + 11, 1.6, 1.15, 4]];
       default: return org ? [[org, S * 23 + 13, org === "canopy" ? 1.8 : 3, org === "canopy" ? 1 : 1.5, 9]] : [[b, S * 29 + 17, 2.6, 1.25, 15]];
     }
   }
-  function buildStrips() {
-    const key = "fog5|" + th[0] + th[1] + seed + "|" + lvN + "|" + W + "x" + H;
-    if (key === stripKey) return; stripKey = key;
-    const bs = sc > 50 ? 1 : 1.5, hpx = (gy + sc * 2.6) * bs;
-    for (let i = 0; i < 5; i++) {
-      const l = LAY[i], tone = pal.layers[i];
-      strips[i] = BACKDROPS.strip({ gens: layerGens(i), widthU: l.w, hPx: hpx, groundPx: (gy - l.up * sc) * bs, u: sc * l.s * bs,
-        tone: tone, dark: mixHex(tone, "#000000", .1), light: mixHex(tone, pal.sky[2], .45), mist: pal.mist, soft: l.soft || 0, minLine: i < 2 ? .05 : 0 });
+  /* build a world's strips and sprites for the current size, for up to `ms` milliseconds (Infinity: all of it now); true
+     when it is complete. A strip is a BACKDROPS.job of small steps, so a world can be built across many frames */
+  const msNow = function () { return performance.now(); };
+  function buildWorld(w, ms) {
+    const key = "fog5|" + w.th[0] + w.th[1] + w.seed + "|" + w.n + "|" + W + "x" + H;
+    if (key !== w.key) { w.key = key; w.done = 0; w.job = null; }
+    const bs = sc > 50 ? 1 : 1.5, hpx = (gy + sc * 2.6) * bs, pal = w.pal, end = msNow() + ms;
+    while (w.done < 6) {
+      const i = w.done;
+      if (i < 5) {
+        const l = LAY[i], tone = pal.layers[i];
+        if (!w.job) w.job = BACKDROPS.job({ gens: layerGens(w, i), widthU: l.w, hPx: hpx, groundPx: (gy - l.up * sc) * bs, u: sc * l.s * bs,
+          tone: tone, dark: mixHex(tone, "#000000", .1), light: mixHex(tone, pal.sky[2], .45), mist: pal.mist, soft: l.soft || 0, minLine: i < 2 ? .05 : 0, fast: w.fast });
+        const out = w.job.step(Math.max(0.5, end - msNow()));
+        if (!out) return false;
+        w.strips[i] = out; w.job = null; w.done++;
+        if (msNow() >= end) break;
+        continue;
+      }
+      w.done++;
+      w.strips.bs = bs;
+      /* sky: vertical gradient + wide soft horizon glow, at half size and upscaled (gradients scale cleanly) */
+      const sw = Math.max(8, Math.ceil(W / 2)), sh = Math.max(8, Math.ceil(H / 2));
+      w.sky = document.createElement("canvas"); w.sky.width = sw; w.sky.height = sh;
+      let c = w.sky.getContext("2d"), gr = c.createLinearGradient(0, 0, 0, sh);
+      gr.addColorStop(0, pal.sky[0]); gr.addColorStop(.38, pal.sky[1]); gr.addColorStop(.6, pal.sky[2]); gr.addColorStop(1, pal.sky[2]);
+      c.fillStyle = gr; c.fillRect(0, 0, sw, sh);
+      c.save(); c.translate(sw / 2, sh * .6); c.scale(1, .42);
+      gr = c.createRadialGradient(0, 0, 0, 0, 0, sw * .62); gr.addColorStop(0, rgba(pal.sky[2], .95)); gr.addColorStop(.55, rgba(pal.sky[2], .45)); gr.addColorStop(1, rgba(pal.sky[2], 0));
+      c.fillStyle = gr; c.fillRect(-sw, -sh * 3, sw * 2, sh * 6); c.restore();
+      /* mist band (drawn between layers) and soft wisp sprite */
+      const mc = "rgba(" + pal.mist[0] + "," + pal.mist[1] + "," + pal.mist[2] + ",";
+      w.mist = document.createElement("canvas"); w.mist.width = 2; w.mist.height = 64;
+      c = w.mist.getContext("2d"); gr = c.createLinearGradient(0, 0, 0, 64);
+      gr.addColorStop(0, mc + "0)"); gr.addColorStop(.62, mc + ".42)"); gr.addColorStop(1, mc + "0)");
+      c.fillStyle = gr; c.fillRect(0, 0, 2, 64);
+      w.wisp = document.createElement("canvas"); w.wisp.width = w.wisp.height = 64;
+      c = w.wisp.getContext("2d"); gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, mc + "1)"); gr.addColorStop(.5, mc + ".55)"); gr.addColorStop(1, mc + "0)");
+      c.fillStyle = gr; c.fillRect(0, 0, 64, 64);
     }
-    strips.bs = bs;
-    /* sky: vertical gradient + wide soft horizon glow, at half size and upscaled (gradients scale cleanly) */
-    const sw = Math.max(8, Math.ceil(W / 2)), sh = Math.max(8, Math.ceil(H / 2));
-    skyCv = document.createElement("canvas"); skyCv.width = sw; skyCv.height = sh;
-    let c = skyCv.getContext("2d"), gr = c.createLinearGradient(0, 0, 0, sh);
-    gr.addColorStop(0, pal.sky[0]); gr.addColorStop(.38, pal.sky[1]); gr.addColorStop(.6, pal.sky[2]); gr.addColorStop(1, pal.sky[2]);
-    c.fillStyle = gr; c.fillRect(0, 0, sw, sh);
-    c.save(); c.translate(sw / 2, sh * .6); c.scale(1, .42);
-    gr = c.createRadialGradient(0, 0, 0, 0, 0, sw * .62); gr.addColorStop(0, rgba(pal.sky[2], .95)); gr.addColorStop(.55, rgba(pal.sky[2], .45)); gr.addColorStop(1, rgba(pal.sky[2], 0));
-    c.fillStyle = gr; c.fillRect(-sw, -sh * 3, sw * 2, sh * 6); c.restore();
-    /* mist band (drawn between layers) and soft wisp sprite */
-    const mc = "rgba(" + pal.mist[0] + "," + pal.mist[1] + "," + pal.mist[2] + ",";
-    mistCv = document.createElement("canvas"); mistCv.width = 2; mistCv.height = 64;
-    c = mistCv.getContext("2d"); gr = c.createLinearGradient(0, 0, 0, 64);
-    gr.addColorStop(0, mc + "0)"); gr.addColorStop(.62, mc + ".42)"); gr.addColorStop(1, mc + "0)");
-    c.fillStyle = gr; c.fillRect(0, 0, 2, 64);
-    wispCv = document.createElement("canvas"); wispCv.width = wispCv.height = 64;
-    c = wispCv.getContext("2d"); gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, mc + "1)"); gr.addColorStop(.5, mc + ".55)"); gr.addColorStop(1, mc + "0)");
-    c.fillStyle = gr; c.fillRect(0, 0, 64, 64);
+    return w.done >= 6;
   }
+  function useWorld(w) { cw = w; th = w.th; seed = w.seed; lvN = w.n; pal = w.pal; buildWorld(w, Infinity); }
   function levelOf(theme) { for (let i = 0; i < LEVELS.length; i++) if (LEVELS[i].th === theme) return LEVELS[i].n; return 1; }
-  /* render-only caches on a compiled level: exposed cliff faces and where foliage must stay away from hazards */
+  /* render-only caches on a compiled level: exposed cliff faces and where foliage must stay away from hazards
+     (fm, from x = L.fmx in quarter units) */
   function decorate(L) {
-    if (L.deco) return; L.deco = true;
+    if (L.deco && !L.stream) return; L.deco = true;
     const plain = L.segs.filter(function (q) { return !q.kind; });
     plain.forEach(function (q) { q.ln = q.rn = undefined; });
     for (let i = 0; i < plain.length; i++) for (let k = i + 1; k < plain.length; k++) {
@@ -135,34 +174,44 @@ const RENDER = (function make(fit) {
       if (!b.flip) b.ln = a.flip ? a.fb : a.top; else b.ln = a.flip ? 2 * a.fb + CH - a.top : null;
     }
     plain.forEach(function (q) { if (q.ln === undefined) q.ln = null; if (q.rn === undefined) q.rn = null; });
-    const fm = new Uint8Array(Math.ceil((L.endX + 480) * 4)), mark = function (a, b) { for (let i = Math.max(0, Math.floor((a - .6 + 64) * 4)); i <= Math.ceil((b + .6 + 64) * 4) && i < fm.length; i++) fm[i] = 1; };
+    const x0 = L.stream ? (L.segs.length ? L.segs[0].x0 : 0) - 64 : -64, x1 = L.stream ? (L.segs.length ? L.segs[L.segs.length - 1].x1 : 0) + 64 : L.endX + 416;
+    const fm = new Uint8Array(Math.ceil((x1 - x0) * 4)), mark = function (a, b) { for (let i = Math.max(0, Math.floor((a - .6 - x0) * 4)); i <= Math.ceil((b + .6 - x0) * 4) && i < fm.length; i++) fm[i] = 1; };
     L.objs.forEach(function (o) { mark(o.x0, o.x1); });
     L.segs.forEach(function (q) { if (q.kind) mark(q.x0, q.x1); });
     L.coils.forEach(function (c) { mark(c.x0, c.x1); });
-    L.fm = fm;
+    L.fm = fm; L.fmx = x0;
   }
-  function setLevel(level, theme, sd) {
-    L = level; th = theme; seed = sd || 1; si = 0; oi = 0; fx.length = 0; camY = 0; lastCamX = 0;
-    const n = levelOf(theme); if (n !== lvN || !strips.length) { lvN = n; pal = palette(n); }
+  /* the base of the Zenith zone a flipped thing sits in, the rolling blades, cliff faces and props: for a level once,
+     for a stream again after every append and trim (it holds only a few screens, so this stays cheap) */
+  function dress(L) {
     const zb = function (x) { for (const z of L.zones) if (z.k === "Z" && x >= z.x0 && x < z.x1) return z.base; return 0; };
     L.segs.forEach(function (s) { if (s.flip) s.fb = zb((s.x0 + s.x1) / 2); });
     L.objs.forEach(function (o) { if (o.flip) o.fb = zb(o.x); });
-    L.rails.forEach(function (o) { if (o.flip) o.fb = zb(o.x0 + .1); });
+    L.rails.forEach(function (o) { if (o && o.flip) o.fb = zb(o.x0 + .1); });
     L.coils.forEach(function (o) { if (o.flip) o.fb = zb(o.x0 + .1); });
     L.blades = L.objs.filter(function (o) { return o.v === "rb"; });
     decorate(L);
     /* props sit where the chart is quiet */
     L.props = [];
-    for (let i = 2; i < L.cells - 2; i++) {
-      let quiet = true; for (let k = -1; k <= 2; k++) if (L.T[i + k] !== "." || L.H[i + k] !== ".") quiet = false;
-      if (quiet && hsh(i * 31 + seed) < .5) L.props.push({ x: i * 2 + 1 + hsh(i) * .6, y: L.baseAt(i * 2 + 1.3), v: hsh(i * 7 + 3), flip: false });
-    }
-    for (let x = -40; x < 0; x += 5) L.props.push({ x: x + hsh(x) * 2, y: 0, v: hsh(x * 3 + 1) });
-    amb.length = 0; const A = AMB[th[5]] || AMB.dust;
-    for (let i = 0; i < 44; i++) amb.push({ x: hsh(i * 3 + 1) * 1.2, y: hsh(i * 5 + 2), z: .4 + hsh(i * 7) * .9, p: hsh(i * 11) * TAU, a: A });
-    wisps.length = 0;
-    for (let i = 0; i < 4; i++) wisps.push({ x: hsh(i * 13 + seed) * 1.4 - .2, y: .4 + hsh(i * 17 + 2) * .38, w: 6 + hsh(i * 19) * 5, h: .8 + hsh(i * 23) * .8, a: .08 + hsh(i * 29) * .07, v: .006 + hsh(i * 31) * .01 });
-    buildStrips();
+    const quietProps = function (T, H, c0, n) {
+      for (let i = 2; i < n - 2; i++) {
+        let quiet = true; for (let k = -1; k <= 2; k++) if (T[i + k] !== "." || H[i + k] !== ".") quiet = false;
+        const gi = c0 + i;
+        if (quiet && hsh(gi * 31 + seed) < .5) L.props.push({ x: gi * 2 + 1 + hsh(gi) * .6, y: L.baseAt(gi * 2 + 1.3), v: hsh(gi * 7 + 3), flip: false });
+      }
+    };
+    if (L.stream) L.chunks.forEach(function (ch) { quietProps(ch.T, ch.H, ch.c0, ch.n); });
+    else quietProps(L.T, L.H, 0, L.cells);
+    if (!L.stream || L.chunks.length && L.chunks[0].c0 === 0) for (let x = -40; x < 0; x += 5) L.props.push({ x: x + hsh(x) * 2, y: 0, v: hsh(x * 3 + 1) });
+  }
+  function setLevel(level, theme, sd, src) {
+    L = level; si = 0; oi = 0; fx.length = 0; camY = 0; lastCamX = 0;
+    conv = src || null; wA = wB = null; xf = null; fmix = 0;
+    seed = sd || 1;
+    if (conv) { const b = conv(0); theme = LEVELS[b.w - 1].th; useWorld(worldFor(b.w, theme, b.w * 101, true)); }
+    else useWorld(worldFor(levelOf(theme), theme, seed));
+    seed = sd || 1;
+    dress(L);
   }
 
   /* ---------------- drawing helpers (unit space, y up) ---------------- */
@@ -439,10 +488,10 @@ const RENDER = (function make(fit) {
   }
   /* foliage silhouettes along a top edge, added to the current path (screen px). s = 1 grows up, -1 hangs down */
   function foliage(kind, q, left, right, ye, s) {
-    const st = .3, a = Math.max(q.x0 + .14, left), b = Math.min(q.x1 - .14, right), fm = L.fm, u = sc;
+    const st = .3, a = Math.max(q.x0 + .14, left), b = Math.min(q.x1 - .14, right), fm = L.fm, fx0 = L.fmx, u = sc;
     const sway = RM ? 0 : 1;
     for (let wx = Math.ceil(a / st) * st; wx < b; wx += st) {
-      if (fm[Math.floor((wx + 64) * 4)]) continue;
+      if (fm[Math.floor((wx - fx0) * 4)]) continue;
       const i = Math.round(wx / st), h = hsh(i * 7 + 13), h2 = hsh(i * 11 + 5), px = X(wx + (hsh(i * 3 + 1) - .5) * .2), y = ye + s;
       switch (kind) {
         case "tuft": case "dry": case "snow": {
@@ -917,6 +966,91 @@ const RENDER = (function make(fit) {
   }
   function addShake(v) { shake = Math.max(shake, v); }
 
+  /* ---------------- backdrops ---------------- */
+  /* a world's sky, five fog layers far -> near with soft mist bands washing their bases, and its collision motif */
+  function drawBack(w, dxp, dt, alpha) {
+    if (alpha <= 0) return;
+    g.globalAlpha = alpha;
+    const pal = w.pal, strips = w.strips;
+    if (w.sky) g.drawImage(w.sky, 0, 0, W, H); else { g.fillStyle = pal.sky[2]; g.fillRect(0, 0, W, H); }
+    const bs = strips.bs || 1;
+    for (let i = 0; i < 5; i++) {
+      const c = strips[i]; if (!c) continue;
+      const l = LAY[i], k = bs * (c.res || 1), f = l.f, ww = c.width / k, t0 = c.top || 0, sh = c.height - t0, h = sh / k, off = ((camX * sc * f) % ww + ww) % ww;
+      const yy = camY * sc * f * .6 + (i === 3 ? pulse * 1.5 : 0), yt = yy + t0 / k;
+      if (sh > 0) {
+        g.drawImage(c, 0, t0, c.width, sh, -off, yt, ww, h); if (ww - off < W) g.drawImage(c, 0, t0, c.width, sh, ww - off, yt, ww, h);
+        if (ww * 2 - off < W) g.drawImage(c, 0, t0, c.width, sh, 2 * ww - off, yt, ww, h);
+      }
+      if (i === 0 && w.motif) drawMotif(w, w.motif);
+      /* the far pair and the mid pair share one band each; every strip also has mist baked into its base */
+      if ((i === 1 || i === 3) && w.mist) { const bh = sc * 3; g.drawImage(w.mist, 0, yy + gy - l.up * sc - bh * .62, W, bh); }
+    }
+    g.globalAlpha = 1;
+  }
+  /* a third world bleeding into this one's sky (INF biomes' motif): one silhouette in the far layer's fog grey, at low
+     contrast, sliding by very slowly; towers that hang from the top hang from the top of the screen */
+  function drawMotif(w, b) {
+    const m = b.motif;
+    if (!w.motifCv || w.motifKey !== m.seed + "|" + sc) {
+      const tone = w.pal.layers[0];
+      w.motifCv = BACKDROPS.single({ gen: m.kind, seed: m.seed, u: sc * .55, tone: mixHex(tone, w.pal.sky[1], .25), dark: tone, light: mixHex(tone, w.pal.sky[2], .5) });
+      w.motifKey = m.seed + "|" + sc;
+    }
+    const c = w.motifCv; if (!c) return;
+    const xm = (b.b0 + b.n / 2) * 16, x = W * .55 + (xm - camX) * sc * .05 - c.ox, top = c.oy === 0;
+    if (x > W || x + c.width < 0) return;
+    const ga = g.globalAlpha; g.globalAlpha = ga * .55;
+    if (top) g.drawImage(c, x, -sc * .4); else g.drawImage(c, x, gy - LAY[0].up * sc - c.oy + camY * sc * .03);
+    g.globalAlpha = ga;
+  }
+  /* the fracture: a jagged diagonal crack through the sky at the ground's x of the biome boundary, top leaning ahead */
+  function crackLine(x) {
+    const cx = X(x), pts = [], n = 14, sd = Math.round(x);
+    for (let i = 0; i <= n; i++) {
+      const y = -20 + (H + 40) * i / n, j = (hsh(sd * 13 + i) - .5) * sc * 1.1 * (i % 2 ? 1 : .45);
+      pts.push(cx + (gy - y) * .28 + j, y);
+    }
+    return pts;
+  }
+  /* its faint white glow, and shards of the old world's far layer drifting off over the new one */
+  function drawCrack(pts, x, wOld) {
+    g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
+    g.lineJoin = "round"; g.lineWidth = 7; g.strokeStyle = "rgba(255,255,255,.16)"; g.stroke();
+    g.lineWidth = 1.6; g.strokeStyle = "rgba(246,247,250,.72)"; g.stroke();
+    const sd = Math.round(x), tone = wOld.pal.layers[1];
+    for (let k = 0; k < 7; k++) {
+      const p0 = k / 9, age = fmix - p0; if (age <= 0 || age > .7) continue;
+      const a = 1 - age / .7, row = 1 + Math.floor(hsh(sd + k * 7) * 8), cy = pts[row * 2 + 1], cx = pts[row * 2] + age * W * (.18 + hsh(sd + k * 3) * .25);
+      const r = sc * (.35 + hsh(sd + k * 5) * .6), rot = age * (hsh(sd + k) - .5) * 6, yy = cy - age * sc * (1 + hsh(sd + k * 11) * 2);
+      g.save(); g.translate(cx, yy); g.rotate(rot); g.globalAlpha = a * .8;
+      g.beginPath(); g.moveTo(-r, -r * .3); g.lineTo(r * .2, -r * .9); g.lineTo(r, r * .1); g.lineTo(-r * .1, r * .7); g.closePath();
+      g.fillStyle = tone; g.fill(); g.lineWidth = 1; g.strokeStyle = "rgba(255,255,255,.6)"; g.stroke();
+      g.restore();
+    }
+    g.globalAlpha = 1;
+  }
+  /* a world's ambient particles, tinted by the depth they belong to */
+  function drawAmb(w, dxp, dt, alpha) {
+    const pal = w.pal;
+    for (const p of w.amb) {
+      const a = p.a; p.x += (a[1] * dt * .06 - dxp * .5 / W) * p.z; p.y += a[2] * dt * .08 * p.z; p.p += dt * 3;
+      if (p.x < -.1) p.x += 1.2; if (p.x > 1.1) p.x -= 1.2; if (p.y > 1.05) p.y -= 1.1; if (p.y < -.05) p.y += 1.1;
+      if (alpha <= 0.01) continue;
+      g.globalAlpha = alpha;
+      const x = p.x * W + (a[0] === 0 ? Math.sin(p.p) * 8 : 0), y = p.y * H * .95, z = p.z * a[3] * sc * .06;
+      g.fillStyle = g.strokeStyle = pal.layers[p.z < .7 ? 1 : p.z < 1 ? 2 : 3];
+      if (a[0] === 0) { g.save(); g.translate(x, y); g.rotate(p.p); g.beginPath(); g.ellipse(0, 0, z * 1.6, z * .7 * Math.abs(Math.cos(p.p * .7)) + .4, 0, 0, TAU); g.fill(); g.restore(); }
+      else if (a[0] === 1) { const tw = a[1] === 0 ? .5 + .5 * Math.sin(p.p) : 1; g.beginPath(); g.arc(x, y, z * tw + .4, 0, TAU); g.fill(); }
+      else if (a[0] === 2) { g.beginPath(); g.moveTo(x, y); g.lineTo(x - z * 3, y + z * 9); g.lineWidth = 1; g.stroke(); }
+      else if (a[0] === 3) { g.beginPath(); g.arc(x, y, z * 2.2 + 1, 0, TAU); g.lineWidth = 1; g.stroke(); }
+      else { g.beginPath(); g.moveTo(x - z * 4, y - z * 1.5 * Math.sin(p.p)); g.lineTo(x, y); g.lineTo(x + z * 4, y - z * 1.5 * Math.sin(p.p)); g.lineWidth = 1.4; g.stroke(); }
+    }
+    g.globalAlpha = 1;
+  }
+  /* the look of the scenery at x: the world left of a fracture, or right of it */
+  function thAt(x) { return xf !== null && x >= xf ? wB.th : wA.th; }
+
   /* ---------------- frame ---------------- */
   function frame(V, dt) {
     if (!g || !L) return;
@@ -935,45 +1069,47 @@ const RENDER = (function make(fit) {
     shake = Math.max(0, shake - dt * 4.5);
     const shx = V.noShake ? 0 : (Math.random() - .5) * shake * 14, shy = V.noShake ? 0 : (Math.random() - .5) * shake * 14;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    /* sky */
-    if (skyCv) g.drawImage(skyCv, 0, 0, W, H); else { g.fillStyle = pal.sky[2]; g.fillRect(0, 0, W, H); }
-    /* backdrops: five fog layers far -> near, soft mist bands washing their bases */
-    const bs = strips.bs || 1;
-    for (let i = 0; i < strips.length; i++) {
-      const c = strips[i]; if (!c) continue;
-      const l = LAY[i], k = bs * (c.res || 1), f = l.f, w = c.width / k, t0 = c.top || 0, sh = c.height - t0, h = sh / k, off = ((camX * sc * f) % w + w) % w;
-      const yy = camY * sc * f * .6 + (i === 3 ? pulse * 1.5 : 0), yt = yy + t0 / k;
-      if (sh > 0) {
-        g.drawImage(c, 0, t0, c.width, sh, -off, yt, w, h); if (w - off < W) g.drawImage(c, 0, t0, c.width, sh, w - off, yt, w, h);
-        if (w * 2 - off < W) g.drawImage(c, 0, t0, c.width, sh, 2 * w - off, yt, w, h);
-      }
-      /* the far pair and the mid pair share one band each; every strip also has mist baked into its base */
-      if ((i === 1 || i === 3) && mistCv) { const bh = sc * 3; g.drawImage(mistCv, 0, yy + gy - l.up * sc - bh * .62, W, bh); }
-    }
     const dxp = (camX - lastCamX) * sc; lastCamX = camX;
+    const left = camX - px0 / sc - 3, right = camX + (W - px0) / sc + 3;
+    /* The Convergence: the worlds at the two edges of the screen, the fracture between them, and the next world built
+       ahead a layer a frame while it is still at least 24 bars away */
+    if (conv) {
+      const bl = conv(Math.floor(left / 16)), br = conv(Math.floor(right / 16));
+      wA = worldFor(bl.w, LEVELS[bl.w - 1].th, bl.w * 101, true); wA.motif = bl.motif ? bl : null;
+      wB = br === bl ? wA : worldFor(br.w, LEVELS[br.w - 1].th, br.w * 101, true); if (wB !== wA) wB.motif = br.motif ? br : null;
+      xf = br === bl ? null : br.b0 * 16;
+      fmix = xf === null ? 0 : Math.max(0, Math.min(1, (camX - xf + 16) / 32));
+      if (cw !== wA) useWorld(wA);
+      buildWorld(wA, Infinity); if (wB !== wA) buildWorld(wB, Infinity);
+      /* the next world, 1.5 ms a frame (a slower frame skips it), from 24 bars before its fracture */
+      const nb = conv(Math.floor((right + 24 * 16) / 16));
+      if (nb !== br && !V.still && dt < .03) buildWorld(worldFor(nb.w, LEVELS[nb.w - 1].th, nb.w * 101, true), 1.5);
+    } else { wA = wB = cw; xf = null; fmix = 0; }
+    drawBack(wA, dxp, dt, 1);
+    if (wB !== wA) {
+      if (RM) drawBack(wB, dxp, dt, fmix);   /* reduced motion: a short cross-fade instead of a tear */
+      else {
+        const crack = crackLine(xf);
+        g.save(); g.beginPath(); g.moveTo(crack[0], crack[1]); for (let i = 2; i < crack.length; i += 2) g.lineTo(crack[i], crack[i + 1]);
+        g.lineTo(W + 40, H + 40); g.lineTo(W + 40, -40); g.closePath(); g.clip();
+        drawBack(wB, dxp, dt, 1); g.restore();
+        drawCrack(crack, xf, wA);
+      }
+    }
     /* drifting fog wisps (skipped on the low-quality fallback) */
-    if (quality >= 1 && wispCv) for (const p of wisps) {
+    if (quality >= 1 && wA.wisp) for (const p of wA.wisps) {
       p.x -= (RM ? 0 : p.v * dt) + dxp * .3 / W; if (p.x < -.6) p.x += 1.9; if (p.x > 1.3) p.x -= 1.9;
-      const ww = p.w * sc, hh = p.h * sc; g.globalAlpha = p.a; g.drawImage(wispCv, p.x * W - ww / 2, p.y * H - hh / 2, ww, hh);
+      const ww = p.w * sc, hh = p.h * sc; g.globalAlpha = p.a; g.drawImage(wA.wisp, p.x * W - ww / 2, p.y * H - hh / 2, ww, hh);
     }
     g.globalAlpha = 1;
-    /* ambient particles, tinted by the depth they belong to */
-    for (const p of amb) {
-      const a = p.a; p.x += (a[1] * dt * .06 - dxp * .5 / W) * p.z; p.y += a[2] * dt * .08 * p.z; p.p += dt * 3;
-      if (p.x < -.1) p.x += 1.2; if (p.x > 1.1) p.x -= 1.2; if (p.y > 1.05) p.y -= 1.1; if (p.y < -.05) p.y += 1.1;
-      const x = p.x * W + (a[0] === 0 ? Math.sin(p.p) * 8 : 0), y = p.y * H * .95, z = p.z * a[3] * sc * .06;
-      g.fillStyle = g.strokeStyle = pal.layers[p.z < .7 ? 1 : p.z < 1 ? 2 : 3];
-      if (a[0] === 0) { g.save(); g.translate(x, y); g.rotate(p.p); g.beginPath(); g.ellipse(0, 0, z * 1.6, z * .7 * Math.abs(Math.cos(p.p * .7)) + .4, 0, 0, TAU); g.fill(); g.restore(); }
-      else if (a[0] === 1) { const tw = a[1] === 0 ? .5 + .5 * Math.sin(p.p) : 1; g.beginPath(); g.arc(x, y, z * tw + .4, 0, TAU); g.fill(); }
-      else if (a[0] === 2) { g.beginPath(); g.moveTo(x, y); g.lineTo(x - z * 3, y + z * 9); g.lineWidth = 1; g.stroke(); }
-      else if (a[0] === 3) { g.beginPath(); g.arc(x, y, z * 2.2 + 1, 0, TAU); g.lineWidth = 1; g.stroke(); }
-      else { g.beginPath(); g.moveTo(x - z * 4, y - z * 1.5 * Math.sin(p.p)); g.lineTo(x, y); g.lineTo(x + z * 4, y - z * 1.5 * Math.sin(p.p)); g.lineWidth = 1.4; g.stroke(); }
-    }
+    /* ambient particles, tinted by the depth they belong to; around a fracture both worlds' mix for its two bars */
+    drawAmb(wA, dxp, dt, 1 - (wB !== wA ? fmix : 0));
+    if (wB !== wA) drawAmb(wB, dxp, dt, fmix);
+    g.globalAlpha = 1;
     g.translate(shx, shy);
     /* x snapped to a device pixel (shake included): neighbouring ground segments are separate paths, and an edge they share
        off the pixel grid would let the sky show through its anti-aliasing as a hairline down the cliff */
     const devX = function (x) { return Math.round((x + shx) * dpr) / dpr - shx; };
-    const left = camX - px0 / sc - 3, right = camX + (W - px0) / sc + 3;
     /* zone fields */
     for (const z of L.zones) {
       if (z.x1 < left || z.x0 > right) continue;
@@ -993,8 +1129,15 @@ const RENDER = (function make(fit) {
       }
     }
     /* terrain */
+    if (L.stream) { si = 0; oi = 0; }   /* a stream is trimmed from the front, and short */
     while (si < L.segs.length && L.segs[si].x1 < left - 30) si++;
-    const gs = th[2], fk = FOL[gs] || "tuft", rims = [];
+    const gs = th[2], rims = [];
+    /* the ground's style is its world's: around a fracture, the part left of it the old one's, the rest the new one's */
+    const detail = function (q, a, b, fn) {
+      if (xf === null || b <= xf) fn(thAt(a)[2], a, b);
+      else if (a >= xf) fn(wB.th[2], a, b);
+      else { fn(wA.th[2], a, xf); fn(wB.th[2], xf, b); }
+    };
     zLines.length = 0;
     for (let i = si; i < L.segs.length; i++) {
       const q = L.segs[i]; if (q.x0 > right) break; if (q.x1 < left || q.kind) continue;
@@ -1004,12 +1147,12 @@ const RENDER = (function make(fit) {
         const ew = 2 * q.fb + CH - q.top, yy = Y(ew), yf = Y(q.fb);
         g.fillRect(xa, yf, xb - xa, H - yf + 40);
         rims.push(segPath(q, xa, xb, yy, -40, -1, ew)); g.fill();
-        g.save(); g.clip(); g.translate(X(0), yy); g.scale(sc, -sc); groundDetail(gs, Math.max(q.x0, left), Math.min(q.x1, right)); g.restore();
+        g.save(); g.clip(); g.translate(X(0), yy); g.scale(sc, -sc); detail(q, Math.max(q.x0, left), Math.min(q.x1, right), groundDetail); g.restore();
         zLines.push(xa, yy, xb - xa);
       } else {
         const yy = Y(q.top);
         rims.push(segPath(q, xa, xb, yy, H + 60, 1, q.top)); g.fill();
-        g.save(); g.clip(); g.translate(X(0), yy); g.scale(sc, sc); groundDetail(gs, Math.max(q.x0, left), Math.min(q.x1, right)); g.restore();
+        g.save(); g.clip(); g.translate(X(0), yy); g.scale(sc, sc); detail(q, Math.max(q.x0, left), Math.min(q.x1, right), groundDetail); g.restore();
       }
     }
     /* light rim along top edges and exposed cliff faces, then foliage (roots and moss hang from Zenith ceilings) */
@@ -1019,11 +1162,12 @@ const RENDER = (function make(fit) {
     g.beginPath();
     for (let i = si; i < L.segs.length; i++) {
       const q = L.segs[i]; if (q.x0 > right) break; if (q.x1 < left || q.kind) continue;
-      if (q.flip) foliage(fk, q, left, right, Y(2 * q.fb + CH - q.top), -1); else foliage(fk, q, left, right, Y(q.top), 1);
+      const ye = q.flip ? Y(2 * q.fb + CH - q.top) : Y(q.top), dir = q.flip ? -1 : 1;
+      detail(q, Math.max(q.x0, left), Math.min(q.x1, right), function (st, a, b) { foliage(FOL[st] || "tuft", q, a, b, ye, dir); });
     }
     g.fillStyle = FOG.ground; g.fill();
     for (let i = 0; i < zLines.length; i += 3) { g.fillStyle = COL.Z; g.fillRect(zLines[i], zLines[i + 1] - 3, zLines[i + 2], 3); }
-    for (const p of L.props) { if (p.x < left || p.x > right) continue; at(p.x, p.y, false, 0); prop(gs, p.v, Math.round(p.x * 10)); g.restore(); }
+    for (const p of L.props) { if (p.x < left || p.x > right) continue; at(p.x, p.y, false, 0); prop(thAt(p.x)[2], p.v, Math.round(p.x * 10)); g.restore(); }
     /* hazard tiles, coils, rails */
     for (let i = si; i < L.segs.length; i++) {
       const q = L.segs[i]; if (q.x0 > right) break; if (q.x1 < left || !q.kind) continue;
@@ -1050,7 +1194,7 @@ const RENDER = (function make(fit) {
       g.fillStyle = col; g.fillRect(0, -.04, w, .09); g.restore();
     }
     for (const r of L.rails) {
-      if (r.x1 < left || r.x0 > right) continue;
+      if (!r || r.x1 < left || r.x0 > right) continue;
       const col = COL.L; at(r.x0, r.y, r.flip, r.fb); const w = r.x1 - r.x0;
       g.fillStyle = rgba(col, .25); g.fillRect(0, -.18, w, .36); g.fillStyle = col; g.fillRect(0, -.06, w, .12);
       for (let x = 0; x <= w + .01; x += 2) { g.fillRect(x - .04, 0, .08, 14); g.beginPath(); g.arc(x, 0, .14, 0, TAU); g.fill(); }
@@ -1071,9 +1215,9 @@ const RENDER = (function make(fit) {
           else if (o.v === "hs") { at(o.x, o.y0, o.flip, o.fb); hurdleSpike(w, h); }
           else if (o.v === "hb") { at(o.x, o.y0, o.flip, o.fb); hurdleBar(w, lim(o.y0)); }
           else if (o.v === "cr") { const y = o.y0 + SIM.crushY(V.x / SIM.DX); at(o.x, y, o.flip, o.fb); crusher(w, h, lim(y)); }
-          else if (o.v === "sp" || o.v === "tw" || o.v === "bm") { at(o.x, o.y0, o.flip, o.fb); spike(o.v === "sp" ? th[3] : o.v === "tw" ? "post" : "rock", o.x1 - o.x0, o.y1 - o.y0, o.id); }
+          else if (o.v === "sp" || o.v === "tw" || o.v === "bm") { at(o.x, o.y0, o.flip, o.fb); spike(o.v === "sp" ? thAt(o.x)[3] : o.v === "tw" ? "post" : "rock", o.x1 - o.x0, o.y1 - o.y0, o.id); }
           else if (o.v === "kn") { at(o.x, (o.y0 + o.y1) / 2 + .35, o.flip, o.fb); g.beginPath(); for (let k = 0; k < 16; k++) { const a = k / 16 * TAU + tNow, rd = k % 2 ? .52 : .3; g.lineTo(Math.cos(a) * rd, Math.sin(a) * rd); } g.closePath(); ink(); }
-          else { at(o.x, o.y0, o.flip, o.fb); bar(o.v === "bar" ? th[4] : "stal", o.x1 - o.x0, 16, o.id, o.y1 - o.y0, o.flip ? 16 : Math.min(40, camY + gy / sc + 1.5 - o.y0)); }
+          else { at(o.x, o.y0, o.flip, o.fb); bar(o.v === "bar" ? thAt(o.x)[4] : "stal", o.x1 - o.x0, 16, o.id, o.y1 - o.y0, o.flip ? 16 : Math.min(40, camY + gy / sc + 1.5 - o.y0)); }
           g.restore(); break;
         }
         case "bl": {
@@ -1125,6 +1269,17 @@ const RENDER = (function make(fit) {
       for (let i = 0; i < 8; i++) for (let k = 0; k < 2; k++) { g.fillStyle = (i + k) % 2 ? "#000" : "#EDEDED"; g.fillRect(.09 + i * .226, 4.1 + k * .4, .226, .4); }
       g.strokeStyle = "#000"; g.lineWidth = .05; g.strokeRect(.09, 4.1, 1.81, .8); g.restore();
     }
+    /* Infinite Shadow's best: a faint dashed line where the best run ended, with a small tag */
+    if (V.best && V.best.x > left && V.best.x < right) {
+      const bx = devX(X(V.best.x)), by = Y(L.baseAt(V.best.x));
+      g.save(); g.setLineDash([5, 7]); g.lineWidth = 1.5; g.strokeStyle = "rgba(10,10,16,.38)";
+      g.beginPath(); g.moveTo(bx, by); g.lineTo(bx, Math.max(8, by - sc * 7)); g.stroke(); g.setLineDash([]);
+      g.font = "700 " + Math.max(9, Math.round(sc * .3)) + "px " + POPFONT; g.textAlign = "center"; g.textBaseline = "bottom";
+      const tw = g.measureText(V.best.tag).width + 10, ty = Math.max(8, by - sc * 7) - 4;
+      g.fillStyle = "rgba(255,255,255,.82)"; g.fillRect(bx - tw / 2, ty - Math.round(sc * .3) - 6, tw, Math.round(sc * .3) + 8);
+      g.fillStyle = "rgba(10,10,16,.72)"; g.fillText(V.best.tag, bx, ty);
+      g.restore();
+    }
     /* player (after a death, only the brief hit pose) */
     if (!V.dead || vw.ac - EV.die < ANIM.hit.t) {
       if (fl) { g.save(); g.translate(X(V.x), Y(2 * fbase + CH - V.y)); g.scale(sc, sc); } else { g.save(); g.translate(X(V.x), Y(V.y)); g.scale(sc, -sc); }
@@ -1137,6 +1292,13 @@ const RENDER = (function make(fit) {
       const p = fx[i]; p.life += dt; if (p.life >= p.max) { fx.splice(i, 1); continue; }
       p.vy -= p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
       const k = 1 - p.life / p.max;
+      if (p.k === 3) {
+        /* a score pop (Infinite Shadow): its number in the hazard's colour, rising a little and fading within a beat */
+        const sx = X(p.x), sy = p.flip ? Y(2 * p.fb + CH - p.y) : Y(p.y);
+        g.save(); g.globalAlpha = Math.min(1, k * 2.2); g.font = "700 " + Math.round(sc * .42) + "px " + POPFONT; g.textAlign = "center"; g.textBaseline = "middle";
+        g.lineWidth = 3; g.strokeStyle = "rgba(255,255,255,.85)"; g.strokeText(p.text, sx, sy); g.fillStyle = p.col; g.fillText(p.text, sx, sy);
+        g.restore(); continue;
+      }
       at(p.x, p.y, p.flip, p.fb);
       if (p.k === 0 && p.col === "#000") { g.rotate(p.rot * .3); const z = (p.sz * k + .01) * 1.6; g.fillStyle = p.col; g.fillRect(-z / 2, -z / 2, z, z); }
       else if (p.k === 2) { g.beginPath(); g.arc(0, 0, p.sz * (1 - k * k), 0, TAU); g.lineWidth = .12 * k + .01; g.strokeStyle = p.col; g.globalAlpha = k; g.stroke(); g.globalAlpha = 1; }
@@ -1155,7 +1317,14 @@ const RENDER = (function make(fit) {
     }
     if (V.flash > 0) { g.fillStyle = "rgba(0,0,0," + (V.flash * .12) + ")"; g.fillRect(-20, -20, W + 40, H + 40); }
   }
-  return { resize: resize, setLevel: setLevel, frame: frame, emit: emit, ring: ring, burst: burst, shake: addShake, cue: cue, COL: COL,
+  /* a number that pops near the runner (Infinite Shadow's score), in world units */
+  function pop(x, y, text, col, flip, fb) { fx.push({ x: x, y: y, vx: 0, vy: 1.6, g: 0, life: 0, max: .55, sz: 1, k: 3, text: text, col: col || "#0A0A10", rot: 0, vr: 0, flip: !!flip, fb: fb || 0 }); }
+  /* a stream grew or was trimmed: dress what it holds now (zone bases, blades, cliff faces, foliage mask, props) */
+  function extend() { if (L && L.stream) dress(L); }
+  /* build level n's world a piece at a time ahead of use (the home screen's Infinite Shadow demo); true once built */
+  function prepare(n) { const w = worldFor(n, LEVELS[n - 1].th, n * 101, true); return buildWorld(w, 1.5); }
+  return { resize: resize, setLevel: setLevel, frame: frame, emit: emit, ring: ring, burst: burst, shake: addShake, cue: cue, COL: COL, pop: pop, extend: extend, prepare: prepare,
+    setFont: function (f) { POPFONT = f; },
     /* world point -> CSS pixels on the canvas, with the camera of the last frame (flip / fb as for at()) */
     point: function (x, y, flip, fb) { return { x: X(x), y: flip ? Y(2 * fb + CH - y) : Y(y) }; },
     setHome: function (v) { if (home !== v) { home = v; if (cv) resize(); } }, get W() { return W; }, get H() { return H; }, setQuality: function (q) { quality = q; },

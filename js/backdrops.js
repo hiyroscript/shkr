@@ -199,23 +199,21 @@ const BACKDROPS = (function () {
     return canBlur;
   }
 
-  /* Render one looping strip of solid silhouettes.
-     o.gens: [[name, seed, spacing multiplier, size multiplier, min spacing in units], ...]
-     o.widthU: loop width in units, o.u: px per unit, o.hPx / o.groundPx: strip height and baseline in px
-     o.tone / o.dark / o.light: flat fills, o.mist: [r, g, b, a] fog colour baked into the base
-     o.soft: draw at half resolution (and blur once) so far layers read as out of focus
-     o.minLine: drop stroked details thinner than this (in units) */
-  function strip(o) {
+  /* The same strip as a job of small steps (one item, one set of links, the mist, the blur, the top), so The
+     Convergence can build the next world a few milliseconds a frame while a run goes on. Every step sets the drawing
+     state it needs (c, F, K, Wt, r), so jobs and whole strips can interleave. o.fast: a far layer's softness from a
+     GPU downscale and upscale instead of the canvas blur filter (that filter is the slowest part on a phone). */
+  function job(o) {
     const res = o.soft ? .5 : 1, u = o.u * res, wu = o.widthU;
     const cv = document.createElement("canvas"), W = Math.max(2, Math.round(wu * u)), HH = Math.max(2, Math.round(o.hPx * res)), gp = o.groundPx * res;
     cv.width = W; cv.height = HH;
-    c = cv.getContext("2d");
-    F = function () { c.fillStyle = o.tone; c.fill(); };
-    K = function () { c.fillStyle = o.dark; c.fill(); };
-    Wt = function () { c.fillStyle = o.light; c.fill(); };
-    c.strokeStyle = o.tone; c.lineJoin = "round"; c.lineCap = "round";
-    if (o.minLine) { const st = c.stroke; c.stroke = function () { if (c.lineWidth >= o.minLine) st.apply(c, arguments); }; }
-    let ground = false;
+    const cx = cv.getContext("2d");
+    const fF = function () { cx.fillStyle = o.tone; cx.fill(); }, fK = function () { cx.fillStyle = o.dark; cx.fill(); }, fW = function () { cx.fillStyle = o.light; cx.fill(); };
+    cx.strokeStyle = o.tone; cx.lineJoin = "round"; cx.lineCap = "round";
+    if (o.minLine) { const st = cx.stroke; cx.stroke = function () { if (cx.lineWidth >= o.minLine) st.apply(cx, arguments); }; }
+    const use = function () { c = cx; F = fF; K = fK; Wt = fW; };
+    const ops = [];
+    let ground = false, out = cv;
     for (const gen of o.gens) {
       const def = G[gen[0]]; if (!def) continue;
       const gm = gen[2] || 1, sm = gen[3] || 1, mg = gen[4] || 0;
@@ -226,56 +224,116 @@ const BACKDROPS = (function () {
       const gMin = Math.max(mg, def[1] * gm + 1.2);
       while (items.length > 1 && items[0][0] + wu - items[items.length - 1][0] < gMin) items.pop();
       const ends = [];
-      for (const it of items) for (const off of [0, -wu, wu]) {
-        r = rng(it[1]);
-        c.save();
-        c.translate((it[0] + off) * u, def[3] === "t" ? 0 : gp);
-        c.scale(u * sm, -u * sm);
-        const a = def[0]();
-        c.restore();
-        if (off === 0) ends.push({ x: it[0], sm: sm, a: a, seed: it[1] });
-      }
+      items.forEach(function (it) {
+        ops.push(function () {
+          for (const off of [0, -wu, wu]) {
+            r = rng(it[1]);
+            c.save();
+            c.translate((it[0] + off) * u, def[3] === "t" ? 0 : gp);
+            c.scale(u * sm, -u * sm);
+            const a = def[0]();
+            c.restore();
+            if (off === 0) ends.push({ x: it[0], sm: sm, a: a, seed: it[1] });
+          }
+        });
+      });
       /* links between neighbours, the last one to the first one's copy one loop on, drawn in all three copies so the
          seam stays clean */
-      if (def[4] && ends.length) for (const off of [0, -wu, wu]) {
-        c.save(); c.translate(off * u, def[3] === "t" ? 0 : gp); c.scale(u, -u);
-        for (let i = 0; i < ends.length; i++) {
-          const A = ends[i], B = i + 1 < ends.length ? ends[i + 1] : { x: ends[0].x + wu, sm: ends[0].sm, a: ends[0].a };
-          r = rng(A.seed ^ 0x5BD1E995); def[4](A, B);
+      if (def[4]) ops.push(function () {
+        if (!ends.length) return;
+        for (const off of [0, -wu, wu]) {
+          c.save(); c.translate(off * u, def[3] === "t" ? 0 : gp); c.scale(u, -u);
+          for (let i = 0; i < ends.length; i++) {
+            const A = ends[i], B = i + 1 < ends.length ? ends[i + 1] : { x: ends[0].x + wu, sm: ends[0].sm, a: ends[0].a };
+            r = rng(A.seed ^ 0x5BD1E995); def[4](A, B);
+          }
+          c.restore();
         }
-        c.restore();
-      }
+      });
     }
-    if (ground) { c.fillStyle = o.tone; c.fillRect(0, gp - 1, W, HH - gp + 1); }
-    /* mist: wash the bottom 35% of the silhouettes into fog, then fade the strip out below its baseline */
-    const m = o.mist, mc = "rgba(" + m[0] + "," + m[1] + "," + m[2] + ",", f0 = gp * .65;
-    c.globalCompositeOperation = "source-atop";
-    let gr = c.createLinearGradient(0, f0, 0, HH);
-    gr.addColorStop(0, mc + "0)"); gr.addColorStop(Math.min(.99, (gp - f0) / (HH - f0)), mc + m[3] + ")"); gr.addColorStop(1, mc + Math.min(1, m[3] + .3) + ")");
-    c.fillStyle = gr; c.fillRect(0, f0, W, HH - f0);
-    c.globalCompositeOperation = "destination-out";
-    const b0 = gp + (HH - gp) * .3;
-    gr = c.createLinearGradient(0, b0, 0, HH); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,1)");
-    c.fillStyle = gr; c.fillRect(0, b0, W, HH - b0);
-    c.globalCompositeOperation = "source-over";
-    let out = cv;
-    if (o.soft && blurOK()) {
+    ops.push(function () {
+      if (ground) { c.fillStyle = o.tone; c.fillRect(0, gp - 1, W, HH - gp + 1); }
+      /* mist: wash the bottom 35% of the silhouettes into fog, then fade the strip out below its baseline */
+      const m = o.mist, mc = "rgba(" + m[0] + "," + m[1] + "," + m[2] + ",", f0 = gp * .65;
+      c.globalCompositeOperation = "source-atop";
+      let gr = c.createLinearGradient(0, f0, 0, HH);
+      gr.addColorStop(0, mc + "0)"); gr.addColorStop(Math.min(.99, (gp - f0) / (HH - f0)), mc + m[3] + ")"); gr.addColorStop(1, mc + Math.min(1, m[3] + .3) + ")");
+      c.fillStyle = gr; c.fillRect(0, f0, W, HH - f0);
+      c.globalCompositeOperation = "destination-out";
+      const b0 = gp + (HH - gp) * .3;
+      gr = c.createLinearGradient(0, b0, 0, HH); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,1)");
+      c.fillStyle = gr; c.fillRect(0, b0, W, HH - b0);
+      c.globalCompositeOperation = "source-over";
+    });
+    if (o.soft && o.fast) ops.push(function () {
+      /* soft by scaling: down to a quarter and back, with the neighbours drawn so the loop seam stays clean */
+      const k = 4 / (1 + o.soft), w2 = Math.max(2, Math.round(W / k)), h2 = Math.max(2, Math.round(HH / k)), sm = document.createElement("canvas");
+      sm.width = w2 * 3; sm.height = h2;
+      const s2 = sm.getContext("2d"); s2.imageSmoothingQuality = "high";
+      s2.drawImage(cv, 0, 0, w2, h2); s2.drawImage(cv, w2, 0, w2, h2); s2.drawImage(cv, 2 * w2, 0, w2, h2);
+      out = document.createElement("canvas"); out.width = W; out.height = HH;
+      const tc = out.getContext("2d"); tc.imageSmoothingQuality = "high"; tc.drawImage(sm, w2, 0, w2, h2, 0, 0, W, HH);
+    });
+    else if (o.soft) ops.push(function () {
+      if (!blurOK()) return;
       /* one-time blur on the offscreen copy; draw the neighbours too so the loop seam stays clean */
       out = document.createElement("canvas"); out.width = W; out.height = HH;
       const tc = out.getContext("2d"); tc.filter = "blur(" + o.soft + "px)";
       tc.drawImage(cv, -W, 0); tc.drawImage(cv, 0, 0); tc.drawImage(cv, W, 0);
+    });
+    ops.push(function () { out.res = res; out.top = emptyTop(out); });
+    let i = 0;
+    const now = function () { return typeof performance !== "undefined" ? performance.now() : Date.now(); };
+    /* run steps for up to ms milliseconds (at least one); the finished strip, or null while there is more to do */
+    function step(ms) {
+      const end = now() + ms;
+      do { use(); ops[i++](); } while (i < ops.length && now() < end);
+      return i >= ops.length ? out : null;
     }
-    out.res = res; out.top = emptyTop(out);
-    return out;
+    return { step: step, get done() { return i >= ops.length; } };
   }
-  /* rows of pure sky above the tallest silhouette; the renderer skips them so each frame blits less */
+  /* Render one looping strip of solid silhouettes, all at once.
+     o.gens: [[name, seed, spacing multiplier, size multiplier, min spacing in units], ...]
+     o.widthU: loop width in units, o.u: px per unit, o.hPx / o.groundPx: strip height and baseline in px
+     o.tone / o.dark / o.light: flat fills, o.mist: [r, g, b, a] fog colour baked into the base
+     o.soft: draw at half resolution (and blur once) so far layers read as out of focus
+     o.minLine: drop stroked details thinner than this (in units) */
+  function strip(o) { return job(o).step(Infinity); }
+  /* rows of pure sky above the tallest silhouette; the renderer skips them so each frame blits less. Read from a copy
+     an eighth the size, scaled down on the GPU: reading back the whole strip cost most of its build (tens of ms on a
+     phone, and The Convergence builds a world every biome), and an eighth still finds the top to within 8 rows, which
+     are given back as margin */
+  let small = null;
   function emptyTop(cv) {
     try {
-      const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data, w = cv.width;
-      for (let y = 0; y < cv.height; y++) for (let x = 0; x < w; x += 2) if (d[(y * w + x) * 4 + 3] > 1) return Math.max(0, y - 2);
+      const k = 8, w = Math.max(1, Math.ceil(cv.width / k)), h = Math.max(1, Math.ceil(cv.height / k));
+      if (!small) small = document.createElement("canvas");
+      small.width = w; small.height = h;
+      const sc2 = small.getContext("2d", { willReadFrequently: true });
+      sc2.clearRect(0, 0, w, h); sc2.drawImage(cv, 0, 0, w, h);
+      const d = sc2.getImageData(0, 0, w, h).data;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 0) return Math.max(0, (y - 1) * k - 2);
     } catch (e) {}
     return 0;
   }
-  return { strip: strip, names: Object.keys(G) };
+  /* One element on its own canvas (Infinite Shadow's collision motifs: a third world's ring-sun, zeppelins or towers in
+     the sky). o.gen: a generator name, o.seed, o.u: px per unit, o.tone / o.dark / o.light. The element's base is at
+     (cv.ox, cv.oy); one that hangs from the top (anchor "t") has its top there instead. */
+  function single(o) {
+    const def = G[o.gen]; if (!def) return null;
+    const u = o.u, wu = 30, hu = 24, cv = document.createElement("canvas");
+    cv.width = Math.round(wu * u); cv.height = Math.round(hu * u);
+    c = cv.getContext("2d");
+    F = function () { c.fillStyle = o.tone; c.fill(); };
+    K = function () { c.fillStyle = o.dark; c.fill(); };
+    Wt = function () { c.fillStyle = o.light; c.fill(); };
+    c.strokeStyle = o.tone; c.lineJoin = "round"; c.lineCap = "round";
+    const top = def[3] === "t";
+    cv.ox = cv.width / 2; cv.oy = top ? 0 : cv.height;
+    r = rng(o.seed >>> 0);
+    c.save(); c.translate(cv.ox, cv.oy); c.scale(u, -u); def[0](); c.restore();
+    return cv;
+  }
+  return { strip: strip, job: job, single: single, names: Object.keys(G) };
 })();
 

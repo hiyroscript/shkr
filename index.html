@@ -27,18 +27,33 @@
       </nav>
     </header>
     <main class="mid">
-      <span class="tag" id="lvTag">level 01</span>
-      <h1 class="title" id="title"></h1>
-      <div class="stars" id="homeStars"></div>
-      <div class="play-row">
-        <button class="arrow" id="prevBtn" aria-label="Previous level" data-i18n-aria="aria.prev"></button>
-        <button class="pulse" id="startOrb" aria-label="Play" data-i18n-aria="aria.play"><i></i><b></b><u aria-hidden="true"></u></button>
-        <button class="arrow next" id="nextBtn" aria-label="Next level" data-i18n-aria="aria.next"></button>
+      <div class="cards" id="homeCards">
+        <section class="hcard" id="cardInf" role="region" aria-label="Infinite Shadow" data-i18n-aria="inf.aria.card">
+          <span class="tag" id="infTag" data-i18n="inf.tag">endless</span>
+          <h1 class="title" id="infTitle"></h1>
+          <div class="best-line" id="infBest"></div>
+          <div class="play-row">
+            <button class="pulse" id="infOrb" aria-label="Play Infinite Shadow" data-i18n-aria="inf.aria.play"><i></i><b></b><u aria-hidden="true"></u></button>
+          </div>
+          <span class="tag" id="infLbl" data-i18n="home.play">play</span>
+        </section>
+        <section class="hcard" id="cardLv" role="region" aria-label="Levels" data-i18n-aria="inf.aria.levels">
+          <span class="tag" id="lvTag">level 01</span>
+          <h1 class="title" id="title"></h1>
+          <div class="stars" id="homeStars"></div>
+          <div class="play-row">
+            <button class="arrow" id="prevBtn" aria-label="Previous level" data-i18n-aria="aria.prev"></button>
+            <button class="pulse" id="startOrb" aria-label="Play" data-i18n-aria="aria.play"><i></i><b></b><u aria-hidden="true"></u></button>
+            <button class="arrow next" id="nextBtn" aria-label="Next level" data-i18n-aria="aria.next"></button>
+          </div>
+          <span class="tag" id="startLbl">play</span>
+          <button class="chip rebirth hide" id="rebirthBtn" data-i18n="home.rebirth">rebirth level</button>
+        </section>
       </div>
-      <span class="tag" id="startLbl">play</span>
-      <button class="chip rebirth hide" id="rebirthBtn" data-i18n="home.rebirth">rebirth level</button>
+      <button class="peek up" id="peekUp" tabindex="-1" aria-hidden="true"><span aria-hidden="true">▴</span> <em data-i18n="inf.peek.up">infinite shadow</em></button>
+      <button class="peek down" id="peekDown" tabindex="-1" aria-hidden="true"><span aria-hidden="true">▾</span> <em data-i18n="inf.peek.down">levels</em></button>
     </main>
-    <footer class="bar">
+    <footer class="bar" id="homeFoot">
       <button class="chip" data-go="levels" data-i18n="home.levels">levels</button>
       <div class="rail"><div class="rail-fill" id="railFill" style="width:0%"></div></div>
       <span class="tag" id="progTag">01 / 30</span>
@@ -103,7 +118,7 @@
         <div class="set-ctl"><button class="sw" id="objSw" aria-pressed="true" aria-label="Objective tips" data-i18n-aria="settings.obj"></button></div>
       </div>
       <div class="set-row">
-        <div class="lbl"><b data-i18n="settings.reset">Reset progress</b><span data-i18n="settings.reset.body">Clears every unlock, star and try count.</span></div>
+        <div class="lbl"><b data-i18n="settings.reset">Reset progress</b><span data-i18n="settings.reset.body">Clears every unlock, star and try count, and your Infinite Shadow best.</span></div>
         <div class="set-ctl"><button class="chip danger" id="resetBtn" data-i18n="settings.reset.btn">reset</button></div>
       </div>
     </div>
@@ -123,18 +138,20 @@
 </section>
 
 <div id="hud">
-  <div class="hud-rail"><i id="hudFill"></i></div>
+  <div class="hud-rail"><i id="hudFill"></i><span class="hud-newbest" id="hudNewBest" data-i18n="inf.newbest">new best</span></div>
   <div class="hud-top">
     <div class="meta" id="hudLevel"></div>
+    <div class="hud-score" id="hudScore" aria-live="off">0</div>
     <div class="hud-right">
       <div class="meta" id="hudTry"></div>
+      <div class="meta" id="hudBest"></div>
       <button id="pauseBtn" aria-label="Pause" data-i18n-aria="aria.pause"></button>
     </div>
   </div>
 </div>
 
 <div id="msBanner">
-  <div class="ob-title" data-i18n="ob.title">Run to the end</div>
+  <div class="ob-title" id="obTitle" data-i18n="ob.title">Run to the end</div>
   <div class="ob-keys"><span class="ob-key"><b data-i18n="common.jump">jump</b> <span id="obJump"></span></span><span class="ob-key"><b data-i18n="common.roll">roll</b> <span id="obRoll"></span></span></div>
   <label class="ob-hide"><input type="checkbox" id="obHide"><i class="ob-box" aria-hidden="true"></i><span data-i18n="ob.hide">Don't show again</span></label>
 </div>
@@ -153,6 +170,7 @@
 <script src="js/levels.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/fixes.js"></script>
+<script src="js/infinite.js"></script>
 <script src="js/demo.js"></script>
 <script src="js/synth.js"></script>
 <script src="js/themes.js"></script>

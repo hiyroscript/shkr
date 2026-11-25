@@ -1774,7 +1774,96 @@ const THEMES = (function () {
     ]
   });
 
-  return { 0: home, 1: pines, 2: roof, 3: harbor, 4: attic, 5: kite, 6: dune, 7: ice, 8: zen, 9: cave, 10: iron,
+  /* ---------------- ∞ · Infinite Shadow: The Convergence, E Dorian, endless ----------------
+     The worlds have collided, so their instruments have too: a wooden flute answered by a pipe organ (Whispering
+     Pines, the Storm Lighthouse), a music box over an upright bass, an oud over big-band brass stabs, a kalimba
+     against string tremolo, the home screen's felt piano with its celesta. Which pair leads follows the biome
+     (pairs, by world family), so the instruments change with the scenery; harmony, bass and drums stay, so it is one
+     band. The lead plays the actions: on every half-beat the chart asks for one, it plays the home hook's note at that
+     moment (a chord tone on the beat), so the home melody comes back re-rhythmed by the run itself; a roll is an
+     octave lower, a hazard's special action rings a glass an octave up (js/music.js makeStream). Everything is E
+     Dorian, one key; intro and breathers lift to E Lydian, the home screen's own colour, and the breather's riser
+     carries back into the peak. Sections follow the generator's wave (phases): intro, groove (warm-up), build, peak,
+     breather, climax (the second peak), cool-down. A count-in of four sticks before the first bar. */
+  const infHook = homeHook;
+  const inf = {
+    bpm: 144, tonic: 64, scale: "dorian", swing: 0.04, level: 0.75,
+    reverb: { seconds: 2.2, damp: 0.5, level: 0.8 }, delay: { beats: 0.75, feedback: 0.28, level: 0.45 },
+    channels: {
+      /* the leads (action line) and their answers, one pair per world family */
+      flute: { synth: "flute", octave: 0, gain: .52, pan: 0.05, reverb: 0.3, delay: 0.14, role: "lead", params: { level: 0.2, cutoff: 2800, vibrato: 10, breath: 0.1, attack: 0.02 } },
+      organ: { synth: "organ", octave: -1, gain: 1.1, pan: -0.2, reverb: 0.45, role: "answer", params: { pipe: true, level: 0.1 } },
+      box: { tone: "musicbox", octave: 1, gain: .5, pan: 0.08, reverb: 0.3, delay: 0.18, role: "lead" },
+      upright: { tone: "upright", octave: -1, gain: .85, pan: -0.2, reverb: 0.2, role: "answer" },
+      oud: { tone: "oud", octave: 0, gain: .95, pan: 0.05, reverb: 0.25, delay: 0.12, role: "lead" },
+      brass: { synth: "brass", octave: 0, gain: .5, pan: -0.2, reverb: 0.25, role: "answer", params: { stab: true, level: 0.28, bright: 0.9 } },
+      kalimba: { tone: "kalimba", octave: 0, gain: .5, pan: 0.08, reverb: 0.4, delay: 0.22, role: "lead" },
+      tremolo: { synth: "strings", octave: 0, gain: 1.2, pan: -0.2, reverb: 0.4, role: "answer", params: { staccato: true, level: 0.1, cutoff: 1800 } },
+      piano: { tone: "piano", octave: 0, gain: .6, pan: 0.05, reverb: 0.35, delay: 0.12, role: "lead" },
+      celesta: { tone: "celesta", octave: 1, gain: .26, pan: -0.3, reverb: 0.45, delay: 0.3, role: "answer" },
+      /* the sections' counter-lines are written for "ans" and played on the pair's answer instrument */
+      ans: { tone: "celesta", octave: 0, gain: .26, pan: -0.3, reverb: 0.45, role: "answer" },
+      cue: { tone: "glass", octave: 1, gain: .45, pan: 0.15, reverb: 0.5, delay: 0.3, role: "lead" },
+      /* the band that stays */
+      pad: { synth: "pad", octave: -1, gain: 1.2, reverb: 0.5, pump: true, role: "harmony", params: { level: 0.07, cutoff: 1500, attack: 0.4, release: 0.8, width: 0.9 } },
+      harp: { tone: "harp", octave: -1, gain: .6, pan: 0.25, reverb: 0.45, ring: true, role: "harmony" },
+      bass: { synth: "bass", octave: -2, gain: .32, role: "bass", params: { wave: "triangle", cutoff: 480, level: 0.36, decay: 0.25, sustain: 0.6, sub: 1 } },
+      kick: { drum: "kick", opts: { punch: 0.7 }, gain: .16, duck: 0.25, role: "drums" },
+      snare: { drum: "snare", gain: .09, reverb: 0.3, role: "drums" },
+      clap: { drum: "clap", gain: .08, reverb: 0.3, role: "drums" },
+      hat: { drum: "hat", gain: .04, pan: 0.3, role: "drums" },
+      shaker: { drum: "shaker", gain: .1, pan: -0.35, role: "drums" },
+      tomLo: { drum: "tom", opts: { tone: 0.65 }, gain: .12, pan: -0.25, reverb: 0.4, role: "drums" },
+      tomHi: { drum: "tom", opts: { tone: 1 }, gain: .09, pan: 0.25, reverb: 0.4, role: "drums" },
+      tick: { drum: "tick", gain: .16, pan: 0.1, role: "drums" },
+      crash: CRASH, riser: RISER
+    },
+    parts: {
+      hook: { melody: infHook },
+      introAns: { melody: ">5:4 6:2 5:2 >3:6 2:2 | >2:4 4:2 5:2 >6:8" },
+      grooveAns: { melody: ".:8 >5:2 3:2 2:4 | .:8 >4:2 5:2 6:4 | .:8 >5:2 3:2 1:4 | .:8 >2:2 3:2 5,:4" },
+      buildAns: { melody: ">1:4 3:4 5:4 7:4 | >8:4 7:4 5:4 3:4 | >4:4 6:4 8:4 6:4 | >5:4 7:4 9:4 7:4" },
+      peakAns: { melody: ">8:8 7:8 | >6:8 5:8 | >4:8 5:4 6:4 | >5:16" },
+      climaxAns: { melody: ">10:4 9:4 >8:8 | >9:4 8:4 >7:8 | >8:4 7:4 >6:4 5:4 | >5:8 7:8" },
+      restAns: { melody: ">5:4 6:2 5:2 >3:8" },
+      coolAns: { melody: ">5:8 3:8 | >2:8 1:8" },
+      pads: { chord: 16 },
+      arp: { line: "R:2 5:2 8:2 10:2 12:2 10:2 8:2 5:2" },
+      arpSlow: { line: "R:4 5:4 8:4 10:4" },
+      bassA: { line: ">R:6 R:2 5,:4 8,:4" },
+      bassB: { line: ">R:2 R:2 8,:2 R:2 >R:2 R:2 8,:2 5,:2" },
+      bassHold: { line: ">R:16" },
+      b0: { beat: { shaker: "o.x.o.x.o.x.o.x." } },
+      b1: { beat: { kick: "X.......X.......", hat: "..x...x...x...x.", shaker: "o.x.o.x.o.x.o.x." } },
+      b2: { beat: { kick: "X.......X..x....", snare: "....X.......X...", hat: "x.x.x.x.x.x.x.x." } },
+      b3: { beat: { kick: "X..x....X..x....", snare: "....X.......X...", clap: "....X.......X...", hat: "xoxoxoxoxoxoxoxo", shaker: "..x...x...x...x." } },
+      b4: { beat: { kick: "X...X...X...X...", snare: "....X.......X...", clap: "....X.......X...", hat: "xoxoxoxoxoxoxoxo", tomLo: "..............x.", shaker: "x.x.x.x.x.x.x.x." } },
+      bRest: { beat: { tick: "x.......x......." } },
+      bCool: { beat: { kick: "X.......x.......", hat: "....x.......x..." } },
+      fill: { beat: { kick: "X.......X.......", snare: "........x.x.xxxx", tomHi: "............xx..", tomLo: "..............XX" } },
+      count: { beat: { tick: "X...x...x...x..." } }
+    },
+    sections: {
+      intro: { bars: 2, chords: "1 4", play: { pad: "pads", harp: "arpSlow", ans: { part: "introAns", vel: 0.75 }, beat: "b0" } },
+      groove: { bars: 4, chords: "1 4 1 7", play: { pad: "pads", harp: "arpSlow", bass: "bassA", ans: [null, "grooveAns"], beat: "b1" } },
+      build: { bars: 4, chords: "3 4 7 4", play: { pad: "pads", harp: "arp", bass: "bassA", ans: [{ part: "buildAns", vel: 0.7 }, null], beat: "b2" } },
+      peak: { bars: 4, chords: "1 7 4 1", play: { pad: "pads", harp: "arp", bass: "bassB", ans: "peakAns", beat: "b3" } },
+      rest: { bars: 1, chords: "2", play: { pad: "pads", harp: "arpSlow", bass: "bassHold", ans: "restAns", beat: "bRest" } },
+      climax: { bars: 4, chords: "1 7 3 4", play: { pad: "pads", harp: "arp", bass: "bassB", ans: "climaxAns", beat: "b4" } },
+      cool: { bars: 2, chords: "4 1", play: { pad: "pads", harp: "arpSlow", bass: "bassHold", ans: "coolAns", beat: "bCool" } },
+      count: { bars: 1, chords: "1", play: { beat: "count" } }
+    },
+    /* the stream (js/music.js makeStream): which section plays each phase of the wave, the modes, the pairs */
+    phases: { intro: "intro", warm: "groove", build: "build", peak: "peak", rest: "rest", peak2: "climax", cool: "cool" },
+    modes: { intro: "lydian", rest: "lydian" },
+    crash: { peak: 1, peak2: 1 },
+    fill: { peak: 1, peak2: 1 },
+    pairs: { wood: ["flute", "organ"], plain: ["flute", "organ"], sea: ["box", "upright"], ice: ["box", "upright"], sand: ["oud", "brass"], fire: ["oud", "brass"],
+      iron: ["kalimba", "tremolo"], city: ["kalimba", "tremolo"], hall: ["piano", "celesta"], cave: ["piano", "celesta"], sky: ["piano", "celesta"] },
+    hook: "hook", cue: "cue", countIn: "count"
+  };
+
+  return { inf: inf, 0: home, 1: pines, 2: roof, 3: harbor, 4: attic, 5: kite, 6: dune, 7: ice, 8: zen, 9: cave, 10: iron,
     11: reef, 12: storm, 13: alp, 14: carn, 15: rift, 16: garden, 17: steppe,
     18: ship, 19: geyser, 20: ash, 21: palace, 22: library, 23: cathedral, 24: steel,
     25: tesla, 26: rail, 27: bazaar, 28: armada, 29: citadel, 30: last };

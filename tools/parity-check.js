@@ -26,6 +26,10 @@
         get a seeded run (the solution with a few random wrong inputs) that
         is compared every tick, so dying paths are covered too
       - DEMO_SOL is replayed on the home demo level in both
+      - Infinite Shadow (js/infinite.js): the first 64 bars of a fixed seed are
+        generated in both; every chunk's chart and template, the action chart,
+        the solver's path and the compiled stream must be identical, and the
+        source's path is replayed on both streams, comparing every tick
 
    Prints a table and exits 1 on any mismatch, naming the first differing field.
    ========================================================================== */
@@ -33,7 +37,8 @@
 const fs = require("fs"), path = require("path"), vm = require("vm"), crypto = require("crypto");
 
 const DEV_FILES = ["js/dev.js", "js/dev-config.js"];
-const SIM_FILES = ["js/sim.js", "js/levels.js", "js/fixes.js", "js/demo.js"];
+const SIM_FILES = ["js/sim.js", "js/levels.js", "js/fixes.js", "js/infinite.js", "js/demo.js"];
+const INF_SEED = 0x5EED0001, INF_BARS = 64;
 const META_DEV = '<meta name="shkr-build" content="dev">';
 const META_RELEASE = /<meta name="shkr-build" content="release · [0-9A-Za-z._-]+ · [^"]+">/g;
 const SOLVE_MARGIN = 0, SOLVE_BUDGET = 6e6, SOLVE_DEC = 6;   /* SIM.solve's own defaults */
@@ -145,7 +150,9 @@ function context(root, label) {
     "level: function (n) { var FIX = typeof FIXES !== 'undefined' ? FIXES : {}; var d = LEVELS[n - 1]; d.fix = FIX[n] || []; return SIM.compile(d); }," +
     "home: function () { return SIM.compile(HOME); }," +
     "demo: function () { return SIM.compile(Object.assign({}, HOME, { form: new Array(HOME.loops + 1).join(HOME.form + ' ') })); }," +
-    "demoPath: function () { var r = DEMO_SOL.rle, p = []; for (var i = 0; i < r.length; i += 2) for (var k = 0; k < r[i + 1]; k++) p.push(r[i]); return { path: p, DEC: DEMO_SOL.DEC }; }" +
+    "demoPath: function () { var r = DEMO_SOL.rle, p = []; for (var i = 0; i < r.length; i += 2) for (var k = 0; k < r[i + 1]; k++) p.push(r[i]); return { path: p, DEC: DEMO_SOL.DEC }; }," +
+    /* Infinite Shadow: a seed's first bars, as the game makes them */
+    "inf: function (seed, bars) { var g = INF.create(seed); g.fill(bars); return g; }, infDEC: INF.DEC" +
     "})", ctx, { filename: label + "/parity-api" });
 }
 /* step both contexts in lockstep, comparing the whole state (and its events) after every tick */
@@ -211,12 +218,40 @@ function gameplayParity() {
     if (stable(dp) !== stable(dr)) fail("DEMO_SOL differs: " + diff(dp, dr, "DEMO_SOL"));
     check("demo", "home demo run", S.demo(), R.demo(), dp.path, dp.DEC, "DEMO_SOL, " + dp.path.length + " inputs");
   } catch (e) { fail("home/demo threw: " + e.message); }
+  try { infParity(S, R, rows); } catch (e) { fail("Infinite Shadow threw: " + e.message); }
 
   const w = rows[0].map(function (_, c) { return Math.max.apply(null, rows.map(function (r) { return r[c].length; })); });
   rows.forEach(function (r, i) {
     console.log("  " + r.map(function (c, j) { return c + " ".repeat(w[j] - c.length); }).join("  "));
     if (i === 0) console.log("  " + w.map(function (x) { return "-".repeat(x); }).join("  "));
   });
+}
+
+/* the first INF_BARS bars of one seed in both trees */
+function infParity(S, R, rows) {
+  const gs = S.inf(INF_SEED, INF_BARS), gr = R.inf(INF_SEED, INF_BARS), row = ["inf", "seed 0x" + INF_SEED.toString(16) + ", " + INF_BARS + " bars", "", "", "", "", ""];
+  const ticks = INF_BARS * 4 * S.SIM.TPB, DEC = S.infDEC;
+  const pick = function (g) {
+    const ch = g.chunks.filter(function (c) { return c.bar < INF_BARS; });
+    return { chunks: ch.map(function (c) { return { bar: c.bar, bars: c.bars, T: c.T, H: c.H, tpl: c.tpl, haz: c.haz, combo: c.combo, ph: c.ph, acts: c.acts }; }),
+      chart: Array.from(g.L.chart.slice(0, INF_BARS * 8)), path: g.path.slice(0, Math.ceil(ticks / S.infDEC)), biomes: g.biomes.slice(0, 4) };
+  };
+  const a = pick(gs), b = pick(gr);
+  if (stable(a) !== stable(b)) { row[2] = "MISMATCH"; fail("inf generated bars differ: " + diff(a, b, "inf")); }
+  else {
+    /* the streams themselves: what the sim plays (functions compared by their source, like the levels) */
+    const ls = { segs: gs.L.segs, objs: gs.L.objs, zones: gs.L.zones, rails: gs.L.rails, coils: gs.L.coils }, lr = { segs: gr.L.segs, objs: gr.L.objs, zones: gr.L.zones, rails: gr.L.rails, coils: gr.L.coils };
+    const hs = sha(stable(ls)), hr = sha(stable(lr));
+    row[2] = hs === hr ? "ok " + hs.slice(0, 8) : "MISMATCH";
+    if (hs !== hr) fail("inf compiled stream differs: " + diff(ls, lr, "L"));
+  }
+  /* the source's path, replayed on both streams up to the end of bar INF_BARS, compared every tick */
+  const ls2 = lockstep(S, gs.L, R, gr.L, function (t) { return gs.path[Math.floor(t / DEC)] || 0; }, ticks);
+  if (ls2.ok) { row[3] = "ok " + endName(ls2.s); row[4] = "ok @" + ls2.s.tick; row[5] = String(ls2.s.tick); }
+  else { row[3] = row[4] = "MISMATCH"; fail("inf replay differs at tick " + ls2.tick + ": " + ls2.field); }
+  if (ls2.ok && ls2.s.dead) fail("inf: the solver's path dies at tick " + ls2.s.tick + " (" + ls2.s.dead + ")");
+  row[6] = "solver path, " + Math.ceil(ticks / DEC) + " inputs";
+  rows.push(row);
 }
 
 const t0 = Date.now();

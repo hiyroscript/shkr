@@ -123,26 +123,11 @@ for (let n = (lo > 1 ? 1 : lo); n <= hi; n++) {
     if (!s12.ok && n <= 20) err(n, "dec12", "unsolved with DEC 12 (best x " + s12.best.toFixed(1) + ", " + s12.cause + ")");
   }
   /* view: inputs only for things on screen a beat ahead. Each thing is an interval; an input is for something
-     not yet passed (it can be for a key the runner is above right now), so the distance is to the nearest such one */
-  const things = [];
-  L.objs.forEach(function (o) { things.push([o.x0, o.x1]); });   /* a rolling blade at the place where it meets the runner */
-  L.segs.forEach(function (s) { things.push([s.x0, s.x0], [s.x1, s.x1]); });
-  L.zones.forEach(function (z) { things.push([z.x0, z.x1]); }); L.rails.forEach(function (r) { things.push([r.x0, r.x1]); });
-  L.coils.forEach(function (c) { things.push([c.x0, c.x1]); });
-  let worst = 0;
-  M.acts.forEach(function (a) {
-    const xa = a.t * SIM.DX; let nx = Infinity;
-    for (const t of things) if (t[1] >= xa - 0.5) nx = Math.min(nx, Math.max(0, t[0] - xa));
-    if (nx !== Infinity) worst = Math.max(worst, nx);
-  });
-  if (worst > VIEW - 4) err(n, "view", "an input comes " + worst.toFixed(1) + " units before the next thing it could be for (max " + (VIEW - 4) + ")");
-  L.objs.forEach(function (o) {
-    if (o.v !== "rb") return;
-    /* the blade enters the view when its x is VIEW ahead of the runner: x_runner = (cx + k·cx... ) solved for the runner's x */
-    const k = o.vx / SIM.DX, cx = o.x, seenAt = (cx * (1 + k) - VIEW) / (1 + k);
-    const before = M.acts.filter(function (a) { return a.t * SIM.DX < cx; }).pop();
-    if (before && before.t * SIM.DX - seenAt < 4) err(n, "view", "rolling blade at x " + cx.toFixed(0) + " is on screen only " + ((before.t * SIM.DX - seenAt) / 4).toFixed(2) + " beats before its jump");
-  });
+     not yet passed (it can be for a key the runner is above right now), so the distance is to the nearest such one.
+     INF.rules.view (js/infinite.js), the same rule Infinite Shadow checks every chunk against */
+  const vw = api.INF.rules.view(L, M.acts, false);
+  if (vw.worst > VIEW - 4) err(n, "view", "an input comes " + vw.worst.toFixed(1) + " units before the next thing it could be for (max " + (VIEW - 4) + ")");
+  vw.late.forEach(function (b) { err(n, "view", "rolling blade at x " + b.x.toFixed(0) + " is on screen only " + b.beats.toFixed(2) + " beats before its jump"); });
   /* intro bars */
   const hz = DF.hazards(L);
   hz.forEach(function (h) { if (h.x0 < 32) err(n, "intro", "hazard " + h.k + " in the first 2 bars (x " + h.x0.toFixed(1) + ")"); });

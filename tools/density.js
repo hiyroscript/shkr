@@ -41,49 +41,25 @@
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
 
-const HAZ_OVERLAY = "BOKGRCEenmxXS12F";
-/* what changes the ground's height or breaks it, and what hangs overhead */
-const TERRAIN = "_uU~+%#HvVY", TILES = "F12X", EDGES = "DdAaTtZz", OVER = "-'*=|&";
-const FLAT_MAX = 3;
-function band(n) {
-  return n <= 9 ? { lo: 2.5, hi: 3.5, gap: 3, breather: 0 } : n <= 20 ? { lo: 3.5, hi: 5.0, gap: 2, breather: 0 } : { lo: 5.0, hi: 7.0, gap: 1.5, breather: 4 };
-}
+/* the band, the busy cells and the measures themselves live in js/infinite.js (INF.rules), shared with Infinite
+   Shadow's generator, which keeps its runs inside the same band */
+const RULES = load(path.resolve(__dirname, "..")).INF.rules, FLAT_MAX = 3;
+const band = RULES.band;
 
 function measure(SIM, def) {
   const ex = SIM.expand(def), T = ex.T, H = ex.H, n = T.length, bars = n / 8;
-  let obst = 0;
-  for (let i = 0; i < n; i++) if (T[i] !== ".") obst++;
-  const busy = [];
-  for (let i = 16; i < n; i++) if (T[i] !== "." || HAZ_OVERLAY.indexOf(H[i]) >= 0) busy.push(i);
-  const gaps = [], at = [];
-  for (let i = 1; i < busy.length; i++) { gaps.push((busy[i] - busy[i - 1]) / 2); at.push(busy[i - 1]); }
+  const st = RULES.chartStats(T, H, 16), obst = st.obst, gaps = st.gaps, at = st.at;
   const sorted = gaps.slice().sort(function (a, b) { return a - b; });
   const desc = gaps.slice().sort(function (a, b) { return b - a; });
   let empty = 0;
   for (let b = 2; b < bars; b++) {
     let any = false;
-    for (let i = b * 8; i < b * 8 + 8; i++) if (T[i] !== "." || HAZ_OVERLAY.indexOf(H[i]) >= 0) { any = true; break; }
+    for (let i = b * 8; i < b * 8 + 8; i++) if (RULES.busy(T, H, i)) { any = true; break; }
     if (!any) empty++;
   }
-  /* flat: longest run of cells with no height change after the intro */
-  let flat = 0, run = 0;
-  for (let i = 16; i < n; i++) {
-    if (TERRAIN.indexOf(T[i]) >= 0 || TILES.indexOf(H[i]) >= 0 || EDGES.indexOf(H[i]) >= 0) run = 0; else run++;
-    flat = Math.max(flat, run);
-  }
-  /* overhead: busy cells under a bar, wall, block, tunnel, crusher, hurdle bar (the cell after its spike), Thermal block or Rail */
-  let rail = false, over = 0;
-  const under = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    if (H[i] === "L") rail = true;
-    if (rail || OVER.indexOf(T[i]) >= 0 || H[i] === "n") under[i] = 1;
-    if (T[i] === "&" && i + 2 < n) under[i + 2] = 1;
-    if (H[i] === "l") rail = false;
-  }
-  busy.forEach(function (i) { if (under[i]) over++; });
   const where = function (g) { const i = gaps.indexOf(g); return i < 0 ? "" : " (from bar " + Math.floor(at[i] / 8) + " char " + at[i] % 8 + ")"; };
   const r = { n: def.n, name: def.name, bars: bars, perBar: obst / bars, median: sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : 0,
-    longest: desc[0] || 0, second: desc[1] || 0, empty: empty / (bars - 2), flat: flat / 8, overhead: busy.length ? over / busy.length : 0 };
+    longest: desc[0] || 0, second: desc[1] || 0, empty: empty / (bars - 2), flat: st.flat / 8, overhead: st.over };
   const b = band(def.n), fails = [];
   if (r.perBar < b.lo - 1e-9 || r.perBar > b.hi + 1e-9) fails.push("obstacle chars per bar " + r.perBar.toFixed(2) + " outside " + b.lo + "-" + b.hi);
   if (b.breather) {
@@ -97,8 +73,8 @@ function measure(SIM, def) {
 
 function load(root) {
   const ctx = vm.createContext({});
-  ["js/sim.js", "js/levels.js"].forEach(function (f) { new vm.Script(fs.readFileSync(path.join(root, f), "utf8"), { filename: f }).runInContext(ctx); });
-  return vm.runInContext("({ SIM: SIM, LEVELS: LEVELS })", ctx);
+  ["js/sim.js", "js/levels.js", "js/infinite.js"].forEach(function (f) { new vm.Script(fs.readFileSync(path.join(root, f), "utf8"), { filename: f }).runInContext(ctx); });
+  return vm.runInContext("({ SIM: SIM, LEVELS: LEVELS, INF: INF })", ctx);
 }
 
 module.exports = { measure: measure, band: band, load: load, FLAT_MAX: FLAT_MAX };

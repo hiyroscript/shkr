@@ -66,7 +66,6 @@
 "use strict";
 const fs = require("fs"), path = require("path"), vm = require("vm");
 
-const W = { a: 0.2, b: 0.15, c: 0.3, d: 0.5, e: 0.1 };
 const R = 1.10, TOL = 0.015;
 /* every level must also be RMIN to RMAX times the level before it */
 const RMIN = 1.08, RMAX = 1.12;
@@ -77,17 +76,14 @@ const SLACK_MAX = 0.3, SLACK_STEP = 0.02;
    own solve at its fairness margin needed, so a long level is not called tight just because it is long. It depends
    only on the level, so D is reproducible; a margin the solver cannot beat within it counts as too tight */
 const SLACK_BUDGET = 1.5e6;
-const FILES = ["js/sim.js", "js/levels.js", "js/fixes.js"];
-/* hazard kind of every compiled thing that belongs to a hazard (HAZ[].k) */
-const KIND = { bl: "bl", ha: "ha", ke: "ke", ga: "ke", ri: "ri", co: "co", ey: "ey", em: "ey", F: "F", X: "X", "1": "1", "2": "1" };
-const ZONES = { D: 1, A: 1, T: 1, Z: 1, L: 1 };
+const FILES = ["js/sim.js", "js/levels.js", "js/fixes.js", "js/infinite.js"];
 
 /* ---------------------------------------------------------------- loading */
 /* the same way tools/parity-check.js does it: classic scripts in one vm context */
 function load(root) {
   const ctx = vm.createContext({ console: { log: function () {}, warn: function () {}, error: function () {} } });
   FILES.forEach(function (f) { new vm.Script(fs.readFileSync(path.join(root, f), "utf8"), { filename: f }).runInContext(ctx); });
-  return vm.runInContext("({ SIM: SIM, LEVELS: LEVELS, HAZ: HAZ, HOME: HOME," +
+  return vm.runInContext("({ SIM: SIM, LEVELS: LEVELS, HAZ: HAZ, HOME: HOME, INF: INF," +
     "level: function (n) { var FIX = typeof FIXES !== 'undefined' ? FIXES : {}; var d = LEVELS[n - 1]; d.fix = FIX[n] || []; return SIM.compile(d); } })", ctx);
 }
 
@@ -146,50 +142,16 @@ function simplify(api, L, pathArr, DEC, m) {
 }
 function pct(sorted, p) { if (!sorted.length) return Infinity; return sorted[Math.min(sorted.length - 1, Math.floor(p * (sorted.length - 1)))]; }
 
+/* hazards, mech, combos and D itself are INF.rules (js/infinite.js), shared with Infinite Shadow, whose generator
+   aims each minute of a run at D of a level: one definition, so the two can never disagree */
+const RULES = load(path.resolve(__dirname, "..")).INF.rules, W = RULES.W;
 /* every hazard instance as an interval [x0, x1] in world units, with its kind */
-function hazards(L) {
-  const out = [], byId = {};
-  L.objs.forEach(function (o) { byId[o.id] = o; });
-  L.objs.forEach(function (o) {
-    const k = KIND[o.k]; if (!k) return;
-    if (o.k === "ga") { const key = byId[o.key]; out.push({ k: k, x0: key ? key.cx : o.x0, x1: o.x1 }); }
-    else if (o.k === "em") { const eye = byId[o.eye]; out.push({ k: k, x0: eye ? eye.x : o.x0, x1: o.x1 }); }
-    else if (o.k !== "ke" && o.k !== "ey") out.push({ k: k, x0: o.x0, x1: o.x1 });
-  });
-  L.segs.forEach(function (s) { if (s.kind && KIND[s.kind]) out.push({ k: KIND[s.kind], x0: s.x0, x1: s.x1 }); });
-  L.coils.forEach(function (c) { out.push({ k: "S", x0: c.x0, x1: c.x1 }); });
-  L.rails.forEach(function (r) { out.push({ k: "L", x0: r.x0, x1: r.x1, zone: true }); });
-  L.zones.forEach(function (z) { out.push({ k: z.k, x0: z.x0, x1: z.x1, zone: true }); });
-  return out.sort(function (a, b) { return a.x0 - b.x0; });
-}
+function hazards(L) { return RULES.hazards(L); }
 function kindsUsed(L) { const s = {}; hazards(L).forEach(function (h) { s[h.k] = 1; }); return Object.keys(s); }
-
-function mech(L, hz) {
-  const bars = L.bars; if (bars < 2) return 0;
-  let sum = 0;
-  for (let b = 0; b + 2 <= bars; b++) {
-    const w0 = b * 16, w1 = w0 + 32, set = {};
-    for (const h of hz) if (h.x1 > w0 && h.x0 < w1) set[h.k] = 1;
-    sum += Object.keys(set).length;
-  }
-  return sum / (bars - 1);
-}
+/* mean number of distinct hazards in each 2-bar window */
+function mech(L, hz) { return RULES.mech(hz, 0, L.bars); }
 /* combo places: pairs of different hazards within 2 beats (8 units), grouped into 2-beat places */
-function combos(L, hz) {
-  const locs = [];
-  for (let i = 0; i < hz.length; i++) for (let j = i + 1; j < hz.length; j++) {
-    const a = hz[i], b = hz[j];
-    if (b.x0 > a.x1 + 8 && !a.zone) break;
-    if (a.k === b.k) continue;
-    const gap = Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1);
-    if (gap > 8) continue;
-    locs.push(gap <= 0 ? Math.max(a.x0, b.x0) : (Math.min(a.x1, b.x1) + Math.max(a.x0, b.x0)) / 2);
-  }
-  locs.sort(function (a, b) { return a - b; });
-  const places = [];
-  for (const x of locs) if (!places.length || x - places[places.length - 1] > 8) places.push(x);
-  return places;
-}
+function combos(L, hz) { return RULES.combos(hz); }
 
 /* largest margin on the 0..0.3 grid that still solves (bisection; solvability is monotone in m in practice) */
 function slackOf(api, L, budget, known) {
@@ -207,10 +169,7 @@ function slackOf(api, L, budget, known) {
   return { slack: +(lo * SLACK_STEP).toFixed(2), tried: cache };
 }
 
-function scoreD(t) {
-  return t.aps * (1 + W.a * t.mech) * (1 + W.b * t.combo / 10) * (1 + W.c * (SLACK_MAX - t.slack) / SLACK_MAX) *
-    (1 - W.d * t.rest) * Math.pow(0.25 / Math.max(t.gap10, 0.12), W.e);
-}
+function scoreD(t) { return RULES.scoreD(t); }
 
 /* everything about one level. opts: { budget, margin (path to measure on), sol (a solve result to reuse) } */
 function measure(api, n, opts) {
