@@ -474,11 +474,21 @@ const MUSIC = (function () {
       if (t0 + (wcyc * song.cycle + e.t) * spb > now + ahead) break;
       wi++;
       if (sp && sp.tone) for (const n of e.ms || [e.m]) cache.bank.tone(sp.tone, n);
+      else if (sp && sp.drum) cache.bank.drum(sp.drum, sp.opts || {});
     }
   }
   /* a stream's warming, for the game to call once a frame is drawn with what is left of it: the tones of the next 8
      seconds (each world brings a new pair of instruments), as many as fit in `ms` */
   function warm(ms) { if (song && song.stream && ms > 0) warmUntil(performance.now(), ms, 8); }
+  /* the layers' drums, made ahead with what the home screen's frames leave, one at a time (a drum is never split), so
+     the first level of a session doesn't make them as it starts; they stay for every song after */
+  let layerDrums = null;
+  function warmLayers(ms) {
+    if (!ctx || !cache || offline) return;
+    if (!layerDrums) layerDrums = Object.keys(LAYER).filter(function (k) { return LAYER[k].drum; });
+    const w0 = performance.now();
+    while (layerDrums.length && performance.now() - w0 < ms) { const sp = LAYER[layerDrums.shift()]; cache.bank.drum(sp.drum, sp.opts || {}); }
+  }
   function play(e, t) { stats.played++; if (e.y === "f") fxAt(e, t); else themeNote(e, t); }
   /* the bus's own automation (the remix's low-pass and drop-out). `at` is when the event is due; given `now` (a late
      event, or the state a song starts in), it is applied from then on, where it would be by that time */
@@ -511,10 +521,12 @@ const MUSIC = (function () {
     bank.reverb(RV.seconds || 2.4, RV.damp === undefined ? .5 : RV.damp); use("reverb:" + (RV.seconds || 2.4) + ":" + (RV.damp === undefined ? .5 : RV.damp)); bank.noise(); use("noise");
     for (const e of S.ev) {
       const sp = T.channels[e.c]; if (!sp) continue;
-      if (sp.drum) { bank.drum(sp.drum, sp.opts || {}); use("drum:" + sp.drum + ":" + JSON.stringify(sp.opts || {})); }
-      else if (sp.tone) for (const n of e.ms || [e.m]) { const lb = (S.loop ? e.b % S.cycle : e.b) - (S.loop ? (from || 0) % S.cycle : from || 0); if (lb >= 0 && lb < 12) bank.tone(sp.tone, n); use("tone:" + sp.tone + ":" + Math.round(n)); }
+      const lb = (S.loop ? e.b % S.cycle : e.b) - (S.loop ? (from || 0) % S.cycle : from || 0), soon = lb >= 0 && lb < 12;
+      /* the theme's drums all now; a layer's (channels "~...") only for the first bars, the rest warm ahead (warmUntil) */
+      if (sp.drum) { if (soon || e.c[0] !== "~") bank.drum(sp.drum, sp.opts || {}); use("drum:" + sp.drum + ":" + JSON.stringify(sp.opts || {})); }
+      else if (sp.tone) for (const n of e.ms || [e.m]) { if (soon) bank.tone(sp.tone, n); use("tone:" + sp.tone + ":" + Math.round(n)); }
     }
-    if (S.stream) for (const k in T.channels) { const sp = T.channels[k]; if (sp.drum) { bank.drum(sp.drum, sp.opts || {}); use("drum:" + sp.drum + ":" + JSON.stringify(sp.opts || {})); } }
+    if (S.stream) for (const k in T.channels) { const sp = T.channels[k]; if (sp.drum && k[0] !== "~") { bank.drum(sp.drum, sp.opts || {}); use("drum:" + sp.drum + ":" + JSON.stringify(sp.opts || {})); } }
     for (const k of Array.from(bank.cache.keys())) if (!keep[k] && k.indexOf("drum:") !== 0) bank.cache.delete(k);
   }
   function start(S, fromBeat) {
@@ -666,7 +678,7 @@ const MUSIC = (function () {
     init: init, makeSong: makeSong, makeStream: makeStream, extend: extend, start: start, stop: stop, beat: beat, schedule: schedule, renderStats: renderStats, sfx: sfx,
     get ctx() { return ctx; }, get song() { return song; }, get t0() { return t0; }, get stats() { return stats; },
     setVol: function (v) { vol = v; if (volG) volG.gain.setTargetAtTime(v, ctx.currentTime, .03); },
-    resume: resume, suspend: suspend, warm: warm,
+    resume: resume, suspend: suspend, warm: warm, warmLayers: warmLayers,
     /* for tools/music-check.js and the developer screen only */
     _t: { themeOf: themeOf, TPQ: TPQ, PROC: PROC }
   };
