@@ -273,6 +273,8 @@ const BACKDROPS = (function () {
       s2.drawImage(cv, 0, 0, w2, h2); s2.drawImage(cv, w2, 0, w2, h2); s2.drawImage(cv, 2 * w2, 0, w2, h2);
       out = document.createElement("canvas"); out.width = W; out.height = HH;
       const tc = out.getContext("2d"); tc.imageSmoothingQuality = "high"; tc.drawImage(sm, w2, 0, w2, h2, 0, 0, W, HH);
+      /* the sharp copy and the small one are done with: their memory goes back now (iOS holds it until collected) */
+      sm.width = sm.height = 0; cv.width = cv.height = 0;
     });
     else if (o.soft) ops.push(function () {
       if (!blurOK()) return;
@@ -280,6 +282,7 @@ const BACKDROPS = (function () {
       out = document.createElement("canvas"); out.width = W; out.height = HH;
       const tc = out.getContext("2d"); tc.filter = "blur(" + o.soft + "px)";
       tc.drawImage(cv, -W, 0); tc.drawImage(cv, 0, 0); tc.drawImage(cv, W, 0);
+      cv.width = cv.height = 0;
     });
     ops.push(function () { out.res = res; out.top = emptyTop(out); });
     let i = 0;
