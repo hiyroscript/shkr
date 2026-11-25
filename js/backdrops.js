@@ -208,6 +208,9 @@ const BACKDROPS = (function () {
     const cv = document.createElement("canvas"), W = Math.max(2, Math.round(wu * u)), HH = Math.max(2, Math.round(o.hPx * res)), gp = o.groundPx * res;
     cv.width = W; cv.height = HH;
     const cx = cv.getContext("2d");
+    /* a browser can refuse a canvas (iOS Safari caps the memory of all canvases on a page): then an empty strip, never
+       an error, so the frame that asked for it still draws everything else */
+    if (!cx) return empty(res);
     const fF = function () { cx.fillStyle = o.tone; cx.fill(); }, fK = function () { cx.fillStyle = o.dark; cx.fill(); }, fW = function () { cx.fillStyle = o.light; cx.fill(); };
     cx.strokeStyle = o.tone; cx.lineJoin = "round"; cx.lineCap = "round";
     if (o.minLine) { const st = cx.stroke; cx.stroke = function () { if (cx.lineWidth >= o.minLine) st.apply(cx, arguments); }; }
@@ -269,10 +272,12 @@ const BACKDROPS = (function () {
       /* soft by scaling: down to a quarter and back, with the neighbours drawn so the loop seam stays clean */
       const k = 4 / (1 + o.soft), w2 = Math.max(2, Math.round(W / k)), h2 = Math.max(2, Math.round(HH / k)), sm = document.createElement("canvas");
       sm.width = w2 * 3; sm.height = h2;
-      const s2 = sm.getContext("2d"); s2.imageSmoothingQuality = "high";
+      const s2 = sm.getContext("2d"); if (!s2) { sm.width = sm.height = 0; return; }
+      s2.imageSmoothingQuality = "high";
       s2.drawImage(cv, 0, 0, w2, h2); s2.drawImage(cv, w2, 0, w2, h2); s2.drawImage(cv, 2 * w2, 0, w2, h2);
       out = document.createElement("canvas"); out.width = W; out.height = HH;
-      const tc = out.getContext("2d"); tc.imageSmoothingQuality = "high"; tc.drawImage(sm, w2, 0, w2, h2, 0, 0, W, HH);
+      const tc = out.getContext("2d"); if (!tc) { out.width = out.height = 0; out = cv; sm.width = sm.height = 0; return; }
+      tc.imageSmoothingQuality = "high"; tc.drawImage(sm, w2, 0, w2, h2, 0, 0, W, HH);
       /* the sharp copy and the small one are done with: their memory goes back now (iOS holds it until collected) */
       sm.width = sm.height = 0; cv.width = cv.height = 0;
     });
@@ -280,7 +285,8 @@ const BACKDROPS = (function () {
       if (!blurOK()) return;
       /* one-time blur on the offscreen copy; draw the neighbours too so the loop seam stays clean */
       out = document.createElement("canvas"); out.width = W; out.height = HH;
-      const tc = out.getContext("2d"); tc.filter = "blur(" + o.soft + "px)";
+      const tc = out.getContext("2d"); if (!tc) { out.width = out.height = 0; out = cv; return; }
+      tc.filter = "blur(" + o.soft + "px)";
       tc.drawImage(cv, -W, 0); tc.drawImage(cv, 0, 0); tc.drawImage(cv, W, 0);
       cv.width = cv.height = 0;
     });
@@ -293,7 +299,9 @@ const BACKDROPS = (function () {
       do { use(); ops[i++](); } while (i < ops.length && now() < end);
       return i >= ops.length ? out : null;
     }
-    return { step: step, get done() { return i >= ops.length; } };
+    /* a job given up before it finished (its world was rebuilt or let go): its canvases go back at once */
+    function free() { if (i >= ops.length) return; cv.width = cv.height = 0; if (out !== cv) out.width = out.height = 0; i = ops.length; out = cv; }
+    return { step: step, free: free, get done() { return i >= ops.length; } };
   }
   /* Render one looping strip of solid silhouettes, all at once.
      o.gens: [[name, seed, spacing multiplier, size multiplier, min spacing in units], ...]
@@ -322,11 +330,17 @@ const BACKDROPS = (function () {
   /* One element on its own canvas (Infinite Shadow's collision motifs: a third world's ring-sun, zeppelins or towers in
      the sky). o.gen: a generator name, o.seed, o.u: px per unit, o.tone / o.dark / o.light. The element's base is at
      (cv.ox, cv.oy); one that hangs from the top (anchor "t") has its top there instead. */
+  /* a job that is already done, with a 1 x 1 transparent strip */
+  function empty(res) {
+    const e = document.createElement("canvas"); e.width = e.height = 1; e.res = res; e.top = 0;
+    return { step: function () { return e; }, get done() { return true; }, free: function () {} };
+  }
   function single(o) {
     const def = G[o.gen]; if (!def) return null;
     const u = o.u, wu = 30, hu = 24, cv = document.createElement("canvas");
     cv.width = Math.round(wu * u); cv.height = Math.round(hu * u);
     c = cv.getContext("2d");
+    if (!c) { cv.width = cv.height = 0; return null; }
     F = function () { c.fillStyle = o.tone; c.fill(); };
     K = function () { c.fillStyle = o.dark; c.fill(); };
     Wt = function () { c.fillStyle = o.light; c.fill(); };
