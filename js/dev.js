@@ -66,8 +66,8 @@
     const copy = function (o) { return JSON.parse(JSON.stringify(o)); };
     function current() { const S = api.S(); return { unlocked: S.unlocked, sel: S.sel, rec: copy(S.rec), inf: copy(S.inf) }; }
     function rainbow() { const rec = {}; for (let n = 1; n <= N; n++) rec[n] = { t: 1, s: 4, d: true }; return { unlocked: N, sel: api.S().sel, rec: rec, inf: copy(api.S().inf) }; }
-    /* a fresh game, the way Settings' reset makes one: Infinite Shadow back to nothing, its objective box choice kept */
-    function fresh() { return { unlocked: 1, sel: 1, rec: {}, inf: { best: 0, bestDist: 0, runs: 0, totalTime: 0, objHide: !!api.S().inf.objHide } }; }
+    /* a fresh game, the way Settings' reset makes one: Infinite Shadow back to nothing too */
+    function fresh() { return { unlocked: 1, sel: 1, rec: {}, inf: { best: 0, bestDist: 0, runs: 0, totalTime: 0 } }; }
     function summary(p) {
       let done = 0, rb = 0;
       for (let n = 1; n <= N; n++) { const r = p.rec && p.rec[n]; if (r && r.d) { done++; if (r.s === 4) rb++; } }

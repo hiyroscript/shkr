@@ -1113,7 +1113,9 @@ const RENDER = (function make(fit) {
     if (V.snap) camY = V.restY || 0;
     shake = Math.max(0, shake - dt * 4.5);
     const shx = V.noShake ? 0 : (Math.random() - .5) * shake * 14, shy = V.noShake ? 0 : (Math.random() - .5) * shake * 14;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    /* the run's opening zooms the whole picture in on its text (game.js: V.title.z, 1 otherwise) */
+    const zt = V.title ? V.title.z : 1, ty = H * (H > W ? .34 : .36);
+    g.setTransform(dpr * zt, 0, 0, dpr * zt, dpr * (1 - zt) * W / 2, dpr * (1 - zt) * ty);
     const dxp = (camX - lastCamX) * sc; lastCamX = camX;
     const left = camX - px0 / sc - 3, right = camX + (W - px0) / sc + 3;
     /* The Convergence: the worlds at the two edges of the screen, the fracture between them, and the next world built
@@ -1360,7 +1362,49 @@ const RENDER = (function make(fit) {
       g.lineWidth = 4 / sc; g.strokeStyle = "#E8112D"; g.stroke();
       g.restore();
     }
+    if (V.title) { g.setTransform(dpr * zt, 0, 0, dpr * zt, dpr * (1 - zt) * W / 2, dpr * (1 - zt) * ty); drawTitle(V.title, ty); }
     if (V.flash > 0) { g.fillStyle = "rgba(0,0,0," + (V.flash * .12) + ")"; g.fillRect(-20, -20, W + 40, H + 40); }
+  }
+  /* ---------------- the run's opening text ----------------
+     One line of text (game.js says what and where): bold, upper case, in faint grey, wrapped to at most three lines that
+     fit the view at the opening's full zoom. While V.title.sweep runs from 0 to 1, a band of shade sweeps across the
+     letters from left to right. x: -1 just off the left edge, 0 centred, 1 just off the right edge */
+  let TITLEFONT = "sans-serif", titleKey = "", titleLay = null;
+  function titleLayout(text, zmax) {
+    const key = text + "|" + W + "|" + H + "|" + zmax + "|" + TITLEFONT;
+    if (key === titleKey) return titleLay;
+    const up = text.toUpperCase().trim(), spaced = /\s/.test(up), toks = spaced ? up.split(/\s+/) : Array.from(up), join = spaced ? " " : "";
+    const maxW = W / zmax * .84;
+    let fs = Math.round(Math.max(22, Math.min(64, Math.min(W, H) * .09))), lines = [];
+    for (; fs >= 14; fs -= 2) {
+      g.font = "700 " + fs + "px " + TITLEFONT;
+      lines = []; let cur = "";
+      for (const w of toks) { const next = cur ? cur + join + w : w; if (cur && g.measureText(next).width > maxW) { lines.push(cur); cur = w; } else cur = next; }
+      if (cur) lines.push(cur);
+      if (lines.length <= 3 && lines.every(function (l) { return g.measureText(l).width <= maxW; })) break;
+    }
+    let w = 0; for (const l of lines) w = Math.max(w, g.measureText(l).width);
+    titleKey = key; titleLay = { fs: fs, lines: lines, w: w, lh: Math.round(fs * 1.08) };
+    return titleLay;
+  }
+  function drawTitle(T, ty) {
+    if (T.a <= 0) return;
+    const lay = titleLayout(T.text, T.zmax || 1.3), cx = W / 2 + T.x * (W + lay.w) / 2;
+    if (cx + lay.w / 2 < -W || cx - lay.w / 2 > 2 * W) return;
+    g.save();
+    g.font = "700 " + lay.fs + "px " + TITLEFONT; g.textAlign = "center"; g.textBaseline = "middle";
+    const base = "rgba(64,66,76," + (.42 * T.a).toFixed(3) + ")";
+    if (T.sweep >= 0) {
+      /* the band's centre runs over a span a little wider than the text, so it starts and ends off the letters */
+      const x0 = cx - lay.w * .8, x1 = cx + lay.w * .8, p = T.sweep, gr = g.createLinearGradient(x0, 0, x1, 0);
+      gr.addColorStop(0, base); gr.addColorStop(Math.max(0, p - .1), base);
+      gr.addColorStop(Math.min(1, Math.max(0, p)), "rgba(16,16,22," + (.85 * T.a).toFixed(3) + ")");
+      gr.addColorStop(Math.min(1, p + .1), base); gr.addColorStop(1, base);
+      g.fillStyle = gr;
+    } else g.fillStyle = base;
+    const n = lay.lines.length;
+    for (let i = 0; i < n; i++) g.fillText(lay.lines[i], cx, ty + (i - (n - 1) / 2) * lay.lh);
+    g.restore();
   }
   /* a number that pops near the runner (Infinite Shadow's score), in world units */
   function pop(x, y, text, col, flip, fb) { fx.push({ x: x, y: y, vx: 0, vy: 1.6, g: 0, life: 0, max: .55, sz: 1, k: 3, text: text, col: col || "#0A0A10", rot: 0, vr: 0, flip: !!flip, fb: fb || 0 }); }
@@ -1369,7 +1413,7 @@ const RENDER = (function make(fit) {
   /* build level n's world a piece at a time ahead of use (the home screen's Infinite Shadow demo); true once built */
   function prepare(n) { const w = worldFor(n, LEVELS[n - 1].th, n * 101, true); return buildWorld(w, 1.5); }
   return { resize: resize, setLevel: setLevel, frame: frame, emit: emit, ring: ring, burst: burst, shake: addShake, cue: cue, COL: COL, pop: pop, extend: extend, prepare: prepare, idle: idle,
-    setFont: function (f) { POPFONT = f; },
+    setFont: function (f, d) { POPFONT = f; if (d) TITLEFONT = d; },
     /* world point -> CSS pixels on the canvas, with the camera of the last frame (flip / fb as for at()) */
     point: function (x, y, flip, fb) { return { x: X(x), y: flip ? Y(2 * fb + CH - y) : Y(y) }; },
     setHome: function (v) { if (home !== v) { home = v; if (cv) resize(); } }, get W() { return W; }, get H() { return H; }, setQuality: function (q) { quality = q; },

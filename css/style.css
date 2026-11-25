@@ -252,9 +252,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
   font-variant-numeric:tabular-nums;color:var(--fg)}
 .card .old-best{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
 .card .old-best s{color:var(--dim)}
-.card .haz-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--dim);border:1px solid var(--line);border-radius:100px;padding:4px 10px;margin-top:12px}
-.card .haz-chip s{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
 .card.newbest h2{color:#B88400}
 .card .burst{position:relative;height:0}
 .card .burst i{position:absolute;left:50%;top:0;width:7px;height:7px;border-radius:50%;animation:burst .9s cubic-bezier(.2,.8,.2,1) forwards}
@@ -264,40 +261,17 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
 #pauseBtn{pointer-events:auto;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
   border:var(--edge-w) solid var(--edge);color:var(--ink);flex:0 0 auto;background:#fff}
 #pauseBtn::before{content:"";width:4px;height:12px;border-left:3px solid;border-right:3px solid;box-sizing:content-box}
+/* touch hints: a dotted box in the middle of each half at the bottom, roll (down) on the left, jump (up) on the right.
+   Touch screens only, and they take no taps: tapping anywhere on a half still does its move. A held half lights its box */
+.pads{display:none}
+@media (pointer:coarse){#hud.on .pads{display:block}}
+.pad{position:fixed;bottom:calc(var(--bot) + 22px);width:58px;height:58px;margin-left:-29px;display:flex;align-items:center;justify-content:center;
+  border:2px dotted rgba(150,152,162,.85);border-radius:16px;background:transparent;transition:background .12s ease,transform .12s ease}
+#padRoll{left:25%}#padJump{left:75%}
+.pad svg{width:26px;height:26px;fill:none;stroke:rgba(172,174,184,.9);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.pad.on{background:rgba(255,255,255,.14);transform:scale(.94)}
+@media (prefers-reduced-motion:reduce){.pad{transition:none}.pad.on{transform:none}}
 
-/* objective box: the goal, the controls side by side, and "Don't show again". Interactive only while shown. */
-#msBanner{position:fixed;left:50%;top:22%;transform:translate(-50%,-8px);z-index:12;pointer-events:none;
-  display:flex;flex-direction:column;align-items:center;gap:8px;
-  font-family:var(--mono);font-size:clamp(10px,2.6vw,13px);letter-spacing:.2em;text-transform:uppercase;line-height:1.6;
-  color:var(--ink);opacity:0;visibility:hidden;text-align:center;width:min(92vw,640px);
-  background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:18px;padding:14px 18px 10px;
-  transition:opacity .45s ease,transform .45s ease,visibility 0s .45s}
-#msBanner.show{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0);
-  transition:opacity .3s cubic-bezier(.2,.8,.2,1),transform .3s cubic-bezier(.2,.8,.2,1)}
-/* a touch screen: a tap on the box goes through to the run below it (a thumb landing there still jumps or rolls); only
-   its "Don't show again" row takes taps */
-@media (pointer:coarse){#msBanner.show:not(.dock){pointer-events:none}#msBanner.show:not(.dock) .ob-hide{pointer-events:auto}}
-#msBanner b{font-weight:700}
-.ob-title{font-weight:700;letter-spacing:.24em}
-.ob-keys{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 30px}
-.ob-key{white-space:nowrap}
-.ob-key b{margin-right:.55em}
-.ob-hide{display:inline-flex;align-items:center;gap:9px;margin-top:2px;padding:6px 8px;border-radius:100px;cursor:pointer;
-  font-size:.8em;letter-spacing:.16em;color:var(--dim);position:relative;transition:background .16s}
-.ob-hide:hover{background:var(--hover)}
-.ob-hide input{position:absolute;left:8px;top:50%;width:15px;height:15px;margin:-7.5px 0 0;opacity:0;pointer-events:none}
-.ob-box{width:15px;height:15px;flex:0 0 auto;border:1.5px solid var(--ink);border-radius:4px;background:#fff;
-  display:grid;place-items:center;transition:background .14s}
-.ob-box::after{content:"";width:7px;height:3.5px;border-left:2px solid #fff;border-bottom:2px solid #fff;
-  transform:translateY(-1px) rotate(-45deg) scale(.4);opacity:0;transition:opacity .14s,transform .14s}
-.ob-hide input:checked + .ob-box{background:var(--ink)}
-.ob-hide input:checked + .ob-box::after{opacity:1;transform:translateY(-1px) rotate(-45deg)}
-.ob-hide input:focus-visible + .ob-box{outline:2px solid var(--ink);outline-offset:2px}
-/* docked in the overlay, right above a new hazard card, as one group; it leaves with the card */
-#msBanner.dock{position:relative;left:auto;top:auto;z-index:auto;transform:none;width:100%;max-width:520px;
-  margin:auto auto 12px;background:var(--surface);transition:none;font-size:clamp(10px,2.6vw,12px);letter-spacing:.14em}
-#msBanner.dock .ob-keys{column-gap:24px}
-#msBanner.dock.show{animation:cardIn .28s cubic-bezier(.2,.8,.2,1) both}
 
 /* level tip (game.js TIPS): a note by the red ring round the object, with a countdown; the game is frozen meanwhile.
    left / top are set from the ring's place on screen. */
@@ -343,9 +317,6 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
 #overlay.on{display:flex}
 #overlay.out{animation:ovOut .2s ease forwards;pointer-events:none}
 @keyframes ovOut{to{opacity:0}}
-/* objective box + card: stacked and centred, and still scrollable from the top when they don't fit */
-#overlay.stack{flex-direction:column;justify-content:flex-start}
-#overlay.stack .card{margin:0 auto auto}
 .card{max-width:430px;width:100%;margin:auto;animation:cardIn .28s cubic-bezier(.2,.8,.2,1) both;
   background:var(--surface);border:1px solid var(--line);border-radius:22px;
   padding:clamp(24px,4vw,34px) clamp(20px,4vw,32px);box-shadow:0 24px 70px rgba(0,0,0,.45)}
@@ -354,7 +325,7 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
 .card h2{font-size:clamp(28px,6.4vw,48px);font-weight:700;letter-spacing:-.035em;line-height:1;margin:12px 0;text-transform:uppercase;color:var(--fg);text-wrap:balance}
 .card p{color:var(--dim);font-size:clamp(14px,2.6vw,15px);line-height:1.6;max-width:36ch;margin:0 auto;text-wrap:pretty}
 .card .acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:clamp(20px,3.4vh,28px)}
-/* new hazard card (as wide as the objective box docked above it): the live preview, and the hazard's colour under its name */
+/* new hazard card (a little wider): the live preview, and the hazard's colour under its name */
 .card.wide{max-width:520px}
 .card .pv{width:220px;max-width:100%;aspect-ratio:11/7;margin:0 auto clamp(14px,2.4vh,20px);border-radius:14px;overflow:hidden;
   border:1px solid var(--line);background:#fff}
@@ -400,13 +371,12 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
 .lang-opt[aria-pressed=true]:hover{opacity:.88}
 @media (max-width:560px){ .lang-list{grid-template-columns:repeat(2,minmax(0,1fr))} .lang-opt{min-width:0} }
 /* Chinese, Japanese and Korean: no tracking (the wide letter-spacing is for Latin capitals), a little more leading */
-html:is([lang|=zh],[lang=ja],[lang=ko]) :is(.tag,.chip,.legend div,.meta,.card .eyebrow,.stat-row span,#msBanner,#msBanner.dock,.ob-title,.peek,.best-line,.hud-newbest,.card .haz-chip,.card .old-best,
-  .ob-hide,.tip-title,.tip-body,.rw-tag,.scroll-cue,.panel-title,.title,.card h2,.demo-name){letter-spacing:0}
+html:is([lang|=zh],[lang=ja],[lang=ko]) :is(.tag,.chip,.legend div,.meta,.card .eyebrow,.stat-row span,.peek,.best-line,.hud-newbest,.card .old-best,
+  .tip-title,.tip-body,.rw-tag,.scroll-cue,.panel-title,.title,.card h2,.demo-name){letter-spacing:0}
 html:is([lang|=zh],[lang=ja],[lang=ko]) .title{line-height:1.08}
 html:is([lang|=zh],[lang=ja],[lang=ko]) :is(.card h2,.panel-title){line-height:1.15}
 /* longer words (German, Russian, Polish, Portuguese...): wrap or hyphenate instead of running out of a box */
-.card h2,.card p,.demo-name,.demo-desc,.set-row .lbl,.tip-text,#msBanner,.panel-title{overflow-wrap:break-word}
+.card h2,.card p,.demo-name,.demo-desc,.set-row .lbl,.tip-text,.panel-title{overflow-wrap:break-word}
 html:not([lang=en]) :is(.card h2,.card p,.demo-desc,.set-row .lbl span,.tip-body,.panel-title){hyphens:auto;-webkit-hyphens:auto}
-html:not([lang=en]) .ob-key{white-space:normal}
 html:not([lang=en]) .tip-text .chip,html:not([lang=en]) .card .acts .chip{white-space:normal;max-width:100%}
 
