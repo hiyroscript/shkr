@@ -189,9 +189,9 @@
     const TRACKS = [{ n: 0, def: HOME, L: SIM.compile(HOME), loop: true }].concat(LEVELS.map(function (d, i) { return { n: i + 1, def: d, L: api.getL(i + 1), loop: false }; }),
       [{ n: "inf", def: api.INF_DEF, loop: false, inf: true }]);
     const INF_SEED = 0x5EED0001, WIN = 96;
-    const PARTS = ["lead", "answer", "harmony", "bass", "drums", "fx"];
+    const PARTS = ["lead", "answer", "harmony", "bass", "drums", "fx", "course", "remix"];
     /* a note belongs to its channel's role */
-    function partOf(e, S) { return (S.theme.channels[e.c] || {}).role || "fx"; }
+    function partOf(e, S) { return e.y === "f" ? "remix" : (S.theme.channels[e.c] || {}).role || "fx"; }
     /* a theme's instruments by role: "flute" or "guitar (nylon)" */
     function roleList(T, r) { return Object.keys(T.channels).filter(function (k) { return T.channels[k].role === r; }).map(function (k) { const c = T.channels[k], ins = c.tone || c.synth || c.drum; return ins === k ? k : k + " (" + ins + ")"; }); }
     const P = { i: 1, playing: false, from: 0, muted: {}, end: "stop", raf: 0 };
