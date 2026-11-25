@@ -280,7 +280,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
 /* level tip (game.js TIPS): a note by the red ring round the object, with a countdown; the game is frozen meanwhile.
    left / top are set from the ring's place on screen. */
 #tipNote{position:fixed;left:0;top:0;z-index:12;pointer-events:none;display:flex;align-items:center;gap:14px;
-  max-width:min(92vw,440px);padding:12px 12px 12px 16px;background:rgba(255,255,255,.94);
+  max-width:min(92vw,440px);padding:12px 16px;background:rgba(255,255,255,.94);
   border:1px solid var(--line);color:var(--ink);
   opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .2s ease,transform .2s ease,visibility 0s .2s}
 #tipNote.show{opacity:1;visibility:visible;transform:none;transition:opacity .25s cubic-bezier(.2,.8,.2,1),transform .25s cubic-bezier(.2,.8,.2,1)}
@@ -289,12 +289,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-ra
 .tip-body{font-size:clamp(9px,2.3vw,11px);letter-spacing:.14em;color:var(--dim);margin-top:3px}
 .tip-text #tipOk{margin-top:10px}
 #tipNote.show #tipOk{pointer-events:auto}
-.tip-count{position:relative;flex:0 0 auto;width:44px;height:44px;display:grid;place-items:center}
-.tip-count svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
-.tip-count circle{fill:none;stroke-width:3}
-.tip-track{stroke:var(--line-2)}
-.tip-arc{stroke:#E8112D;stroke-linecap:round;stroke-dasharray:100}
-.tip-count b{font-family:var(--disp);font-weight:700;font-size:20px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 /* the spike tip's rewind: the run plays backwards like a tape, sepia, with scan lines, a rolling tracking band and
    a VCR "◀◀ rewind" in the corner */
 #rewindFx{position:fixed;inset:0;z-index:9;pointer-events:none;overflow:hidden;opacity:0;visibility:hidden;

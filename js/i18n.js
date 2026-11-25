@@ -130,7 +130,6 @@
     "tip.roll.title": "Roll under the bars",
     "tip.roll.body": "Roll under them: ↓, s or right-click",
     "tip.roll.bodyTouch": "Hold the left side of the screen to roll under them",
-    "tip.secs": "seconds left",
     "rewind": "◀◀ rewind",
 
     "card.rebirth.title": "Rebirth?",
@@ -331,7 +330,6 @@
     "tip.roll.title": "从横杆下滚过",
     "tip.roll.body": "从下面滚过去：↓、S 或右键",
     "tip.roll.bodyTouch": "按住屏幕左侧从下面滚过去",
-    "tip.secs": "剩余秒数",
     "rewind": "◀◀ 倒带",
 
     "card.rebirth.title": "重生？",
@@ -532,7 +530,6 @@
     "tip.roll.title": "Rueda bajo las barras",
     "tip.roll.body": "Pasa rodando por debajo: ↓, s o clic derecho",
     "tip.roll.bodyTouch": "Mantén pulsado el lado izquierdo de la pantalla para pasar rodando por debajo",
-    "tip.secs": "segundos restantes",
     "rewind": "◀◀ rebobinar",
 
     "card.rebirth.title": "¿Renacer?",
@@ -733,7 +730,6 @@
     "tip.roll.title": "Прокатись под перекладинами",
     "tip.roll.body": "Прокатись под ними: ↓, S или правый клик",
     "tip.roll.bodyTouch": "Удерживай левую сторону экрана, чтобы прокатиться под ними",
-    "tip.secs": "осталось секунд",
     "rewind": "◀◀ перемотка",
 
     "card.rebirth.title": "Возродить?",
@@ -934,7 +930,6 @@
     "tip.roll.title": "バーの下を転がろう",
     "tip.roll.body": "下を転がり抜けよう：↓、S、または右クリック",
     "tip.roll.bodyTouch": "画面の左側を長押しして下を転がり抜けよう",
-    "tip.secs": "残り秒数",
     "rewind": "◀◀ 巻き戻し",
 
     "card.rebirth.title": "転生する？",
@@ -1135,7 +1130,6 @@
     "tip.roll.title": "Role por baixo das barras",
     "tip.roll.body": "Role por baixo: ↓, s ou clique direito",
     "tip.roll.bodyTouch": "Segure o lado esquerdo da tela para rolar por baixo",
-    "tip.secs": "segundos restantes",
     "rewind": "◀◀ rebobinar",
 
     "card.rebirth.title": "Renascer?",
@@ -1336,7 +1330,6 @@
     "tip.roll.title": "Roll unter den Balken durch",
     "tip.roll.body": "Roll drunter durch: ↓, S oder Rechtsklick",
     "tip.roll.bodyTouch": "Halte die linke Bildschirmseite gedrückt, um drunter durchzurollen",
-    "tip.secs": "Sekunden übrig",
     "rewind": "◀◀ zurückspulen",
 
     "card.rebirth.title": "Neu beginnen?",
@@ -1537,7 +1530,6 @@
     "tip.roll.title": "Roule sous les barres",
     "tip.roll.body": "Passe dessous en roulant : ↓, s ou clic droit",
     "tip.roll.bodyTouch": "Maintiens le côté gauche de l'écran pour rouler dessous",
-    "tip.secs": "secondes restantes",
     "rewind": "◀◀ rembobinage",
 
     "card.rebirth.title": "Renaître ?",
@@ -1738,7 +1730,6 @@
     "tip.roll.title": "가로대 아래로 구르세요",
     "tip.roll.body": "아래로 구르세요: ↓, S 또는 오른쪽 클릭",
     "tip.roll.bodyTouch": "화면 왼쪽을 길게 눌러서 아래로 구르세요",
-    "tip.secs": "남은 초",
     "rewind": "◀◀ 되감기",
 
     "card.rebirth.title": "환생할까요?",
@@ -1939,7 +1930,6 @@
     "tip.roll.title": "Przetocz się pod belkami",
     "tip.roll.body": "Przetocz się pod nimi: ↓, S lub prawy klik",
     "tip.roll.bodyTouch": "Przytrzymaj lewą stronę ekranu, żeby przetoczyć się pod nimi",
-    "tip.secs": "pozostałe sekundy",
     "rewind": "◀◀ przewijanie",
 
     "card.rebirth.title": "Odrodzić?",
