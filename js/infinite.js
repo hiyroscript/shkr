@@ -243,6 +243,15 @@ const INF = (function () {
     return true;
   }
   MOT.forEach(function (m) { let k = 0; for (const ch of m[0]) if (ch !== ".") k++; m.push(k); });   /* m[5]: obstacle characters */
+  /* every plain obstacle comes back: the motif table's characters (and the spike tower, which stands under a Rail), each
+     with the tier it unlocks at (0 from the start, 1 from bar 30, 2 from RAMP). One not seen for OBS_DUE bars since it
+     unlocked is due: while no hazard is overdue, the most overdue one goes into the next chunk as a block of its own
+     (its motif, after the chunk's piece and accents; for the spike tower, a Rail on spike posts is tried first), so
+     every obstacle comes back about every two minutes, as every hazard does */
+  const OBS = {};
+  MOT.forEach(function (m) { for (const ch of m[0]) if (ch !== "." && (OBS[ch] === undefined || m[4] < OBS[ch])) OBS[ch] = m[4]; });
+  OBS["!"] = 1;
+  const OBS_AT = [0, 30, RAMP], OBS_DUE = 50;
   function dh(t) { let d = 0; for (const c of t) d += c === "+" || c === "%" ? 1 : c === "#" ? 2 : c === "H" ? 4 : c === "v" ? -1 : c === "V" ? -2 : c === "Y" ? -4 : 0; return d; }
   function presses(t) { let p = 0; for (let i = 0; i < t.length; i++) { const c = t[i]; if ("^MI_u+#%-*&|@~".indexOf(c) >= 0 && !(c === "~" && t[i - 1] === "~")) p++; if (c === "=" && t[i - 1] !== "=") p++; } return p; }
   function chars(t) { let k = 0; for (const c of t) if (c !== ".") k++; return k; }
@@ -366,7 +375,7 @@ const INF = (function () {
       return { t: b.t, h: b.h, kn: [body] };
     } },
     { k: "railRide", haz: ["L"], gen: function (R, c) {
-      const under = pick(R, ["spikes", "pit", "posts", "knife"]), len = under === "knife" ? ri(R, 9, 10) : ri(R, 6, 10);
+      const under = c.due && c.due["!"] ? "posts" : pick(R, ["spikes", "pit", "posts", "knife"]), len = under === "knife" ? ri(R, 9, 10) : ri(R, 6, 10);
       let u;
       if (under === "spikes") u = rep("^.", len >> 1) + (len & 1 ? "^" : "");
       else if (under === "pit") u = rep("~", len);
@@ -375,7 +384,8 @@ const INF = (function () {
       const knife = under === "knife" ? 4 : -1;
       let h = ".L"; for (let i = 1; i < len; i++) h += i === knife ? "x" : "."; h += "l";
       const b = B().add(".." + u.slice(1) + ".v", h);
-      return { t: b.t, h: b.h, kn: [len, under] };
+      /* p: a jump to grab it and a let-go (and one more for the knife), not the obstacles you hang over */
+      return { t: b.t, h: b.h, kn: [len, under], p: under === "knife" ? 3 : 2 };
     } },
     { k: "riftLedge", haz: ["ri"], gen: function (R, c) {
       const ledge = pick(R, [".", "..", ".^.", "'..", ".*."]), pre = pick(R, ["", "^..", "-.."]), down = pick(R, ["Y", "VV", "V.V"]);
@@ -647,7 +657,9 @@ const INF = (function () {
     g.biomeAt = function (bar) { biomesTo(bar); for (let i = g.biomes.length - 1; i >= 0; i--) if (g.biomes[i].b0 <= bar) return g.biomes[i]; return g.biomes[0]; };
 
     /* memory: when each hazard and template was last used, recent piece hazards, signatures, knobs */
-    const lastHaz = {}, lastTpl = {}, sigs = {}, lastKn = {}, recent = [];
+    const lastHaz = {}, lastTpl = {}, sigs = {}, lastKn = {}, recent = [], lastObs = {};
+    /* never seen counts as last seen 30 bars before it unlocked: due 30 bars after */
+    Object.keys(OBS).forEach(function (k) { lastObs[k] = OBS_AT[OBS[k]] - 30; });
     HK.forEach(function (k) { lastHaz[k] = -1000; });
     let flatRun = 0, gapRun = 0, prevRest = false;
 
@@ -693,7 +705,16 @@ const INF = (function () {
        spent on a chunk that could be kept */
     function candidate(sp, a, avoid) {
       const R = rng(mix(seed, 1000 + sp.i, a)), n = sp.n * 8, room = n - 3, restNext = phaseAt(sp.bar + sp.n).ph === "rest";
-      const c = { y: L.base, par: g.s.par, room: room };
+      const c = { y: L.base, par: g.s.par, room: room, due: {} };
+      /* the most overdue obstacle, placed in this chunk: only while no hazard is overdue (hazards come first) and only in
+         a chunk's first tries (KNOB_TRIES); if none of them can fit it, the chunk is made as usual, so an obstacle that
+         is hard to fit never crowds out the hazards' pieces */
+      const tierH = sp.bar < 30 ? 1 : sp.bar < RAMP + 10 ? 2 : 3;
+      if (a < KNOB_TRIES && !HK.some(function (k) { return TIER[k] <= tierH && sp.bar - lastHaz[k] > 66; })) {
+        let most = null, mo = 0;
+        for (const k in OBS) { const over = sp.bar - lastObs[k] - OBS_DUE; if (sp.bar >= OBS_AT[OBS[k]] && over > mo) { mo = over; most = k; } }
+        if (most) c.due[most] = 1;
+      }
       const tier = sp.bar < 30 ? 0 : sp.bar < RAMP ? 1 : 2, want = sp.want * sp.n;
       /* obstacle characters: what the last 36 bars still need to average the band's middle, within this chunk's own range */
       const bd = band(sp.bar < WARM ? 3 : 12), mid = (bd.lo + bd.hi) / 2, dh0 = densHist(), dm0 = densMin(sp.bar);
@@ -715,14 +736,16 @@ const INF = (function () {
         const hazChance = sp.ph === "warm" ? 0.75 : sp.ph === "cool" ? 0.55 : 0.85;
         const comboChance = fullC ? 0 : sp.ph === "peak" || sp.ph === "peak2" ? (sp.bar < RAMP ? 0.4 : lowC ? 1 : 0.8) : sp.ph === "build" && sp.bar >= RAMP ? (lowC ? 0.6 : 0.3) : sp.ph === "cool" && lowC ? 0.3 : 0;
         const TR = rng(mix(seed, 5000 + sp.i, a < KNOB_TRIES ? 0 : a));
-        const tryTpl = function (t, loose) {
+        const tryTpl = function (t, loose, force) {
           for (let k = 0; k < 8; k++) {
             const pc = t.gen(R, c);
             if (!pc || pc.t.length > room - 1) continue;
             if ((pc.p === undefined ? presses(pc.t) : pc.p) > want * (loose ? 2.7 : 1.8) + 1) continue;
-            if (lastKn[t.k]) { let d = 0; const a0 = lastKn[t.k]; pc.kn.forEach(function (v, i) { if (String(v) !== String(a0[i])) d++; }); if (d < Math.min(2, pc.kn.length)) continue; }
+            /* force (a Rail made to stand on spike posts): only its length can change, so the same knob values may come
+               back after 60 bars instead of 180, and one knob changed is enough */
+            if (lastKn[t.k] && !force) { let d = 0; const a0 = lastKn[t.k]; pc.kn.forEach(function (v, i) { if (String(v) !== String(a0[i])) d++; }); if (d < Math.min(2, pc.kn.length)) continue; }
             const sg = t.k + "|" + pc.kn.join(",") + "|" + t.haz.join(",");
-            if (sigs[sg] !== undefined && sp.bar - sigs[sg] < 180) continue;
+            if (sigs[sg] !== undefined && sp.bar - sigs[sg] < (force ? 60 : 180)) continue;
             return pc;
           }
           return null;
@@ -732,11 +755,15 @@ const INF = (function () {
         const tierNow = sp.bar < 30 ? 1 : sp.bar < RAMP + 10 ? 2 : 3;
         let overdue = null;
         HK.forEach(function (k) { if (TIER[k] <= tierNow && sp.bar - lastHaz[k] > 66 && (!overdue || lastHaz[k] < lastHaz[overdue])) overdue = k; });
+        /* the spike tower only stands under a Rail: when it is due (and no hazard is), a Rail on spike posts is tried
+           first; if one can't be made here, the chunk is chosen as usual */
+        const posts = !overdue && !!c.due["!"] && TIER.L <= tierNow && !avoid.railRide;
         const roll = overdue ? 1 : TR();
         if (overdue) {
           const opts = TPL.filter(function (t) { return t.haz[0] === overdue && !avoid[t.k]; });
           while (opts.length && !piece) { const t = opts.splice(Math.floor(TR() * opts.length), 1)[0]; piece = tryTpl(t, true); if (piece) { tpl = t; due = true; } else avoid[t.k] = 1; }
         }
+        if (posts) { const t = TPL.find(function (x) { return x.k === "railRide"; }); if (tplOk(t, sp)) { piece = tryTpl(t, true, true); if (piece) { tpl = t; due = true; } } }
         if (!piece && roll < comboChance && sp.n >= 2) {
           tpl = wpick(TR, COMBO, function (cb) {
             if (avoid[cb.k] || !tplOk(cb, sp)) return 0;
@@ -794,9 +821,18 @@ const INF = (function () {
           if (piece) blocks.push({ t: piece.t, h: piece.h, p: piece.p === undefined ? presses(piece.t) : piece.p, main: true });
           accents.forEach(function (ac) { blocks.push({ t: ac.t, h: ac.h, p: presses(ac.t) + (ac.k === "ha" ? 1 : 0) }); });
           if (!first) for (let q = blocks.length - 1; q > 0; q--) { const r = Math.floor(FR() * (q + 1)), tmp = blocks[q]; blocks[q] = blocks[r]; blocks[r] = tmp; }
-          /* accents that do not fit leave */
+          /* a due obstacle (but the spike tower, which a Rail brings): its motif as a block of its own, after the piece
+             and its accents (so it never stands between two hazards that make a combo place) */
+          for (const k in c.due) if (k !== "!" && (!piece || piece.t.indexOf(k) < 0)) {
+            const m = MOT.find(function (x) { return x[0].indexOf(k) >= 0 && x[0][x[0].length - 1] === "."; }) || MOT.find(function (x) { return x[0].indexOf(k) >= 0; });
+            if (m) blocks.push({ t: m[0], h: rep(".", m[0].length), p: m[1], obs: true });
+          }
+          /* blocks that do not fit leave: the due obstacle first, then accents */
           let used = 0; blocks.forEach(function (bk) { used += bk.t.length; });
-          while (used > room - blocks.length + 1 && blocks.length > 1) { const q = blocks.findIndex(function (bk) { return !bk.main; }); if (q < 0) break; used -= blocks[q].t.length; blocks.splice(q, 1); }
+          while (used > room - blocks.length + 1 && blocks.length > 1) {
+            let q = blocks.findIndex(function (bk) { return bk.obs; }); if (q < 0) q = blocks.findIndex(function (bk) { return !bk.main; });
+            if (q < 0) break; used -= blocks[q].t.length; blocks.splice(q, 1);
+          }
           let bp = 0, bc = 0; blocks.forEach(function (bk) { bp += bk.p; bc += chars(bk.t); });
           const free = room - used;
           if (free < 0) continue;
@@ -1135,6 +1171,7 @@ const INF = (function () {
       g.chunks.push(meta);
       if (cd.haz.length) { recent.push(cd.haz); if (recent.length > 4) recent.shift(); cd.haz.forEach(function (k) { lastHaz[k] = sp.bar; }); }
       lastTpl[cd.tpl] = sp.bar; sigs[cd.sig] = sp.bar; lastKn[cd.tpl] = cd.kn;
+      for (const q of T) if (OBS[q] !== undefined) lastObs[q] = sp.bar;
       for (let i = 0; i < T.length; i++) { if (TERRAIN.indexOf(T[i]) >= 0 || TILES.indexOf(H[i]) >= 0 || EDGES.indexOf(H[i]) >= 0) flatRun = 0; else flatRun++; if (busy(T, H, i)) gapRun = 0; else gapRun++; }
       prevRest = sp.ph === "rest" || cd.tpl === "last";
       g.bars += sp.n; g.stats.chunks++; g.stats.attempts++;
@@ -1193,5 +1230,5 @@ const INF = (function () {
   }
 
   return { BPM: BPM, DEC: DEC, MARGIN: MARGIN, BAND: BAND, WARM: WARM, RAMP: RAMP, create: create, rules: rules, TPL: TPL, COMBO: COMBO, COMPAT: COMPAT,
-    PLAIN: PLAIN, TIER: TIER, FAM: FAM, MOTIF: MOTIF, PHASE: PHASE, baseLv: baseLv, actsFor: actsFor, calm: calm, rng: rng, mix: mix };
+    PLAIN: PLAIN, TIER: TIER, FAM: FAM, MOTIF: MOTIF, PHASE: PHASE, OBS: OBS, OBS_AT: OBS_AT, baseLv: baseLv, actsFor: actsFor, calm: calm, rng: rng, mix: mix };
 })();
