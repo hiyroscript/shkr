@@ -85,7 +85,12 @@
       if (c && c.state === "running" && MUSIC.song) {
         const lat = Math.min(0.3, c.outputLatency || c.baseLatency || 0), d = c.currentTime - lat - now();
         if (this.off === null || Math.abs(d - this.off) > 0.06) this.off = d; else this.off += (d - this.off) * 0.04;
-        return (now() + this.off - MUSIC.t0) / spb;
+        const b = (now() + this.off - MUSIC.t0) / spb;
+        /* the frame clock below follows along, so if the audio stops for a moment (iOS interrupts it: a call, an alert,
+           low battery) the beat carries on from here instead of jumping to where the frame clock had drifted to, which
+           could be more than the catch-up guard allows and pause the run */
+        this.t0p = now() - b * spb;
+        return b;
       }
       return (now() - this.t0p) / spb;
     }
@@ -122,6 +127,10 @@
   /* ---------------- cards ---------------- */
   const overlay = $("#overlay"), cardEl = $("#card");
   let cardActs = [], cardStop = null, cardFade = 0;
+  /* a card's buttons take a press only once it has been up CARD_ARM s, and only a press that started then: a tap meant
+     as a jump (or a finger lifted) as a pause or results card comes up mid-run never lands on its quit or home button */
+  const CARD_ARM = 0.45;
+  let cardAt = -1e9, cardDown = -1e9, armT = 0;
   /* o: cls (extra card class), eyebrow, title, accent (a colour under the title), body, stars, stats, acts [{ t, solid, danger, rebirth, fn }],
      pv (adds a preview canvas above the eyebrow; the text is its label), open (called with the card element once
      it is in the page; it may return a function, which runs when the card goes away) */
@@ -140,7 +149,8 @@
     html += '<div class="acts">';
     (o.acts || []).forEach(function (a, i) { html += '<button class="chip' + (a.solid ? " solid" : "") + (a.danger ? " danger" : "") + (a.rebirth ? " rebirth" : "") + '" data-act="' + i + '">' + a.t + "</button>"; });
     html += "</div>";
-    cardEl.innerHTML = html; cardEl.className = "card" + (o.cls ? " " + o.cls : ""); cardActs = o.acts || []; overlay.classList.add("on"); G.cardUp = true;
+    cardEl.innerHTML = html; cardEl.className = "card arming" + (o.cls ? " " + o.cls : ""); cardActs = o.acts || []; overlay.classList.add("on"); G.cardUp = true;
+    cardAt = now(); clearTimeout(armT); armT = setTimeout(function () { cardEl.classList.remove("arming"); }, CARD_ARM * 1000);
     cardEl.style.animation = "none"; void cardEl.offsetWidth; cardEl.style.animation = "";
     if (o.stars !== undefined) $$(".stars.big .star", cardEl).forEach(function (el, i) { setTimeout(function () { el.classList.add("pop"); }, 260 + i * 280); });
     if (o.open) cardStop = o.open(cardEl) || null;
@@ -153,8 +163,11 @@
   }
   function stopCard() { if (cardStop) { const f = cardStop; cardStop = null; f(); } }
   function clearCard() { overlay.classList.remove("on", "out"); cardEl.innerHTML = ""; }
+  overlay.addEventListener("pointerdown", function () { cardDown = now(); }, true);
   overlay.addEventListener("click", function (e) {
     const b = e.target.closest("[data-act]"); if (!b) return;
+    /* e.detail 0: Enter or Space on a focused button, which has no press to check */
+    if (now() - cardAt < CARD_ARM || (e.detail !== 0 && cardDown < cardAt + CARD_ARM)) return;
     const a = cardActs[+b.dataset.act]; if (a && a.fn) a.fn();
   });
 
@@ -598,8 +611,8 @@
      hiyroscript/vl's How to play screen: a carousel of pages, each with a live loop on #demoCv, a name and a line or
      two of text. Every loop is a preview() like a new hazard card's: a tiny chart (same format as INTRO) played by the
      real simulation with a scripted input, drawn by its own renderer in a level's theme. The basics (jump, roll, dive)
-     have their charts here; each hazard page reuses its INTRO entry (text and chart), so the screen and the hazard
-     cards always say the same thing. While a scripted input is held, JUMP or ROLL shows at the bottom of the
+     have their charts here; each hazard page reuses its INTRO entry (its chart, and its card's text unless
+     How to play has a shorter one: howto.hz.<k>.body). While a scripted input is held, JUMP or ROLL shows at the bottom of the
      canvas. If you change how something works, check its page still plays out like INTRO (README: Development notes). */
   const BASICS = "basics";   /* howto.kind.<kind>; a page's name and text are howto.<id>.name / .body */
   const HOWTO = [
@@ -614,7 +627,12 @@
   HOWTO.forEach(function (p) { p.def = LEVELS[(p.lv || 1) - 1]; });
   HAZ.forEach(function (h) { HOWTO.push({ kind: "hazard", D: INTRO[h.k], h: h, lv: h.lv, def: LEVELS[h.lv - 1] }); });
   function pageName(p) { return p.h ? hzName(p.h) : t("howto." + p.id + ".name"); }
-  function pageBody(p) { return p.h ? t("hazard." + p.h.k + ".body") : t("howto." + p.id + ".body"); }
+  /* a hazard's page has a shorter text than its card where How to play has its own (howto.hz.<k>.body) */
+  function pageBody(p) {
+    if (!p.h) return t("howto." + p.id + ".body");
+    const k = "howto.hz." + p.h.k + ".body";
+    return Object.prototype.hasOwnProperty.call(I.STR.en, k) ? t(k) : t("hazard." + p.h.k + ".body");
+  }
   /* JUMP / ROLL over the bottom centre of a How to play canvas (on the dark ground band). A tap stays up for at least
      KEY_HOLD s so it can be read, but goes out KEY_GAP s before the next press, so every press shows on its own. */
   const KEY_HOLD = 0.3, KEY_GAP = 0.09, KEY_FADE = 0.08;
@@ -1085,7 +1103,7 @@
     /* the spike tip: Enter is "understood"; no other key does anything, so nothing is queued for the run */
     if (G.tip) { if (c === "Enter" && G.tip === "note") { e.preventDefault(); leaveTip(); } else if (c === "Space" || c.indexOf("Arrow") === 0) e.preventDefault(); return; }
     if (c === "Escape") { if (langOpen() && !G.cardUp) { closeLang(true); return; } if (G.mode === "play" && !G.paused) pauseGame(); else if (G.paused && !thawing) resumeGame(); else if (!G.cardUp && panelOn()) show("home"); return; }
-    if (G.cardUp) { if (c === "Enter" && cardActs[0]) { e.preventDefault(); cardActs[0].fn(); } return; }
+    if (G.cardUp) { if (c === "Enter" && cardActs[0] && !e.repeat && now() - cardAt >= CARD_ARM) { e.preventDefault(); cardActs[0].fn(); } return; }
     if (G.mode === "play") {
       if (c === "Space" || c === "ArrowUp" || c === "KeyW") { if (!e.repeat) { keys.j = true; keys.qj = true; } e.preventDefault(); }
       else if (c === "ArrowDown" || c === "KeyS") { if (!e.repeat) { keys.s = true; keys.qs = true; } e.preventDefault(); }
