@@ -1161,6 +1161,9 @@
         if (G.mono > 0) { G.mono -= dt; G.beat = Math.max(G.beat, b); } else G.beat = b;
       }
       if (G.mode === "home" || G.mode === "launch") {
+        /* the home screen draws the demo's own level, laid out for home: if anything ever left the renderer on a run's
+           (an error on the way back, say), it is put right here rather than showing a run's world with no ground */
+        if (G.mode === "home" && (RENDER.level !== G.L || !RENDER.home)) { RENDER.setHome(true); demoTo(demoKind === "inf" && infDemoReady() ? "inf" : "levels", true); return; }
         /* while home idles, the Infinite Shadow demo is made; while a launch wipes, the run's first bars */
         if (G.mode === "launch" && G.pending) G.pending.work(8, 16);
         else if (G.mode === "home") infDemoTick(dt > 0.024 ? 1 : 2);

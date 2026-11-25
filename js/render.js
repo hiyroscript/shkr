@@ -70,7 +70,8 @@ const RENDER = (function make(fit) {
   }
   function glow(col, x, y, r) { g.drawImage(glowSprite(col), x - r, y - r, r * 2, r * 2); }
 
-  function resize(canvas) {
+  /* lazy: leave the world on screen to be rebuilt when it is next used (setHome: a new level is always set right after) */
+  function resize(canvas, lazy) {
     cv = canvas || cv; if (!cv) return;
     W = fit ? fit.w : window.innerWidth; H = fit ? fit.h : window.innerHeight;
     const mobile = Math.min(W, H) < 700;
@@ -83,7 +84,7 @@ const RENDER = (function make(fit) {
     else { px0 = W * (home ? .2 : portrait ? .24 : .28); gy = H * (home ? (portrait ? .8 : .84) : portrait ? .66 : .72); }
     /* a world is rebuilt only when what its strips depend on changed (its key: size, ground line, scale); a new pixel
        ratio alone (the low-quality fallback) keeps them, so it never stalls a run */
-    if (cw) buildWorld(cw, Infinity);
+    if (cw && !lazy) buildWorld(cw, Infinity);
   }
 
   /* ---------------- worlds ----------------
@@ -104,9 +105,11 @@ const RENDER = (function make(fit) {
   let frameNo = 0;
   function worldFor(n, theme, sd, fast) {
     let w = null;
-    for (const x of worlds) if (x.n === n && x.th === theme && x.seed === sd && x.fast === !!fast) w = x;
+    /* the home screen's layout and a run's are kept apart (their ground line differs), so going home and back to the same
+       level's world rebuilds neither */
+    for (const x of worlds) if (x.n === n && x.th === theme && x.seed === sd && x.fast === !!fast && x.home === home) w = x;
     if (!w) {
-      w = makeWorld(n, theme, sd, fast); worlds.push(w);
+      w = makeWorld(n, theme, sd, fast); w.home = home; worlds.push(w);
       if (worlds.length > 3) {
         let old = null;
         for (const x of worlds) if (x !== w && x.frame < frameNo - 1 && (!old || x.used < old.used)) old = x;
@@ -116,11 +119,15 @@ const RENDER = (function make(fit) {
     w.used = msNow(); w.frame = frameNo;
     return w;
   }
-  function dropWorld(w) {
+  /* give a world's canvases back at once (iOS Safari counts a canvas against its cap on all canvases until it is
+     collected, and every run started or left rebuilds the world on screen): when it is let go, and when it is rebuilt */
+  function freeWorld(w) {
     const free = function (c) { if (c) c.width = c.height = 0; };
     w.strips.forEach(free); free(w.sky); free(w.mist); free(w.wisp); free(w.motifCv);
-    w.strips = []; w.sky = w.mist = w.wisp = w.motifCv = null; w.key = ""; w.done = 0; w.job = null;
+    if (w.job && w.job.free) w.job.free();
+    w.strips = []; w.sky = w.mist = w.wisp = w.motifCv = null; w.motifKey = ""; w.job = null;
   }
+  function dropWorld(w) { freeWorld(w); w.key = ""; w.done = 0; }
   /* which generators feed each of the five layers */
   function layerGens(w, i) {
     const a = w.th[0], b = w.th[1], org = ORG[w.n], S = w.seed;
@@ -137,7 +144,7 @@ const RENDER = (function make(fit) {
   const msNow = function () { return performance.now(); };
   function buildWorld(w, ms) {
     const key = "fog5|" + w.th[0] + w.th[1] + w.seed + "|" + w.n + "|" + W + "x" + H + "|" + gy.toFixed(2) + "|" + sc.toFixed(3);
-    if (key !== w.key) { w.key = key; w.done = 0; w.job = null; }
+    if (key !== w.key) { freeWorld(w); w.key = key; w.done = 0; }
     const bs = sc > 50 ? 1 : 1.5, hpx = (gy + sc * 2.6) * bs, pal = w.pal, end = msNow() + ms;
     while (w.done < 6) {
       const i = w.done;
@@ -153,25 +160,30 @@ const RENDER = (function make(fit) {
       }
       w.done++;
       w.strips.bs = bs;
-      /* sky: vertical gradient + wide soft horizon glow, at half size and upscaled (gradients scale cleanly) */
+      /* sky: vertical gradient + wide soft horizon glow, at half size and upscaled (gradients scale cleanly). A canvas the
+         browser refuses (iOS's cap on canvas memory) is simply left out: drawBack paints the sky colour instead */
+      const sprite = function (cw, ch, paint) { const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch; const c = cv.getContext("2d"); if (!c) { cv.width = cv.height = 0; return null; } paint(c); return cv; };
       const sw = Math.max(8, Math.ceil(W / 2)), sh = Math.max(8, Math.ceil(H / 2));
-      w.sky = document.createElement("canvas"); w.sky.width = sw; w.sky.height = sh;
-      let c = w.sky.getContext("2d"), gr = c.createLinearGradient(0, 0, 0, sh);
-      gr.addColorStop(0, pal.sky[0]); gr.addColorStop(.38, pal.sky[1]); gr.addColorStop(.6, pal.sky[2]); gr.addColorStop(1, pal.sky[2]);
-      c.fillStyle = gr; c.fillRect(0, 0, sw, sh);
-      c.save(); c.translate(sw / 2, sh * .6); c.scale(1, .42);
-      gr = c.createRadialGradient(0, 0, 0, 0, 0, sw * .62); gr.addColorStop(0, rgba(pal.sky[2], .95)); gr.addColorStop(.55, rgba(pal.sky[2], .45)); gr.addColorStop(1, rgba(pal.sky[2], 0));
-      c.fillStyle = gr; c.fillRect(-sw, -sh * 3, sw * 2, sh * 6); c.restore();
+      w.sky = sprite(sw, sh, function (c) {
+        let gr = c.createLinearGradient(0, 0, 0, sh);
+        gr.addColorStop(0, pal.sky[0]); gr.addColorStop(.38, pal.sky[1]); gr.addColorStop(.6, pal.sky[2]); gr.addColorStop(1, pal.sky[2]);
+        c.fillStyle = gr; c.fillRect(0, 0, sw, sh);
+        c.save(); c.translate(sw / 2, sh * .6); c.scale(1, .42);
+        gr = c.createRadialGradient(0, 0, 0, 0, 0, sw * .62); gr.addColorStop(0, rgba(pal.sky[2], .95)); gr.addColorStop(.55, rgba(pal.sky[2], .45)); gr.addColorStop(1, rgba(pal.sky[2], 0));
+        c.fillStyle = gr; c.fillRect(-sw, -sh * 3, sw * 2, sh * 6); c.restore();
+      });
       /* mist band (drawn between layers) and soft wisp sprite */
       const mc = "rgba(" + pal.mist[0] + "," + pal.mist[1] + "," + pal.mist[2] + ",";
-      w.mist = document.createElement("canvas"); w.mist.width = 2; w.mist.height = 64;
-      c = w.mist.getContext("2d"); gr = c.createLinearGradient(0, 0, 0, 64);
-      gr.addColorStop(0, mc + "0)"); gr.addColorStop(.62, mc + ".42)"); gr.addColorStop(1, mc + "0)");
-      c.fillStyle = gr; c.fillRect(0, 0, 2, 64);
-      w.wisp = document.createElement("canvas"); w.wisp.width = w.wisp.height = 64;
-      c = w.wisp.getContext("2d"); gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
-      gr.addColorStop(0, mc + "1)"); gr.addColorStop(.5, mc + ".55)"); gr.addColorStop(1, mc + "0)");
-      c.fillStyle = gr; c.fillRect(0, 0, 64, 64);
+      w.mist = sprite(2, 64, function (c) {
+        const gr = c.createLinearGradient(0, 0, 0, 64);
+        gr.addColorStop(0, mc + "0)"); gr.addColorStop(.62, mc + ".42)"); gr.addColorStop(1, mc + "0)");
+        c.fillStyle = gr; c.fillRect(0, 0, 2, 64);
+      });
+      w.wisp = sprite(64, 64, function (c) {
+        const gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gr.addColorStop(0, mc + "1)"); gr.addColorStop(.5, mc + ".55)"); gr.addColorStop(1, mc + "0)");
+        c.fillStyle = gr; c.fillRect(0, 0, 64, 64);
+      });
     }
     return w.done >= 6;
   }
@@ -1039,6 +1051,7 @@ const RENDER = (function make(fit) {
     const m = b.motif;
     if (!w.motifCv || w.motifKey !== m.seed + "|" + sc) {
       const tone = w.pal.layers[0];
+      if (w.motifCv) w.motifCv.width = w.motifCv.height = 0;
       w.motifCv = BACKDROPS.single({ gen: m.kind, seed: m.seed, u: sc * .55, tone: mixHex(tone, w.pal.sky[1], .25), dark: tone, light: mixHex(tone, w.pal.sky[2], .5) });
       w.motifKey = m.seed + "|" + sc;
     }
@@ -1412,7 +1425,9 @@ const RENDER = (function make(fit) {
     setFont: function (f, d) { POPFONT = f; if (d) TITLEFONT = d; },
     /* world point -> CSS pixels on the canvas, with the camera of the last frame (flip / fb as for at()) */
     point: function (x, y, flip, fb) { return { x: X(x), y: flip ? Y(2 * fb + CH - y) : Y(y) }; },
-    setHome: function (v) { if (home !== v) { home = v; if (cv) resize(); } }, get W() { return W; }, get H() { return H; }, setQuality: function (q) { quality = q; },
+    setHome: function (v) { if (home !== v) { home = v; if (cv) resize(undefined, true); } }, get W() { return W; }, get H() { return H; },
+    /* what it draws now: the level and whether it is laid out for the home screen (game.js checks them there) */
+    get level() { return L; }, get home() { return home; }, setQuality: function (q) { quality = q; },
     create: function (f) { return make(f); } };
 })();
 
