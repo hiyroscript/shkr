@@ -3,9 +3,9 @@
   --paper:#EDEFF2; --paper-2:#DFE4EA; --paper-3:#C8CFD8;
   --ink:#0A0A10; --ink-2:#13131C; --mute:#7A8290;
   --star:#FFC400;
-  /* CJK fallbacks (js/i18n.js languages): Space Grotesk and JetBrains Mono have no CJK glyphs, so those come from
-     the system. The :lang() rules below put the right regional font first, so Han characters get Chinese or
-     Japanese shapes. Before them, sans faces with Cyrillic (Space Grotesk has none). */
+  /* CJK fallbacks (js/i18n.js languages): the platform's UI and mono faces come first, and where one has no CJK
+     glyphs these do. The :lang() rules below put the right regional font first, so Han characters get Chinese or
+     Japanese shapes. */
   --cjk:"PingFang SC","Hiragino Sans","Apple SD Gothic Neo","Microsoft YaHei","Yu Gothic","Malgun Gothic","Noto Sans SC","Noto Sans JP","Noto Sans KR","Noto Sans CJK SC";
   --pad:clamp(16px,3.4vw,32px);
   --col:min(100%,720px);
@@ -20,11 +20,12 @@
   /* rebirth level (purple) and clearing progress (red): a solid coloured line, wider than a chip's hairline */
   --rebirth:#7B2FE0; --tone-w:1.5px;
 }
-/* the font stacks are declared again on every element with its own lang (the language list), so var(--cjk) picks
-   that element's regional font */
+/* system fonts only, nothing is downloaded: each platform's own UI face (San Francisco, Segoe UI, Roboto, ...) and
+   mono face (SF Mono, Consolas, Menlo, ...). The stacks are declared again on every element with its own lang (the
+   language list), so var(--cjk) picks that element's regional font */
 :root,[lang]{
-  --disp:"Space Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",var(--cjk),sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono","Liberation Mono",var(--cjk),monospace;
+  --disp:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",var(--cjk),sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono","Liberation Mono",var(--cjk),monospace;
 }
 :lang(zh){--cjk:"PingFang SC","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC"}
 :lang(ja){--cjk:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo","Noto Sans JP","Noto Sans CJK JP"}
