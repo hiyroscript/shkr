@@ -80,9 +80,11 @@
   const clock = {
     off: null, t0p: 0,
     start: function () { this.off = null; this.t0p = now() + 0.1; },
+    /* is the beat the audio clock's (true), or the frame clock's (no audio, or the audio not running)? */
+    onAudio: function () { const c = MUSIC.ctx; return !!(c && c.state === "running" && MUSIC.song); },
     beat: function (spb) {
       const c = MUSIC.ctx;
-      if (c && c.state === "running" && MUSIC.song) {
+      if (this.onAudio()) {
         const lat = Math.min(0.3, c.outputLatency || c.baseLatency || 0), d = c.currentTime - lat - now();
         if (this.off === null || Math.abs(d - this.off) > 0.06) this.off = d; else this.off += (d - this.off) * 0.04;
         const b = (now() + this.off - MUSIC.t0) / spb;
@@ -95,6 +97,16 @@
       return (now() - this.t0p) / spb;
     }
   };
+
+  /* pause / quit logging, off by default: open the game with ?debug=pause (or call __SHADOWSKIRR.debugPause(true)) to
+     log every pauseGame() with its reason and every startHome() with its caller to the console */
+  let DBG = /[?&]debug=pause\b/.test(location.search);
+  function dbg(what, info) {
+    if (!DBG) return;
+    const st = G.st, at = G.mode + (G.inf ? " inf" : " lv" + G.n) + " tick " + (st ? st.tick : "-") + " beat " + G.beat.toFixed(3);
+    console.log("[shkr " + now().toFixed(3) + "] " + what + " · " + at, info || "");
+  }
+  function caller() { const s = (new Error().stack || "").split("\n").slice(3, 7).map(function (l) { return l.trim(); }); return s.join(" <- "); }
 
   const G = { mode: "home", paused: false, n: 1, def: null, L: null, song: null, st: null, tryN: 1, session: 0, beat: 0, beat0: 0, spb: 0.5,
     deadAt: 0, wonAt: 0, squash: 0, restY: 0, snap: true, cardUp: false, pauseT: 0, cd: null, tip: false, tipN: 0, mark: null, hist: null, rw: null };
@@ -130,12 +142,37 @@
   /* a card's buttons take a press only once it has been up CARD_ARM s, and only a press that started then: a tap meant
      as a jump (or a finger lifted) as a pause or results card comes up mid-run never lands on its quit or home button */
   const CARD_ARM = 0.45;
-  let cardAt = -1e9, cardDown = -1e9, armT = 0;
+  /* a card that comes up on its own mid-run (a pause for a stall or a lost focus, a results card) waits longer: the
+     player didn't ask for it and may still be tapping out the rhythm */
+  const CARD_ARM_AUTO = 1;
+  let cardAt = -1e9, cardDown = -1e9, armT = 0, cardArm = CARD_ARM;
+  /* a hold button (acts[].hold: a run's quit, a results card's home) takes no click at all, only a press held HOLD s
+     that starts once the card is armed: a pointer on it, or Enter / Space with it focused. A tap never sets it off,
+     wherever the player's jump or roll taps land, and letting go early cancels it */
+  const HOLD = 0.6;
+  let hold = null;
+  function holdStart(b, key) {
+    const a = cardActs[+b.dataset.act];
+    if (hold || !a || !a.hold || !G.cardUp || now() - cardAt < cardArm) return false;
+    b.style.setProperty("--hold", HOLD + "s"); b.classList.add("holding");
+    hold = { b: b, key: key, tm: setTimeout(function () {
+      hold = null; b.classList.remove("holding");
+      if (DBG) dbg("card hold: " + a.t, { sinceCard: +(now() - cardAt).toFixed(3) });
+      a.fn();
+    }, HOLD * 1000) };
+    return true;
+  }
+  /* key: the press that ends (a pointer, a key code); none cancels whatever is held */
+  function holdEnd(key) {
+    if (!hold || (key !== undefined && hold.key !== key)) return;
+    clearTimeout(hold.tm); hold.b.classList.remove("holding"); hold = null;
+  }
   /* o: cls (extra card class), eyebrow, title, accent (a colour under the title), body, stars, stats, acts [{ t, solid, danger, rebirth, fn }],
      pv (adds a preview canvas above the eyebrow; the text is its label), open (called with the card element once
-     it is in the page; it may return a function, which runs when the card goes away) */
+     it is in the page; it may return a function, which runs when the card goes away), arm (seconds before its buttons
+     take a press; CARD_ARM if not given) */
   function showCard(o) {
-    stopCard(); clearTimeout(cardFade);
+    stopCard(); clearTimeout(cardFade); holdEnd();
     if (overlay.classList.contains("out")) clearCard();
     let html = "";
     if (o.pv) html += '<div class="pv"><canvas role="img" aria-label="' + o.pv + '"></canvas></div>';
@@ -147,17 +184,20 @@
     if (o.stats) { html += '<div class="stat-row">'; o.stats.forEach(function (s) { html += "<div><b>" + s[0] + "</b><span>" + s[1] + "</span></div>"; }); html += "</div>"; }
     if (o.after) html += o.after;
     html += '<div class="acts">';
-    (o.acts || []).forEach(function (a, i) { html += '<button class="chip' + (a.solid ? " solid" : "") + (a.danger ? " danger" : "") + (a.rebirth ? " rebirth" : "") + '" data-act="' + i + '">' + a.t + "</button>"; });
+    (o.acts || []).forEach(function (a, i) {
+      html += '<button class="chip' + (a.solid ? " solid" : "") + (a.danger ? " danger" : "") + (a.rebirth ? " rebirth" : "") + (a.hold ? " hold" : "") + '" data-act="' + i + '"' +
+        (a.hold ? ' aria-label="' + esc(a.t + ", " + t("card.hold")) + '">' + "<span>" + a.t + '</span><small aria-hidden="true">' + esc(t("card.hold")) + '</small><i class="fill" aria-hidden="true"></i>' : ">" + a.t) + "</button>";
+    });
     html += "</div>";
     cardEl.innerHTML = html; cardEl.className = "card arming" + (o.cls ? " " + o.cls : ""); cardActs = o.acts || []; overlay.classList.add("on"); G.cardUp = true;
-    cardAt = now(); clearTimeout(armT); armT = setTimeout(function () { cardEl.classList.remove("arming"); }, CARD_ARM * 1000);
+    cardAt = now(); cardArm = o.arm || CARD_ARM; clearTimeout(armT); armT = setTimeout(function () { cardEl.classList.remove("arming"); }, cardArm * 1000);
     cardEl.style.animation = "none"; void cardEl.offsetWidth; cardEl.style.animation = "";
     if (o.stars !== undefined) $$(".stars.big .star", cardEl).forEach(function (el, i) { setTimeout(function () { el.classList.add("pop"); }, 260 + i * 280); });
     if (o.open) cardStop = o.open(cardEl) || null;
   }
   /* fade === true: a short fade out, which takes a docked objective box with it */
   function hideCard(fade) {
-    stopCard(); cardActs = []; G.cardUp = false; clearTimeout(cardFade);
+    stopCard(); holdEnd(); cardActs = []; G.cardUp = false; clearTimeout(cardFade);
     if (fade === true && overlay.classList.contains("on")) { overlay.classList.add("out"); cardFade = setTimeout(clearCard, 200); }
     else clearCard();
   }
@@ -165,11 +205,19 @@
   function clearCard() { overlay.classList.remove("on", "out"); cardEl.innerHTML = ""; }
   overlay.addEventListener("pointerdown", function () { cardDown = now(); }, true);
   overlay.addEventListener("click", function (e) {
-    const b = e.target.closest("[data-act]"); if (!b) return;
-    /* e.detail 0: Enter or Space on a focused button, which has no press to check */
-    if (now() - cardAt < CARD_ARM || (e.detail !== 0 && cardDown < cardAt + CARD_ARM)) return;
-    const a = cardActs[+b.dataset.act]; if (a && a.fn) a.fn();
+    const b = e.target.closest("[data-act]"); if (!b || b.classList.contains("hold")) return;
+    /* e.detail 0: Enter or Space on a focused button, which has no press to check (in a run the keydown handler
+       swallows Space, so a jump key never gets here) */
+    if (now() - cardAt < cardArm || (e.detail !== 0 && cardDown < cardAt + cardArm)) return;
+    const a = cardActs[+b.dataset.act];
+    if (DBG) dbg("card press: " + (a ? a.t : "?"), { sinceCard: +(now() - cardAt).toFixed(3), downAfterCard: +(cardDown - cardAt).toFixed(3), detail: e.detail });
+    if (a && a.fn) a.fn();
   });
+  cardEl.addEventListener("pointerdown", function (e) {
+    const b = e.target.closest(".hold[data-act]"); if (!b || (e.pointerType === "mouse" && e.button !== 0)) return;
+    if (holdStart(b, "p" + e.pointerId)) try { b.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  ["pointerup", "pointercancel"].forEach(function (k) { window.addEventListener(k, function (e) { holdEnd("p" + e.pointerId); }, true); });
 
   /* ---------------- home ---------------- */
   /* one span per letter, in a no-wrap span per word. A word may also break after a hyphen, and Chinese or Japanese
@@ -313,6 +361,7 @@
   });
   function homeTheme() { const n = Math.min(S.sel, S.unlocked); return LEVELS[n - 1]; }
   function startHome() {
+    if (DBG) dbg("startHome", { from: G.mode, caller: caller() });
     G.mode = "home"; G.paused = false; stopTip(); G.hist = null; G.open = null; $("#hud").classList.remove("on", "inf", "beat");
     G.inf = null; G.n = S.sel; G.def = null;
     G.spb = 60 / HOME.mu[0]; G.beat0 = 0;
@@ -837,8 +886,9 @@
     }
     const stats = [[clockText(sec), t("inf.results.time")], [t("inf.results.meters", { n: fmt(Math.round(x)) }), t("inf.results.distance")]];
     showCard({ cls: nb ? "newbest" : "", eyebrow: esc(t("inf.title")) + "  ·  " + esc(t("inf.place")), title: nb ? esc(t("inf.newbest")) : esc(t("inf.results.title")), html: html, stats: stats,
+      arm: CARD_ARM_AUTO,
       acts: [{ t: t("card.inf.again"), solid: true, fn: function () { launchInf(null); } },
-        { t: t("card.win.home"), fn: function () { hideCard(); show("home"); startHome(); } }] });
+        { t: t("card.win.home"), hold: true, fn: function () { hideCard(); show("home"); startHome(); } }] });
   }
 
   /* ---------------- play ---------------- */
@@ -939,8 +989,8 @@
       const acts = [];
       if (n < N) acts.push({ t: t("card.win.next"), solid: true, fn: function () { hideCard(); MUSIC.stop(0.2); S.sel = n + 1; saveState(); startLevel(n + 1); } });
       acts.push({ t: t("common.replay"), solid: n >= N, fn: function () { hideCard(); MUSIC.stop(0.2); startLevel(n); } });
-      acts.push({ t: t("card.win.home"), fn: function () { hideCard(); if (n < N) S.sel = n + 1; saveState(); show("home"); startHome(); } });
-      showCard({ eyebrow: t("card.win.eyebrow", { n: pad2(n) }), title: esc(lvName(n)), stars: shown,
+      acts.push({ t: t("card.win.home"), hold: true, fn: function () { hideCard(); if (n < N) S.sel = n + 1; saveState(); show("home"); startHome(); } });
+      showCard({ arm: CARD_ARM_AUTO, eyebrow: t("card.win.eyebrow", { n: pad2(n) }), title: esc(lvName(n)), stars: shown,
         stats: first ? [[tries, tn("stat.tries", tries)]] : [[tries, t("stat.thisRun")], [r.t, t("stat.record")]], acts: acts });
     }, 1150);
   }
@@ -1038,7 +1088,7 @@
     dropInput(); G.tip = false; G.beat = b;
     if (G.song) MUSIC.start(G.song, b);
     clock.off = null; clock.t0p = now() + 0.1 - b * G.spb; G.paused = false;
-    if (!winFocus || document.hidden) pauseGame();
+    if (!winFocus || document.hidden) pauseGame(document.hidden ? "hidden" : "blur");
   }
   function stopTip() {
     G.tip = false; G.mark = null; G.rw = null; tipEl.classList.remove("show"); tipPad(false);
@@ -1046,23 +1096,26 @@
   }
 
   /* ---------------- pause ---------------- */
-  function pauseGame() {
+  function pauseGame(why, info) {
+    if (DBG) dbg("pauseGame(" + why + ")" + (G.mode !== "play" ? " ignored" : G.paused && !G.cd ? " already paused" : ""), info);
     if (G.mode !== "play") return;
     /* during the resume countdown the run is still frozen (since G.pauseT): the card just comes back */
     if (G.cd) stopCount(); else if (G.paused) return; else { G.paused = true; G.pauseT = now(); MUSIC.suspend(); }
     keys.j = keys.s = false;
+    /* why: "esc" or "button" (asked for), "stall", "blur" or "hidden" (not: the card arms later) */
+    const arm = why === "esc" || why === "button" ? CARD_ARM : CARD_ARM_AUTO;
     if (G.inf) {
       /* restart is a new run: a new seed, under the wipe */
-      showCard({ eyebrow: esc(t("inf.title")) + "  ·  " + esc(t("inf.place")), title: t("card.pause.title"),
+      showCard({ arm: arm, eyebrow: esc(t("inf.title")) + "  ·  " + esc(t("inf.place")), title: t("card.pause.title"),
         acts: [{ t: t("card.pause.resume"), solid: true, fn: resumeGame },
           { t: t("card.pause.restart"), fn: function () { leaveInf(); hideCard(); MUSIC.resume(); G.paused = false; G.mode = "home"; launchInf(null); } },
-          { t: t("card.pause.quit"), fn: function () { leaveInf(); hideCard(); MUSIC.resume(); G.paused = false; show("home"); startHome(); } }] });
+          { t: t("card.pause.quit"), hold: true, fn: function () { leaveInf(); hideCard(); MUSIC.resume(); G.paused = false; show("home"); startHome(); } }] });
       return;
     }
-    showCard({ eyebrow: t("game.level", { n: pad2(G.n) }) + "  ·  " + t("game.try", { n: G.tryN }), title: t("card.pause.title"),
+    showCard({ arm: arm, eyebrow: t("game.level", { n: pad2(G.n) }) + "  ·  " + t("game.try", { n: G.tryN }), title: t("card.pause.title"),
       acts: [{ t: t("card.pause.resume"), solid: true, fn: resumeGame },
         { t: t("card.pause.restart"), fn: function () { hideCard(); MUSIC.resume(); beginRun(false); } },
-        { t: t("card.pause.quit"), fn: function () { hideCard(); MUSIC.resume(); G.paused = false; show("home"); startHome(); } }] });
+        { t: t("card.pause.quit"), hold: true, fn: function () { hideCard(); MUSIC.resume(); G.paused = false; show("home"); startHome(); } }] });
   }
   function resumeGame() { hideCard(); startCount(); }
   /* resume counts down 3, 2, 1 over the frozen run before it carries on, so the player has their hands back on the keys
@@ -1085,15 +1138,28 @@
   function unfreeze() {
     if (thawing) return; thawing = true;   /* once: Esc can land again while MUSIC.resume() is still pending */
     const p = MUSIC.resume();
-    const go = function () { thawing = false; clock.t0p += now() - G.pauseT; clock.off = null; G.paused = false; };
+    const go = function () { thawing = false; clock.t0p += now() - G.pauseT; clock.off = null; resync(); G.paused = false; };
     if (p && p.then) p.then(go, go); else go();
   }
-  $("#pauseBtn").addEventListener("click", function (e) { e.stopPropagation(); pauseGame(); });
+  /* after a pause for a stall the music is ahead of the run (it played on while the frames stopped), which the
+     catch-up guard would take for a new stall the moment the run went on: a pause, resume, the 3-2-1, and the pause
+     card again, every time. So the song starts again from the run's own beat, as after a level tip's rewind. After any
+     other pause the two are together (the audio was suspended with the run) and nothing changes. */
+  function resync() {
+    if (G.mode !== "play" || !G.song || !clock.onAudio()) return;
+    const ahead = (clock.beat(G.spb) - G.beat0) * TPB - G.st.tick;
+    if (ahead <= TPB * 1.5 || G.st.tick <= 0) { clock.off = null; return; }
+    const b = G.st.tick / TPB;
+    if (DBG) dbg("resync: the music back on the run's beat", { aheadBeats: +(ahead / TPB).toFixed(3) });
+    MUSIC.start(G.song, b + G.beat0);
+    clock.off = null; clock.t0p = now() + 0.1 - (b + G.beat0) * G.spb; G.beat = b;
+  }
+  $("#pauseBtn").addEventListener("click", function (e) { e.stopPropagation(); pauseGame("button"); });
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden) { if (G.mode === "play") pauseGame(); else MUSIC.suspend(); }
+    if (document.hidden) { if (G.mode === "play") pauseGame("hidden"); else MUSIC.suspend(); }
     else if (!G.paused) { MUSIC.resume(); clock.off = null; }
   });
-  window.addEventListener("blur", function () { pauseGame(); });
+  window.addEventListener("blur", function () { holdEnd(); pauseGame("blur"); });
 
   /* ---------------- input ---------------- */
   let audioOn = false;
@@ -1118,9 +1184,17 @@
     /* Esc: pause / resume in a run (nothing while a level tip counts down); on a panel (How to play, Settings, Levels) with no card open, back home */
     /* the spike tip: Enter is "understood"; no other key does anything, so nothing is queued for the run */
     if (G.tip) { if (c === "Enter" && G.tip === "note") { e.preventDefault(); leaveTip(); } else if (c === "Space" || c.indexOf("Arrow") === 0) e.preventDefault(); return; }
-    if (G.cd) { if (c === "Escape") pauseGame(); else if (c === "Space" || c === "Enter" || c.indexOf("Arrow") === 0) e.preventDefault(); return; }
-    if (c === "Escape") { if (langOpen() && !G.cardUp) { closeLang(true); return; } if (G.mode === "play" && !G.paused) pauseGame(); else if (G.paused && !thawing) resumeGame(); else if (!G.cardUp && panelOn()) show("home"); return; }
-    if (G.cardUp) { if (c === "Enter" && cardActs[0] && !e.repeat && now() - cardAt >= CARD_ARM) { e.preventDefault(); cardActs[0].fn(); } return; }
+    if (G.cd) { if (c === "Escape") pauseGame("esc"); else if (c === "Space" || c === "Enter" || c.indexOf("Arrow") === 0) e.preventDefault(); return; }
+    if (c === "Escape") { if (langOpen() && !G.cardUp) { closeLang(true); return; } if (G.mode === "play" && !G.paused) pauseGame("esc"); else if (G.paused && !thawing) resumeGame(); else if (!G.cardUp && panelOn()) show("home"); return; }
+    if (G.cardUp) {
+      /* Enter or Space on a focused hold button holds it (keyup lets go) */
+      const f = document.activeElement;
+      if ((c === "Enter" || c === "Space") && f && f.classList && f.classList.contains("hold") && cardEl.contains(f)) { e.preventDefault(); if (!e.repeat) holdStart(f, c); return; }
+      if (c === "Enter" && cardActs[0] && !e.repeat && now() - cardAt >= cardArm) { e.preventDefault(); cardActs[0].fn(); }
+      /* in a run, the jump keys never press a focused button (or scroll the card) */
+      else if (G.mode !== "home" && (c === "Space" || c.indexOf("Arrow") === 0)) e.preventDefault();
+      return;
+    }
     if (G.mode === "play") {
       if (c === "Space" || c === "ArrowUp" || c === "KeyW") { if (!e.repeat) { keys.j = true; keys.qj = true; } e.preventDefault(); }
       else if (c === "ArrowDown" || c === "KeyS") { if (!e.repeat) { keys.s = true; keys.qs = true; } e.preventDefault(); }
@@ -1135,6 +1209,8 @@
   });
   window.addEventListener("keyup", function (e) {
     const c = e.code;
+    holdEnd(c);
+    if (G.cardUp && G.mode !== "home" && c === "Space") e.preventDefault();
     if (c === "Space" || c === "ArrowUp" || c === "KeyW") keys.j = false;
     else if (c === "ArrowDown" || c === "KeyS") keys.s = false;
   });
@@ -1155,9 +1231,30 @@
 
   /* ---------------- main loop ---------------- */
   let last = 0, slow = 0, lowQ = false;
+  /* The catch-up guard. The run more than 1.5 beats behind the clock means the frames stopped for a moment (a hitch, a
+     GC pause, a world being built) or the beat jumped (clock.beat re-syncing to the audio clock, the output latency
+     changing). That is never the player's doing, so it no longer pauses: with the music driving the clock the run
+     catches up to it at once, as it always did for a gap under 1.5 beats (the music is the clock); with the frame clock
+     (no audio running) the clock is moved on by the gap, as unfreeze() does, and the run carries on from where it was.
+     Only a real stall pauses: over STALL s of real time between two frames, a jump in the beat far beyond any re-sync
+     (over STALL_JUMP s), or a hidden tab. Returns the tick to step to, or null after pausing. */
+  const STALL = 1, STALL_JUMP = 2;
+  function catchUp(target, gap, dt) {
+    const behind = target - G.st.tick;
+    if (behind <= TPB * 1.5) return target;
+    const sec = behind / TPB * G.spb, info = DBG ? { behindBeats: +(behind / TPB).toFixed(3), behindSec: +sec.toFixed(3), frameGap: +gap.toFixed(3), audio: clock.onAudio() } : null;
+    if (document.hidden || gap > STALL || sec > STALL_JUMP) { pauseGame(document.hidden ? "hidden" : "stall", info); return null; }
+    if (clock.onAudio()) { if (DBG) dbg("stall: caught up", info); return target; }
+    const keep = Math.max(0, sec - dt);
+    clock.t0p += keep; G.beat -= keep / G.spb;
+    if (DBG) dbg("stall: frame clock moved on " + keep.toFixed(3) + " s", info);
+    return Math.floor(G.beat * TPB);
+  }
   const hudFill = $("#hudFill");
+  let frameAt = now();
   function loop(ts) {
     requestAnimationFrame(loop);
+    const frameGap = now() - frameAt; frameAt = now();
     const t = ts / 1000, dt = Math.min(0.05, Math.max(0.001, t - last)); last = t;
     if (!G.st || !G.L) return;
     if (G.mode === "intro" && !G.snap) return;   /* frozen behind a new hazard card: drawn once, and again after a resize */
@@ -1192,11 +1289,11 @@
         }
       } else if (G.mode === "play" && G.inf) {
         /* Infinite Shadow: the score counts up (the world is made ahead at the end of the frame) */
-        const target = Math.floor(G.beat * TPB);
+        const target = catchUp(Math.floor(G.beat * TPB), frameGap, dt);
         /* the one-bar count-in: the run starts on its first beat, so a tap or hold during it is dropped, never kept for
            that beat (a tap a second early would otherwise make the runner jump a second late, as the run starts) */
-        if (target <= 0) dropInput();
-        if (target - st.tick > TPB * 1.5) { pauseGame(); }
+        if (target !== null && target <= 0) dropInput();
+        if (target === null) { /* paused */ }
         else {
           while (st.tick < target && !st.dead) {
             if (G.bot) { const v = G.bot.path[Math.floor(st.tick / G.bot.DEC)] || 0; keys.j = !!(v & 1); keys.s = !!(v & 2); }
@@ -1207,8 +1304,8 @@
           paintInfHud();
         }
       } else if (G.mode === "play") {
-        const target = Math.floor(G.beat * TPB);
-        if (target - st.tick > TPB * 1.5) { pauseGame(); }
+        const target = catchUp(Math.floor(G.beat * TPB), frameGap, dt);
+        if (target === null) { /* paused */ }
         else {
           while (st.tick < target && !st.dead && !st.won) {
             if (tipDue(st)) { showTip(); break; }
@@ -1269,6 +1366,8 @@
   window.__SHADOWSKIRR = { G: G, S: function () { return S; }, startLevel: startLevel, keys: keys, getL: getL,
     saveState: saveState, paintHome: paintHome, paintLevels: paintLevels, startHome: startHome, show: show,
     showCard: showCard, hideCard: hideCard, N: N, setS: setS,
+    /* the pause / quit logging (?debug=pause): on, or off with false */
+    debugPause: function (on) { DBG = on !== false; return DBG; },
     /* Infinite Shadow: start a run from a seed (the developer section), its definition */
     launchInf: function (seed) { if (G.mode !== "home") { hideCard(); show("home"); startHome(); } launchInf(null, seed); }, INF_DEF: INF_DEF };
   window.__LUMBRA = window.__SHADOWSKIRR;   /* legacy alias for old test scripts / console snippets */

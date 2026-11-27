@@ -118,6 +118,7 @@
     "card.pause.resume": "resume",
     "card.pause.restart": "restart",
     "card.pause.quit": "quit",
+    "card.hold": "hold",
 
     "hazard.bl.name": "Bloom",
     "hazard.bl.body": "A bouncy pad. Run onto it and it throws you up really high. Use it to get over big gaps and tall steps.",
@@ -298,6 +299,7 @@
     "card.pause.resume": "继续",
     "card.pause.restart": "重来",
     "card.pause.quit": "退出",
+    "card.hold": "长按",
 
     "hazard.bl.name": "弹花",
     "hazard.bl.body": "一块弹力垫。跑上去，它会把你高高弹起。用它越过大缺口和高台阶。",
@@ -478,6 +480,7 @@
     "card.pause.resume": "seguir",
     "card.pause.restart": "reiniciar",
     "card.pause.quit": "salir",
+    "card.hold": "mantén",
 
     "hazard.bl.name": "Brote",
     "hazard.bl.body": "Una plataforma elástica. Pisa encima y te lanza muy alto. Úsala para cruzar huecos grandes y escalones altos.",
@@ -658,6 +661,7 @@
     "card.pause.resume": "продолжить",
     "card.pause.restart": "заново",
     "card.pause.quit": "выйти",
+    "card.hold": "удерживайте",
 
     "hazard.bl.name": "Бутон",
     "hazard.bl.body": "Пружинящая подушка. Наступи на неё — и она подбросит тебя очень высоко. Так перелетают большие ямы и высокие ступени.",
@@ -838,6 +842,7 @@
     "card.pause.resume": "再開",
     "card.pause.restart": "やり直す",
     "card.pause.quit": "やめる",
+    "card.hold": "長押し",
 
     "hazard.bl.name": "ブルーム",
     "hazard.bl.body": "弾むパッド。上を走ると、とても高く跳ね上げてくれます。大きな穴や高い段差を越えるのに使おう。",
@@ -1018,6 +1023,7 @@
     "card.pause.resume": "continuar",
     "card.pause.restart": "reiniciar",
     "card.pause.quit": "sair",
+    "card.hold": "segure",
 
     "hazard.bl.name": "Flor",
     "hazard.bl.body": "Uma plataforma elástica. Passe por cima e ela te joga lá no alto. Use para vencer buracos grandes e degraus altos.",
@@ -1198,6 +1204,7 @@
     "card.pause.resume": "weiter",
     "card.pause.restart": "neu starten",
     "card.pause.quit": "beenden",
+    "card.hold": "halten",
 
     "hazard.bl.name": "Blüte",
     "hazard.bl.body": "Ein federndes Polster. Lauf drauf und es schleudert dich richtig hoch. Damit kommst du über große Lücken und hohe Stufen.",
@@ -1378,6 +1385,7 @@
     "card.pause.resume": "reprendre",
     "card.pause.restart": "recommencer",
     "card.pause.quit": "quitter",
+    "card.hold": "maintenir",
 
     "hazard.bl.name": "Éclosion",
     "hazard.bl.body": "Un tampon rebondissant. Cours dessus et il te propulse très haut. Sers-t'en pour passer les grands trous et les hautes marches.",
@@ -1558,6 +1566,7 @@
     "card.pause.resume": "계속",
     "card.pause.restart": "다시 시작",
     "card.pause.quit": "나가기",
+    "card.hold": "길게 누르기",
 
     "hazard.bl.name": "블룸",
     "hazard.bl.body": "통통 튀는 패드예요. 올라서면 아주 높이 튕겨 올려 줘요. 큰 틈과 높은 계단을 넘을 때 쓰세요.",
@@ -1738,6 +1747,7 @@
     "card.pause.resume": "wznów",
     "card.pause.restart": "od nowa",
     "card.pause.quit": "wyjdź",
+    "card.hold": "przytrzymaj",
 
     "hazard.bl.name": "Pąk",
     "hazard.bl.body": "Sprężysta poduszka. Wbiegnij na nią, a wystrzeli cię naprawdę wysoko. Przydaje się na duże dziury i wysokie stopnie.",

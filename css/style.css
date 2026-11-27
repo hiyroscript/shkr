@@ -360,6 +360,12 @@ body.rewinding #cv{filter:sepia(.75) saturate(1.25) contrast(1.08);animation:rwJ
 /* buttons wake up once the card can take a press (CARD_ARM in js/game.js) */
 .card .acts{transition:opacity .15s ease}
 .card.arming .acts{opacity:.45}
+/* a hold button (a run's quit, a results card's home: HOLD in js/game.js): a small "hold" after its label, and a fill
+   that runs across it while it is held; it takes no tap, so no scrolling, selection or callout gets in the way */
+.card .chip.hold{position:relative;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.card .chip.hold small{font-size:.82em;opacity:.55;margin-left:.7em}
+.card .chip.hold .fill{position:absolute;inset:0;background:currentColor;opacity:.2;transform:scaleX(0);transform-origin:left center;pointer-events:none}
+.card .chip.hold.holding .fill{transform:scaleX(1);transition:transform var(--hold,.6s) linear}
 /* new hazard card (a little wider): the live preview, and the hazard's colour under its name */
 .card.wide{max-width:520px}
 .card .pv{width:220px;max-width:100%;aspect-ratio:11/7;margin:0 auto clamp(14px,2.4vh,20px);border-radius:14px;overflow:hidden;
