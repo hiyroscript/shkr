@@ -653,7 +653,16 @@ const RENDER = (function make(fit) {
     hang: { hz: 1.1, damp: .18, kick: 2.4, trail: -.06, legHz: 2.2, legTrail: -.12, tuck: 30 },
     glide: { rot: -1.28, bob: .03, flutter: .06 },
     thermal: { p1: 1.7, p2: 2.3, p3: 2.9 },
-    hit: { t: .03 }                       /* hit pose held for a frame or two as the death burst goes off */
+    hit: { t: .03 },                      /* hit pose held for a frame or two as the death burst goes off */
+    /* the neck scarf: pure white, its look only from shape and width. tails 1 or 2; len (units) and len2 (second tail,
+       share of len); width; amp (wave, rad of bend) and wl (wavelength, units); twist (half-turns per unit: the ribbon
+       narrows edge-on and widens again); lift (rad above straight back) and droop (gravity sag); taper (share of the
+       length that narrows to the point) and curl (rad the tip hooks); flutter (Hz); snap (a fast small ripple, rad);
+       spread (rad between twin tails); wrap (size of the band at the neck); knot (0 none, 1 a bow at the back);
+       ball (share of the tails kept trailing the ball when rolled, 0 tucks them away); spin (how much of a flip's
+       turn drags the tails round); root / tip: the tails' direction springs (Hz, damping) */
+    scarf: { tails: 2, len: 2.1, len2: .78, width: .26, amp: .75, wl: 1.9, twist: .55, lift: .35, droop: .35, taper: .3, curl: .7,
+      flutter: 1.1, snap: 0, spread: .25, wrap: 1, knot: 0, ball: 0, spin: .4, root: [3, .55], tip: [1.3, .5] }
   };
 
   /* pose channels: joint targets (hip, neck, head, feet, hands), rotation about mid-torso, knee/elbow bend side,
@@ -707,6 +716,9 @@ const RENDER = (function make(fit) {
   const K_RUN = 0, K_BALL = 1, K_AIR = 2, K_GLIDE = 3, K_THERM = 4, K_HANG = 5;
   const vw = { key: -1, rate: 18, rotRate: 18, ac: 0, x: 0, vy: 0, spin: 0, u: 0, dust: 0, landT: -9, heavy: false, toT: -9, coilUp: false, hy: 0, hv: 0 };
   const hg = { a: 0, v: 0, l: 0, lv: 0, tuck: 0 };   /* rail hang: body swing, leg swing, tuck */
+  /* scarf: tail direction at the root and at the tip (rad, springs), the wave's phase, stream strength, the body's
+     last rotation (a flip drags the tails round) and the extra sag after a landing */
+  const sf = { a: Math.PI, av: 0, b: Math.PI, bv: 0, ph: 0, str: 1, rot: 0, sag: 0 };
   const EV = { jump: -9, air: -9, slide: -9, coil: -9, land: -9, land2: -9, bounce: -9, grab: -9, die: -9 }, FRESH = {}, pend = [];
   function cue(e) { if (EV[e] !== undefined) pend.push(e); }
 
@@ -800,6 +812,91 @@ const RENDER = (function make(fit) {
     p[H1] += .05 * b; p[H1 + 1] += .12 * a; p[H2] -= .05 * a; p[H2 + 1] += .12 * b;
     p[F1] += .07 * c; p[F1 + 1] += .04 * a; p[F2] -= .07 * b; p[F2 + 1] += .04 * c;
     p[NECK] += .03 * c; p[HEAD] += .045 * c;
+  }
+
+  /* ---- the scarf ----
+     View-only like the rest of the runner: it reads the state the poses read and keeps its own springs. The tails
+     stream with the apparent wind (the run's 4 units a beat forward, half the vertical speed), so they rise on a fall,
+     trail low on a rise and drop on a landing; a flip drags them round, then they spring back. With reduced motion
+     they point straight into the wind and do not flutter. */
+  function scarfStep(k, dt, snap) {
+    const P = ANIM.scarf, wy = -.5 * vw.vy + (k === K_THERM ? 3 : 0), tgt = Math.PI - P.lift - Math.atan2(wy, 4);
+    const str = Math.hypot(4, wy) / 4 * (k === K_GLIDE ? 1.3 : 1);
+    const dr = wrapPi(dP[ROT] - sf.rot); sf.rot = dP[ROT];
+    if (snap || RM) { sf.a = sf.b = tgt; sf.av = sf.bv = 0; sf.sag = 0; sf.str = str; return; }
+    if (dP[BALL] < .5) { sf.a += dr * P.spin; sf.b += dr * P.spin * .6; }
+    if (FRESH.land || FRESH.land2) { sf.av += FRESH.land2 ? 5 : 3; sf.sag = 1; }
+    const w1 = TAU * P.root[0], w2 = TAU * P.tip[0], n = Math.ceil(dt * 120), h = dt / n;
+    for (let j = 0; j < n; j++) {
+      sf.av += (-w1 * w1 * wrapPi(sf.a - tgt) - 2 * P.root[1] * w1 * sf.av) * h; sf.a += sf.av * h;
+      sf.bv += (-w2 * w2 * wrapPi(sf.b - sf.a) - 2 * P.tip[1] * w2 * sf.bv) * h; sf.b += sf.bv * h;
+    }
+    sf.a = tgt + wrapPi(sf.a - tgt); sf.b = sf.a + wrapPi(sf.b - sf.a);
+    sf.str += (str - sf.str) * (1 - Math.exp(-dt * 6)); sf.sag *= Math.exp(-dt * 5);
+    sf.ph += dt * TAU * P.flutter * (.55 + .45 * sf.str);
+  }
+  const SFN = 44, sfL = new Float64Array(2 * SFN + 2), sfR = new Float64Array(2 * SFN + 2);
+  /* one tail from (x, y), in the upright (unrotated) pose frame: a centre line built by bending step by step (so it
+     never stretches), a width that ramps up from the knot, narrows where the ribbon turns edge-on and tapers to an
+     uneven blade point. keep scales it into the ball */
+  function ribbon(P, x, y, j, keep) {
+    const len = P.len * (j ? P.len2 : 1) * keep, ds = len / SFN, w0 = P.width * (j ? .88 : 1) * (.5 + .5 * keep), rw = .11 * P.wrap;
+    const ph = sf.ph + j * 2.1, tph = sf.ph * .7 + j * 1.3, sag = P.droop / (sf.str * sf.str) + sf.sag * .6;
+    for (let i = 0; i <= SFN; i++) {
+      const d = i * ds, u = i / SFN;
+      let a = sf.a + (sf.b - sf.a) * smooth(u * 1.3) + (j ? P.spread : 0) * (.4 + .6 * u);
+      a += wrapPi(-Math.PI / 2 - a) * Math.min(.9, sag * u);
+      a += P.amp * smooth(d / .7) * (.55 + .45 * u) * Math.sin(TAU * d / P.wl - ph) + P.snap * u * Math.sin(TAU * d / (P.wl * .28) - ph * 3.1);
+      a -= P.curl * smooth((u - .7) / .3);
+      const ww = rw + (w0 - rw) * smooth(d / .35), tw = Math.max(.13, Math.abs(Math.cos(Math.PI * P.twist * d - tph)));
+      const kt = smooth((u - 1 + P.taper) / P.taper), hA = .5 * ww * tw * Math.pow(1 - kt, 1.8), hB = .5 * ww * tw * Math.pow(1 - kt, .6);
+      const nx = -Math.sin(a), ny = Math.cos(a);
+      sfL[2 * i] = x + nx * hA; sfL[2 * i + 1] = y + ny * hA; sfR[2 * i] = x - nx * hB; sfR[2 * i + 1] = y - ny * hB;
+      x += Math.cos(a) * ds; y += Math.sin(a) * ds;
+    }
+    g.beginPath(); g.moveTo(sfL[0], sfL[1]);
+    for (let i = 1; i <= SFN; i++) g.lineTo(sfL[2 * i], sfL[2 * i + 1]);
+    for (let i = SFN; i >= 0; i--) g.lineTo(sfR[2 * i], sfR[2 * i + 1]);
+    g.closePath(); sfFill();
+  }
+  function sfFill() { g.fillStyle = "#FFFFFF"; g.fill(); }
+  /* the band round the neck, in the rotated pose frame: two folds with a sliver of the black neck between them, the
+     front dipping a little. Returns the back of the band, where the tails come out */
+  function scarfFrame(p) {
+    const nx = p[NECK], ny = p[NECK + 1], dx = p[HEAD] - nx, dy = p[HEAD + 1] - ny, l = Math.hypot(dx, dy) || 1;
+    return { ax: dx / l, ay: dy / l, fx: dy / l, fy: -dx / l, cx: nx - dx / l * .01, cy: ny - dy / l * .01 };
+  }
+  function scarfWrap(P, p, m) {
+    const k = P.wrap * (1 - smooth(m / .85)); if (k < .05) return;
+    const F = scarfFrame(p), hw = .16 * k, hh = .085 * k, dr = .05 * k;
+    const bx = function (t, v) { return F.cx + F.fx * hw * t + F.ax * v; }, by = function (t, v) { return F.cy + F.fy * hw * t + F.ay * v; };
+    const band = function (vt, vb, t0) {
+      g.beginPath(); g.moveTo(bx(t0, vt), by(t0, vt));
+      g.quadraticCurveTo(bx(0, vt - dr * .5), by(0, vt - dr * .5), bx(1, vt - dr), by(1, vt - dr));
+      g.lineTo(bx(1.04, vb - dr * 1.3), by(1.04, vb - dr * 1.3));
+      g.quadraticCurveTo(bx(0, vb - dr * .9), by(0, vb - dr * .9), bx(t0, vb), by(t0, vb));
+      g.closePath(); sfFill();
+    };
+    band(hh, .006 * k, -1.05); band(-.006 * k, -hh * 1.15, -1.1);
+    if (P.knot) {
+      /* a bow at the back: a knot and two loops */
+      const kx = bx(-1.12, -.01 * k), ky = by(-1.12, -.01 * k), ux = -F.fx, uy = -F.fy;
+      for (let s = -1; s <= 1; s += 2) {
+        const ex = ux * .85 + F.ax * .55 * s, ey = uy * .85 + F.ay * .55 * s;
+        g.beginPath(); g.ellipse(kx + ex * .1 * k, ky + ey * .1 * k, .11 * k, .05 * k, Math.atan2(ey, ex), 0, TAU); sfFill();
+      }
+      g.beginPath(); g.arc(kx, ky, .055 * k, 0, TAU); sfFill();
+    }
+  }
+  /* the tails' root in the upright frame: the back of the band turned with the body, or the top back of the ball */
+  function scarfTails(P, p, cx, cy, m) {
+    const keep = 1 - smooth(m / .9) * (1 - P.ball); if (keep < .03) return;
+    const F = scarfFrame(p), hw = .155 * P.wrap, t = P.knot ? -1.12 : -.95;
+    let x = F.cx + F.fx * hw * t - F.ax * .01, y = F.cy + F.fy * hw * t - F.ay * .01;
+    if (p[ROT]) { const c = Math.cos(p[ROT]), s = Math.sin(p[ROT]), ox = x - cx, oy = y - cy; x = cx + ox * c - oy * s; y = cy + ox * s + oy * c; }
+    const mb = smooth(m), R = ANIM.ball.r;
+    x += (cx - R * .5 - x) * mb; y += (cy + R * .6 - y) * mb;
+    for (let j = P.tails - 1; j >= 0; j--) ribbon(P, x - j * .02, y - j * .03, j, keep);
   }
 
   /* two-bone IK, added to the current path. dir is the bend side (1: the joint bulges forward, like a knee; -1: back,
@@ -929,6 +1026,7 @@ const RENDER = (function make(fit) {
     }
     copyPose(dP, vP);
     dP[HEAD + 1] += vw.hy;
+    scarfStep(k, dt, snap);
     /* curling under a ceiling: nothing pokes above the slide hitbox while the pose is still coming down */
     if (k === K_BALL && s.gr) { for (let i = 1; i < 14; i += 2) if (dP[i] > A.ball.ceil) dP[i] = A.ball.ceil; if (dP[HEAD + 1] > A.ball.ceil - .14) dP[HEAD + 1] = A.ball.ceil - .14; }
     /* dust: a kick from each push-off foot, sparks under the rolling ball, spat out faster while revving on a Coil */
@@ -960,6 +1058,9 @@ const RENDER = (function make(fit) {
     const hx = p[HIP], hy = p[HIP + 1], nx = p[NECK], ny = p[NECK + 1], cx = (hx + nx) / 2, cy = (hy + ny) / 2;
     /* Halo charge ring, around the body (or the ball) */
     if (s.air > 0 && !hit) { g.beginPath(); g.arc(hx + (cx - hx) * m, hy + .1 + (cy - hy - .1) * m, 1.05 + .05 * Math.sin(tNow * 12), 0, TAU); g.lineWidth = .07; g.strokeStyle = COL.ha; g.stroke(); }
+    /* the scarf's tails, behind everything */
+    const SP = ANIM.scarf;
+    scarfTails(SP, p, cx, cy, m); g.strokeStyle = g.fillStyle = "#000";
     g.save();
     if (p[ROT]) { g.translate(cx, cy); g.rotate(p[ROT]); g.translate(-cx, -cy); }
     g.lineCap = "round"; g.lineJoin = "round"; g.strokeStyle = g.fillStyle = "#000";
@@ -973,6 +1074,9 @@ const RENDER = (function make(fit) {
       g.beginPath(); g.moveTo(hx, hy); g.lineTo(nx, ny); g.lineWidth = .172; g.stroke();
       g.beginPath(); g.arc(p[HEAD], p[HEAD + 1], .22, 0, TAU); g.fill();
       g.globalAlpha = 1 - m; g.lineWidth = 1 / sc; g.strokeStyle = FOG.rim; g.stroke(); g.globalAlpha = 1;
+      /* the scarf's band, in front at the neck */
+      scarfWrap(SP, p, m);
+      g.strokeStyle = g.fillStyle = "#000";
     }
     g.restore();
     if (m > .03) ballShape(cx, cy, ANIM.ball.r * smooth((m - .15) / .7), m, p[ROT], hit ? -9 : ta);
